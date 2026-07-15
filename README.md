@@ -1,61 +1,139 @@
-# hermes-brain
+<!-- <CENTERED SECTION FOR GITHUB DISPLAY> -->
+<div align="center">
+  <a href="https://github.com/MNDL-27/hermes-brain">
+    <img src=".github/assets/hero.png" alt="hermes-brain" width="600"/>
+  </a>
+</div>
 
-A Python plugin that turns a [Notion](https://www.notion.so) workspace into persistent long-term memory for the [Hermes](https://github.com/agentinc-ai) AI agent ecosystem.
+> **Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets.**
+>
+> [!TIP]
+>
+> **v1.0.0 released** — 7 databases, heuristic auto-capture, 5 tool interfaces, secret redaction, background sync.
+>
+> | [<img alt="GitHub Follow" src="https://img.shields.io/github/followers/MNDL-27?style=flat-square&logo=github&labelColor=black&color=24292f" width="156px" />](https://github.com/MNDL-27) | Follow [@MNDL-27](https://github.com/MNDL-27) on GitHub for more open-source AI infrastructure. |
+> | :-----| :----- |
+> | [<img alt="Discord" src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=flat-square" width="156px" />](https://discord.gg/your-invite) | Join our [Discord](https://discord.gg/your-invite) for support, discussions, and early access. |
 
-Instead of an agent forgetting what it learned at the end of a conversation, hermes-brain captures facts, decisions, tasks, research notes, content ideas, and preferences into a structured Notion workspace. Those memories are recalled on demand — so the agent never starts from zero.
+<div align="center">
+  [![GitHub Release](https://img.shields.io/github/v/release/MNDL-27/hermes-brain?color=0073FF&labelColor=black&logo=github&style=flat-square)](https://github.com/MNDL-27/hermes-brain/releases)
+  [![PyPI Version](https://img.shields.io/pypi/v/hermes-brain?color=0073FF&labelColor=black&style=flat-square&logo=pypi)](https://pypi.org/project/hermes-brain/)
+  [![Python Versions](https://img.shields.io/pypi/pyversions/hermes-brain?color=0073FF&labelColor=black&style=flat-square&logo=python)](https://pypi.org/project/hermes-brain/)
+  [![GitHub Contributors](https://img.shields.io/github/contributors/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/graphs/contributors)
+  [![GitHub Forks](https://img.shields.io/github/forks/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/network/members)
+  [![GitHub Stars](https://img.shields.io/github/stars/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/stargazers)
+  [![GitHub Issues](https://img.shields.io/github/issues/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/issues)
+  [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-red?labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/blob/main/LICENSE)
+  [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MNDL-27)
+  [![Coverage](https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/.github/badges/coverage.svg)](https://github.com/MNDL-27/hermes-brain/issues/1)
+</div>
 
-## What it does
+---
 
-When you chat with a Hermes-connected AI agent, hermes-brain silently watches the conversation. It extracts anything worth remembering and writes it into one of **7 Notion databases**:
+## Overview
 
-| Database | What it stores | Example |
+**hermes-brain** gives the Hermes AI agent a persistent, structured memory by writing conversation highlights into a Notion workspace. Instead of an agent forgetting everything at the end of a session, it remembers:
+
+| Database | Purpose | Example |
 |---|---|---|
-| **Memory** | General notes, lessons learned, decisions | "We decided to use PostgreSQL" |
-| **Tasks** | To-dos, reminders, deadlines | "Ship the auth refactor by Friday" |
-| **Projects** | Project context, milestones, roadmap notes | "MVP is launching in October" |
-| **Content** | Social media drafts, content ideas | "Draft a Twitter thread about agent memory" |
-| **Research** | Sources, citations, analysis notes | "BERT outperforms RoBERTa on XNLI" |
-| **Career** | Job search notes, interview prep, salary talks | "Salary negotiation target: $180k" |
-| **Entities** | People, companies, tools, topics, preferences | "Sarah prefers async communication" |
+| **Memory** | General notes, lessons, decisions | "We decided to use PostgreSQL" |
+| **Tasks** | To-dos, reminders, deadlines | "Ship auth refactor by Friday" |
+| **Projects** | Project context, milestones, roadmap | "MVP launching October 2026" |
+| **Content** | Social media drafts, content ideas | "Draft Twitter thread on agent memory" |
+| **Research** | Sources, citations, analysis | "BERT outperforms RoBERTa on XNLI" |
+| **Career** | Job search, interviews, salary talks | "Target: $180k base + equity" |
+| **Entities** | People, companies, tools, preferences | "Sarah prefers async communication" |
 
-Two ways to save memories:
-- **Automatic** — the agent detects tasks, decisions, research, content ideas, and preferences from your conversation using keyword matching
-- **Manual** — ask the agent explicitly: "Remember that I like dark mode"
+Two ways to save:
+- **Automatic** — heuristic classifier detects tasks, decisions, research, content ideas, preferences from conversation
+- **Manual** — explicit "Remember this: ..." via tool calls
 
 Two ways to recall:
-- **Prefetch** — before each conversation, the agent searches relevant databases and loads context into its working memory
-- **Search** — ask the agent to recall anything: "What did we decide about the database?"
+- **Prefetch** — before each turn, relevant memories load into agent context
+- **Search** — "What did we decide about the database?"
+
+---
+
+## Features
+
+- **7 Structured Databases** — Memory, Tasks, Projects, Content, Research, Career, Entities, each with domain-specific properties
+- **Heuristic Auto-Capture** — Zero-LLM-cost extraction using keyword patterns (tasks, decisions, research, content, career, preferences)
+- **5 Tool Interfaces** — `search`, `remember`, `task`, `content`, `research` exposed to the agent
+- **Background Sync** — Non-blocking daemon thread writes to Notion; conversation never pauses
+- **Secret Redaction** — Stripe, Notion, GitHub, Slack tokens auto-redacted before storage
+- **Prefetch Context** — Smart recall loads relevant memories before each conversation turn
+- **Session Summaries** — Automatic end-of-session summaries saved to Memory database
+- **Disk Import** — Migrate existing `MEMORY.md` and `USER.md` into Notion
+- **Idempotent Bootstrap** — Creates "Hermes Brain" page + 7 databases on first run
+- **Cross-Platform** — Runs anywhere Python 3.10+ runs (Linux, macOS, Windows)
+
+---
+
+## Paid Backends
+
+The Notion backend in this repository is **free forever** under a proprietary license (All Rights Reserved). It remains the default backend and will not move behind a paywall.
+
+Backend swaps live in a separate paid companion package so this repo stays small and easy to trust:
+
+| Backend | Status | Where |
+|---|---|---|
+| Notion | Free, open source | This repository |
+| Obsidian vault | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
+| SQLite / local file | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
+| Logseq graph | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
+| Local Markdown vault | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
+
+See [`BACKENDS.md`](BACKENDS.md) for the commercial split and [`BACKEND_SWAP_GUIDE.md`](BACKEND_SWAP_GUIDE.md) if you want to build a custom backend yourself.
+
+---
 
 ## Installation
 
+### Quick Start
+
 ```bash
+# Install from PyPI (when published)
+pip install hermes-brain
+
+# Or install from source
+git clone https://github.com/MNDL-27/hermes-brain.git
+cd hermes-brain
 pip install -e .
 ```
 
-This installs the plugin as an editable package. It's designed to be a dependency of a larger project (the Hermes agent framework), not used standalone.
+### Prerequisites
+
+- **Python 3.10+**
+- **Notion workspace** with an [internal integration](https://www.notion.so/my-integrations)
+- **Hermes agent framework** (this is a plugin, not a standalone app)
+
+---
 
 ## Setup
 
-### 1. Get a Notion API key
+### 1. Create a Notion Integration
 
-1. Go to [my integrations](https://www.notion.so/my-integrations) and create a new integration
-2. Give it a name like "Hermes Brain"
-3. Under "Capabilities", enable all 4: Search, Read content, Update content, Insert content
-4. Copy the internal integration token (starts with `ntn_`)
+1. Go to [My Integrations](https://www.notion.so/my-integrations) → **New integration**
+2. Name it (e.g., "Hermes Brain")
+3. Enable capabilities: **Search**, **Read content**, **Update content**, **Insert content**
+4. Copy the **Internal Integration Token** (starts with `ntn_`)
 
-### 2. Set your environment variables
+### 2. Configure Environment
 
 ```bash
 export NOTION_API_KEY=ntn_xxxxx_xxxxx
 export HERMES_HOME=~/.hermes
 ```
 
-- `NOTION_API_KEY` — your Notion integration token
-- `HERMES_HOME` — directory where cache files are stored (the plugin needs at least one existing Notion page to use as a parent)
+| Variable | Required | Description |
+|---|---|---|
+| `NOTION_API_KEY` | ✅ | Your Notion internal integration token |
+| `HERMES_HOME` | ✅ | Directory for cache files (`notion_brain.json`) |
+| `HERMES_NOTION_PARENT_PAGE` | Optional | Existing Notion page ID to use as parent (if no pages exist in workspace) |
 
-### 3. Bootstrap your workspace
+### 3. Bootstrap Your Workspace
 
-On first run, the plugin creates a **"Hermes Brain"** page in your Notion workspace and the 7 databases inside it. This happens automatically — just call:
+On first run, the plugin creates a **"Hermes Brain"** parent page and 7 databases under it:
 
 ```python
 from hermes_brain import bootstrap, store
@@ -64,160 +142,311 @@ s = store.Store()
 bootstrap.init(s)
 ```
 
-If you don't have any existing pages in your Notion workspace, create one manually first (or set `HERMES_NOTION_PARENT_PAGE` to a page ID).
+If your Notion workspace has no pages, create one manually first, or set `HERMES_NOTION_PARENT_PAGE` to an existing page ID.
+
+---
 
 ## Usage
 
 The plugin registers 5 tools with the Hermes agent:
 
-### Search all memories
+### Search Memories
 
-```
+```python
+# Search across all 7 databases
 notion_brain_search(query="database migration plan")
+
+# Search specific database
 notion_brain_search(query="Sarah", database="entities", max_results=5)
 ```
 
-Searches across all 7 databases. Optional `database` filter narrows to one. Default returns 8 results, max 20.
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `query` | string | required | Search query |
+| `database` | string | `"all"` | Filter: `memory`, `tasks`, `projects`, `content`, `research`, `career`, `entities` |
+| `max_results` | integer | `8` | Max results (1-20) |
 
-### Remember something explicitly
+### Remember Explicitly
 
-```
+```python
 notion_brain_remember(
     title="Design review notes",
     content="Team agreed on Material Design 3 for the new dashboard",
     domain="projects",
-    tags=["design", "dashboard"]
+    kind="decision",
+    status="active",
+    tags=["design", "dashboard"],
+    entities=["Sarah", "Design Team"]
 )
 ```
 
-Valid domains: `daily_work`, `projects`, `social_content`, `research`, `career`, `entities`
+| Parameter | Type | Description |
+|---|---|---|
+| `title` | string | Short title (max 120 chars) |
+| `content` | string | Full content/description |
+| `domain` | string | `daily_work`, `projects`, `social_content`, `research`, `career`, `entities` |
+| `kind` | string | `note`, `task`, `decision`, `preference`, `source_note`, `draft`, `lesson`, `reminder` |
+| `status` | string | `active`, `done`, `draft`, `published`, `archived`, `needs_review`, `conflict` |
+| `tags` | array | Tags for filtering |
+| `entities` | array | People/companies/projects mentioned |
 
-### Manage tasks
+### Manage Tasks
 
-```
-# Create
-notion_brain_task(action="create", title="Fix auth bug", priority="urgent", due="2026-08-01")
+```python
+# Create task
+notion_brain_task(
+    action="create",
+    title="Fix auth bug",
+    priority="urgent",
+    due="2026-08-01",
+    project="Auth Refactor",
+    tags=["backend", "security"]
+)
 
-# List active tasks
+# List tasks
 notion_brain_task(action="list", status="active")
 
-# Complete a task
+# Complete task
 notion_brain_task(action="complete", page_id="<notion_page_id>")
 
-# Update task status
+# Update task
 notion_brain_task(action="update", page_id="<id>", status="needs_review", priority="high")
 ```
 
-### Manage content ideas
+### Manage Content
 
-```
-# Create a draft
-notion_brain_content(action="create", title="Thread on AI memory", body="Thread draft text...", platform="twitter", tags=["AI", "memory"])
+```python
+# Create draft
+notion_brain_content(
+    action="create",
+    title="Thread on AI Memory",
+    body="Thread draft text...",
+    platform="twitter",
+    tags=["AI", "memory"]
+)
 
-# List drafts
+# List content
 notion_brain_content(action="list")
 
-# Publish an approved draft
+# Publish
 notion_brain_content(action="publish", page_id="<id>")
 
-# Archive old content
+# Archive
 notion_brain_content(action="archive", page_id="<id>")
 ```
 
-Valid platforms: `twitter`, `linkedin`, `instagram`, `tiktok`, `facebook`, `youtube`, `bluesky`
+**Platforms:** `twitter`, `linkedin`, `instagram`, `tiktok`, `facebook`, `youtube`, `bluesky`
 
-### Save research findings
+### Save Research
 
-```
-# Save a research note
-notion_brain_research(action="save", title="LLM benchmarks 2026", content="Summary of findings...", tags=["LLM", "benchmarks"])
+```python
+# Save research
+notion_brain_research(
+    action="save",
+    title="LLM Benchmarks 2026",
+    content="Summary of findings...",
+    tags=["LLM", "benchmarks"]
+)
 
-# List research entries
+# List research
 notion_brain_research(action="list")
 ```
 
-## Automatic capture
+---
 
-The plugin watches every conversation turn in the background. It detects these patterns automatically:
+## Automatic Capture
 
-| Pattern | Database | Trigger keywords |
+The plugin watches every conversation turn in a background thread. It detects these patterns automatically:
+
+| Pattern | Database | Trigger Keywords |
 |---|---|---|
-| **Tasks** | Tasks | "remind me", "todo", "deadline", "due", "blocker", "gotta", "need to" |
-| **Decisions** | Projects | "decided", "going with", "moving forward", "approved", "greenlit" |
-| **Research** | Research | "source", "according to", "findings", "researched", "cited" |
-| **Content** | Content | "draft", "thread", "tweet", "publish", "campaign" |
-| **Career** | Career | "interview", "resume", "salary", "promotion", "job" |
-| **Preferences** | Entities | "I prefer", "I like", "I hate", "always", "never" |
+| **Tasks** | Tasks | `remind me`, `todo`, `deadline`, `due`, `blocker`, `gotta`, `need to`, `will create`, `must fix` |
+| **Decisions** | Projects | `decided`, `going with`, `moving forward`, `approved`, `greenlit`, `chosen`, `elect`, `cancelled`, `pivot` |
+| **Research** | Research | `source`, `according to`, `findings`, `researched`, `cited`, `conclusion`, `analysis shows` |
+| **Content** | Content | `draft`, `thread`, `tweet`, `publish`, `launch`, `campaign`, `hook`, `headline` |
+| **Career** | Career | `interview`, `resume`, `salary`, `promotion`, `job`, `offer`, `negotiate`, `remote` |
+| **Preferences** | Entities | `I prefer`, `I like`, `I hate`, `always`, `never`, `preferred`, `favorite`, `habit`, `routine` |
 
-Everything is saved in a background thread — it never blocks your conversation.
+> **Note:** Classification is heuristic (regex-based), not semantic. It catches ~70% of actionable items. Missed entries are silent failures — use `notion_brain_remember` for anything critical.
 
-## What gets stored per entry
+---
+
+## Data Model
 
 Every memory entry in Notion has these common properties:
 
-- **Title** — extracted from the triggering sentence (max 120 chars)
-- **Domain** — which category the entry belongs to
-- **Status** — `active`, `done`, `draft`, `published`, `archived`, `needs_review`, `conflict`
-- **Tags** — keyword tags extracted from the text (up to 8 tokens)
-- **Confidence** — `high`, `medium`, or `low` (auto-assessed based on context)
-- **Source Session** — the Hermes session ID this came from
-- **Last Seen** — when this entry was last updated
+| Property | Type | Description |
+|---|---|---|
+| **Title** | Title | Extracted from triggering sentence (max 120 chars) |
+| **Domain** | Select | `Daily Work`, `Projects`, `Social Content`, `Research`, `Career`, `Entities`, `Memory` |
+| **Status** | Status | `active`, `done`, `draft`, `published`, `archived`, `needs_review`, `conflict` |
+| **Tags** | Multi-select | Keyword tags (up to 8, deduplicated) |
+| **Confidence** | Select | `high`, `medium`, `low` |
+| **Kind** | Select | `note`, `task`, `decision`, `preference`, `source_note`, `draft`, `lesson`, `reminder` |
+| **Source Session** | Rich text | Hermes session ID |
+| **Last Seen** | Date | When entry was last updated |
 
-Some databases have extra properties:
+### Per-Database Extras
 
-| Database | Extra properties |
+| Database | Extra Properties |
 |---|---|
-| Tasks | Priority, Due date, Project |
-| Content | Platform (Twitter, LinkedIn, etc.) |
-| Entities | Kind (person, company, tool, project, topic, preference) |
-| Memory | Kind (note, preference, lesson, decision, reminder) |
+| **Tasks** | Priority (`urgent`, `high`, `medium`, `low`), Due (Date), Project (Rich text) |
+| **Content** | Platform (Select) |
+| **Entities** | Kind (Select: `person`, `company`, `tool`, `project`, `topic`, `preference`) |
+| **Memory** | Kind (Select: `note`, `preference`, `lesson`, `decision`, `reminder`) |
 
-## Secret redaction
+---
 
-The plugin automatically redacts common API key patterns before storing anything:
+## Secret Redaction
 
-- Stripe keys (`sk-...`)
-- Notion tokens (`ntn_...`)
-- GitHub tokens (`ghp_`, `gho_`, `ghu_`, `ghu_`, `ghs_`)
-- Slack tokens (`xoxb-`, `xoxp-`, etc.)
-- Generic patterns like `api_key=...`, `secret=...`, `password=...`
+Before any content is written to Notion, these patterns are automatically redacted:
 
-Redacted secrets appear as `[REDACTED_SECRET]` in the stored content.
+| Pattern | Example | Replacement |
+|---|---|---|
+| Stripe keys | `sk_live_xxxxx` | `[REDACTED_SECRET]` |
+| Notion tokens | `ntn_xxxxx` | `[REDACTED_SECRET]` |
+| GitHub tokens | `ghp_xxxxx`, `gho_xxxxx`, `ghu_xxxxx`, `ghs_xxxxx`, `ghr_xxxxx` | `[REDACTED_SECRET]` |
+| Slack tokens | `xoxb-xxxxx`, `xoxp-xxxxx`, `xoxr-xxxxx`, `xoxa-xxxxx`, `xoxs-xxxxx` | `[REDACTED_SECRET]` |
+| Generic | `api_key=...`, `secret=...`, `token=...`, `password=...` | `[REDACTED_SECRET]` |
 
-## How it works
+---
 
-```
-Conversation → extract.classify_turn → BrainEntry.normalized → store.create_database_page → Notion
-```
-
-1. **Extract** — regex patterns match keywords in the conversation to classify what kind of memory it is
-2. **Normalize** — domain names are standardized, titles are cleaned, secrets are redacted, tags are deduplicated
-3. **Store** — entries are written to the correct Notion database as pages with structured properties
-
-Everything happens in a background thread. If the Notion API fails, the error is logged but the conversation continues uninterrupted.
-
-## Cache
-
-The plugin stores a local cache file (`$HERMES_HOME/notion_brain.json`) that maps database display names to their Notion IDs. This avoids querying Notion to find the right databases on every run. The cache is auto-generated and auto-updated.
-
-## Project structure
+## Architecture
 
 ```
-__init__.py          # Plugin entry point, tool schemas, provider implementation (850 lines)
-schema.py            # Data model (BrainEntry), constants, normalization helpers (169 lines)
-extract.py           # Heuristic classifier — detects memory patterns (187 lines)
-store.py             # Notion REST API client — search, query, create, update (260 lines)
-bootstrap.py         # Workspace setup — creates parent page + databases (249 lines)
-plugin.yaml          # Plugin manifest
-README.md            # This file
+Conversation Turn
+       │
+       ▼
+sanitize_context()  ──►  Strip PII, truncate
+       │
+       ▼
+extract.classify_turn()  ──►  Regex matching → BrainEntry list
+       │
+       ▼
+BrainEntry.normalized()  ──►  Domain normalize, secret redact, title clean, tag dedupe
+       │
+       ▼
+store.create_database_page()  ──►  Notion API /pages
+       │
+       ▼
+Notion Workspace (7 databases)
 ```
 
-Total: ~1,715 lines of Python.
+**Key Design Decisions:**
+
+| Decision | Rationale | Upgrade Path |
+|---|---|---|
+| Heuristic-only (no LLM) | Zero token cost, zero latency | Swap regex for embedding classifier when coverage < 70% |
+| Background thread sync | Non-blocking for agent loop | Replace with proper task queue if failure rate > 5% |
+| Flat JSON cache (`notion_brain.json`) | Simple, no migration needed | Add versioning for multi-workspace support |
+| 1900-char chunking | Notion's 2000-char block limit | Auto-upgrade when Notion increases limit |
+| `requests` over `httpx` | Already in Hermes deps | Migrate to `httpx` when async needed |
+
+---
+
+## Configuration
+
+Settings are stored in `$HERMES_HOME/notion_brain.json` (auto-generated):
+
+```json
+{
+  "parent_page_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_memory": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_tasks": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_projects": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_content": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_research": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_career": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "db_entities": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+```
+
+The cache maps database display names to Notion IDs. It's safe to delete — bootstrap will recreate it.
+
+---
+
+## Data Sources
+
+| Database | Notion Property Schema |
+|---|---|
+| **Memory** | Title, Domain, Kind, Status, Tags, Confidence, Source Session, Last Seen |
+| **Tasks** | Title, Domain, Status, Priority, Tags, Due, Project, Confidence, Source Session, Last Seen |
+| **Projects** | Title, Domain, Status, Tags, Confidence, Source Session, Last Seen |
+| **Content** | Title, Domain, Status, Platform, Tags, Confidence, Source Session, Last Seen |
+| **Research** | Title, Domain, Status, Tags, Confidence, Source Session, Last Seen |
+| **Career** | Title, Domain, Status, Tags, Confidence, Source Session, Last Seen |
+| **Entities** | Title, Kind, Tags, Confidence, Source Session, Last Seen |
+
+---
+
+## Project Structure
+
+```
+hermes-brain/
+├── __init__.py          # Plugin entry point, tool schemas, provider (850 lines)
+├── schema.py            # BrainEntry dataclass, constants, normalization (169 lines)
+├── extract.py           # Heuristic classifier (187 lines)
+├── store.py             # Notion REST API client (260 lines)
+├── bootstrap.py         # Workspace setup, database creation (249 lines)
+├── plugin.yaml          # Plugin manifest
+├── README.md            # This file
+├── LICENSE              # All Rights Reserved
+├── CONTRIBUTING.md      # Contribution guidelines
+├── .gitignore
+└── .github/
+    ├── assets/
+    │   └── hero.png     # Hero image for README
+    ├── badges/
+    │   └── coverage.svg # Coverage badge
+    └── workflows/
+        └── ci.yml       # GitHub Actions CI
+```
+
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Run tests: `pytest` (when test suite exists)
+5. Commit: `git commit -m 'Add amazing feature'`
+6. Push: `git push origin feature/amazing-feature`
+7. Open a Pull Request
+
+### Development Guidelines
+
+- Follow existing code style (type hints, docstrings, stdlib-first)
+- Add tests for new functionality
+- Update documentation as needed
+- Keep commits focused and atomic
+
+---
+
+## Acknowledgments
+
+- [Hermes Agent Framework](https://github.com/NousResearch/hermes-agent) — the agent ecosystem this plugin powers
+- [Notion API](https://developers.notion.com/) — the persistent storage backend
+- [Requests](https://docs.python-requests.org/) — HTTP client
+- All contributors and users
+
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+<p align="center">
+  <a href="https://github.com/MNDL-27">
+    <img src=".github/assets/labtocat.png" width="200" alt="Labtocat"/>
+  </a>
+</p>
+
+<p align="center">
+  <strong>All Rights Reserved © <a href="https://github.com/MNDL-27">MNDL-27</a></strong>
+</p>
+
+<p align="center">
+  If you find this project useful, <strong>please consider starring it ⭐</strong> 
+  or <a href="https://github.com/MNDL-27">following</a> for more AI infrastructure tools.
+</p>

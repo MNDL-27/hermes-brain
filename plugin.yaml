@@ -1,3 +1,4 @@
 name: notion_brain
 description: Notion as a persistent long-term brain for Hermes — captures and recalls daily work, projects, social content, research, and career context across five structured databases.
 version: 1.0.0
+commercial_url: https://hermesbrain.dev/backends
