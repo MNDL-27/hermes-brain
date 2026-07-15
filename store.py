@@ -153,6 +153,10 @@ def get_database(database_id: str) -> dict[str, Any]:
     return _request("GET", f"/databases/{database_id}")
 
 
+def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, Any]:
+    return _request("PATCH", f"/databases/{database_id}", {"properties": properties})
+
+
 # ─── Blocks (page content) ──────────────────────────────────────────────
 
 

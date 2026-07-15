@@ -535,20 +535,23 @@ class NotionBrainProvider(MemoryProvider):
             return
 
         domain_label = S.DOMAINS.get(domain, "Memory")
+        db_props = self._database_properties(db_id)
 
         props: Dict[str, Any] = {
             "title": store.title_property(title),
             "Domain": store.select_property(domain_label),
-            "Status": store.status_property(status),
+            "Status": self._status_property(db_props, status),
             "Tags": store.multi_select_property(tags or []),
             "Confidence": store.select_property(confidence),
         }
 
-        if kind and kind != "note":
+        if kind and kind != "note" and "Kind" in db_props:
             props["Kind"] = store.select_property(kind)
 
-        if entities:
+        if entities and "Entities" in db_props:
             props["Entities"] = store.rich_text_property(", ".join(entities[:5]))
+
+        props = {name: prop for name, prop in props.items() if name in db_props or name == "title"}
 
         children = []
         if content:
@@ -569,7 +572,38 @@ class NotionBrainProvider(MemoryProvider):
         try:
             store.create_database_page(database_id=db_id, properties=props, children=children or None)
         except Exception as exc:
-            logger.debug("_write_entry_raw failed: %s", exc)
+            logger.warning("_write_entry_raw failed for domain '%s' title '%s': %s",
+                           domain, title[:60], exc)
+            raise
+
+    def _database_properties(self, db_id: str) -> Dict[str, Any]:
+        try:
+            return store.get_database(db_id).get("properties", {}) or {}
+        except Exception as exc:
+            logger.debug("Could not fetch database schema for %s: %s", db_id, exc)
+            return {}
+
+    def _status_property(self, db_props: Dict[str, Any], status: str) -> Dict[str, Any]:
+        prop = db_props.get("Status") or {}
+        if prop.get("type") == "select":
+            return store.select_property(status)
+        if prop.get("type") != "status":
+            return store.rich_text_property(status)
+
+        names = {
+            opt.get("name")
+            for opt in (prop.get("status") or {}).get("options", [])
+            if opt.get("name")
+        }
+        if status in names:
+            return store.status_property(status)
+        fallback = {
+            "active": "Not started",
+            "needs_review": "In progress",
+            "done": "Done",
+            "archived": "Done",
+        }.get(status, status)
+        return store.status_property(fallback if fallback in names else next(iter(names), status))
 
     # ---- Tool handlers ---------------------------------------------------
 
@@ -677,7 +711,7 @@ class NotionBrainProvider(MemoryProvider):
 
                 props = {
                     "title": store.title_property(title),
-                    "Status": store.status_property(args.get("status", "active")),
+                    "Status": self._status_property(self._database_properties(db_id), args.get("status", "active")),
                     "Tags": store.multi_select_property(args.get("tags", [])),
                 }
                 priority = args.get("priority", "")
@@ -709,7 +743,7 @@ class NotionBrainProvider(MemoryProvider):
     def _tool_task_update(self, db_id: str, page_id: str, args: Dict[str, Any]) -> str:
         props: Dict[str, Any] = {}
         if args.get("status"):
-            props["Status"] = store.status_property(args["status"])
+            props["Status"] = self._status_property(self._database_properties(db_id), args["status"])
         if args.get("priority"):
             props["Priority"] = store.select_property(args["priority"])
         if args.get("due"):
@@ -753,7 +787,7 @@ class NotionBrainProvider(MemoryProvider):
                 if not page_id:
                     return tool_error("page_id required")
                 new_status = "published" if action == "publish" else "archived"
-                page = store.update_page(page_id, {"Status": store.status_property(new_status)})
+                page = store.update_page(page_id, {"Status": self._status_property(self._database_properties(db_id), new_status)})
                 return json.dumps({"result": f"Content {action}d.", "page_id": page.get("id", page_id)})
 
             # create / update
@@ -819,7 +853,7 @@ class NotionBrainProvider(MemoryProvider):
                 content = args.get("content", "")
                 props = {
                     "title": store.title_property(title),
-                    "Status": store.select_property(args.get("status", "active")),
+                    "Status": self._status_property(self._database_properties(db_id), args.get("status", "active")),
                     "Tags": store.multi_select_property(args.get("tags", [])),
                 }
                 children = []

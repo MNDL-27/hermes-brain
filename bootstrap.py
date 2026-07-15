@@ -21,7 +21,10 @@ _PROPS: dict[str, dict[str, Any]] = {
     "tasks": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {}},
+        "Status": {"status": {"options": [
+            {"name": "active", "color": "blue"}, {"name": "done", "color": "green"},
+            {"name": "needs_review", "color": "yellow"},
+        ]}},
         "Priority": {"select": {"options": [
             {"name": "urgent", "color": "red"}, {"name": "high", "color": "orange"},
             {"name": "medium", "color": "yellow"}, {"name": "low", "color": "green"},
@@ -36,7 +39,10 @@ _PROPS: dict[str, dict[str, Any]] = {
     "projects": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {}},
+        "Status": {"status": {"options": [
+            {"name": "active", "color": "blue"}, {"name": "done", "color": "green"},
+            {"name": "needs_review", "color": "yellow"},
+        ]}},
         "Tags": {"multi_select": {}},
         "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
         "Source Session": {"rich_text": {}},
@@ -58,7 +64,9 @@ _PROPS: dict[str, dict[str, Any]] = {
     "research": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {}},
+        "Status": {"status": {"options": [
+            {"name": "active", "color": "blue"}, {"name": "archived", "color": "gray"},
+        ]}},
         "Tags": {"multi_select": {}},
         "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
         "Source Session": {"rich_text": {}},
@@ -67,7 +75,10 @@ _PROPS: dict[str, dict[str, Any]] = {
     "career": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {}},
+        "Status": {"status": {"options": [
+            {"name": "active", "color": "blue"}, {"name": "done", "color": "green"},
+            {"name": "needs_review", "color": "yellow"},
+        ]}},
         "Tags": {"multi_select": {}},
         "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
         "Source Session": {"rich_text": {}},
@@ -88,6 +99,9 @@ _PROPS: dict[str, dict[str, Any]] = {
     "memory": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
+        "Status": {"status": {"options": [
+            {"name": "active", "color": "blue"}, {"name": "archived", "color": "gray"},
+        ]}},
         "Kind": {"select": {"options": [
             {"name": "note", "color": "blue"}, {"name": "preference", "color": "yellow"},
             {"name": "lesson", "color": "green"}, {"name": "decision", "color": "orange"},
@@ -122,7 +136,8 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
         cache_key = f"{db_prefix}{key}"
         if cached.get(cache_key):
             try:
-                store.get_database(cached[cache_key])
+                db = store.get_database(cached[cache_key])
+                _repair_database_schema(db, _PROPS[key], key)
                 continue
             except Exception:
                 logger.info("Cached database '%s' missing — recreating", key)
@@ -133,6 +148,28 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
 
     logger.info("Notion brain ready: %d database(s)", len(S.DATABASES))
     return dict(cached)
+
+
+def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
+    """Add any properties that are missing from an existing Notion database.
+
+    PATCH /databases can only ADD properties — it cannot rename, remove, or
+    change a property's type. So this is a one-way best-effort: existing
+    broken DBs gain the props they're missing, but the Notion defaults that
+    ``{"status": {}}`` produced (e.g. "Not started"/"In progress"/"Done")
+    stay alongside our explicit options. The provider always writes its
+    canonical names, so the extra defaults are inert clutter, not a bug.
+    """
+    actual = (db.get("properties") or {})
+    missing = {pname: spec for pname, spec in expected.items() if pname not in actual}
+    if not missing:
+        return
+    try:
+        store.update_database(db["id"], missing)
+        logger.info("Repaired '%s' database: added %d missing prop(s) (%s)",
+                    key, len(missing), ", ".join(missing))
+    except Exception as exc:
+        logger.warning("Could not repair '%s' database schema: %s", key, exc)
 
 
 def _load_cache(path: Path) -> dict[str, str]:
