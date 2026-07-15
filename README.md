@@ -16,16 +16,14 @@
 > | [<img alt="Discord" src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=flat-square" width="156px" />](https://discord.gg/your-invite) | Join our [Discord](https://discord.gg/your-invite) for support, discussions, and early access. |
 
 <div align="center">
+
   [![GitHub Release](https://img.shields.io/github/v/release/MNDL-27/hermes-brain?color=0073FF&labelColor=black&logo=github&style=flat-square)](https://github.com/MNDL-27/hermes-brain/releases)
-  [![PyPI Version](https://img.shields.io/pypi/v/hermes-brain?color=0073FF&labelColor=black&style=flat-square&logo=pypi)](https://pypi.org/project/hermes-brain/)
-  [![Python Versions](https://img.shields.io/pypi/pyversions/hermes-brain?color=0073FF&labelColor=black&style=flat-square&logo=python)](https://pypi.org/project/hermes-brain/)
   [![GitHub Contributors](https://img.shields.io/github/contributors/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/graphs/contributors)
   [![GitHub Forks](https://img.shields.io/github/forks/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/network/members)
   [![GitHub Stars](https://img.shields.io/github/stars/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/stargazers)
   [![GitHub Issues](https://img.shields.io/github/issues/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/issues)
   [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-red?labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/blob/main/LICENSE)
   [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MNDL-27)
-  [![Coverage](https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/.github/badges/coverage.svg)](https://github.com/MNDL-27/hermes-brain/issues/1)
 </div>
 
 ---
