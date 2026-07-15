@@ -11,7 +11,7 @@
 >
 > **v1.0.0 released** — 7 databases, heuristic auto-capture, 5 tool interfaces, secret redaction, background sync.
 >
-> | [<img alt="GitHub Follow" src="https://img.shields.io/github/followers/MNDL-27?style=flat-square&logo=github&labelColor=black&color=24292f" width="156px" />](https://github.com/MNDL-27) | Follow [@MNDL-27](https://github.com/MNDL-27) on GitHub for more open-source AI infrastructure. |
+> | [<img alt="GitHub Follow" src="https://img.shields.io/github/followers/MNDL-27?style=flat-square&logo=github&labelColor=black&color=24292f" width="156px" />](https://github.com/MNDL-27) | Follow [@MNDL-27](https://github.com/MNDL-27) on GitHub for more AI infrastructure tools. |
 > | :-----| :----- |
 > | [<img alt="Discord" src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=flat-square" width="156px" />](https://discord.gg/your-invite) | Join our [Discord](https://discord.gg/your-invite) for support, discussions, and early access. |
 
@@ -69,21 +69,16 @@ Two ways to recall:
 
 ---
 
-## Paid Backends
+## More backends
 
-The Notion backend in this repository is **free forever** under a proprietary license (All Rights Reserved). It remains the default backend and will not move behind a paywall.
+The Notion backend in this repository is the only backend today, and it is free to use. There is no paid package, no companion repo, and no upgrade tier.
 
-Backend swaps live in a separate paid companion package so this repo stays small and easy to trust:
+If you want storage in Obsidian, SQLite, Logseq, or a local Markdown vault:
 
-| Backend | Status | Where |
-|---|---|---|
-| Notion | Free, open source | This repository |
-| Obsidian vault | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
-| SQLite / local file | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
-| Logseq graph | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
-| Local Markdown vault | Paid add-on | [`hermes-brain-backends`](https://github.com/MNDL-27/hermes-brain-backends) |
+1. **Build one yourself** — see [`BACKEND_SWAP_GUIDE.md`](BACKEND_SWAP_GUIDE.md).
+2. **Sponsor the work** — sponsor button above. Sponsorships fund additional backends, not a paid product.
 
-See [`BACKENDS.md`](BACKENDS.md) for the commercial split and [`BACKEND_SWAP_GUIDE.md`](BACKEND_SWAP_GUIDE.md) if you want to build a custom backend yourself.
+See [`BACKENDS.md`](BACKENDS.md) for the long-term plan.
 
 ---
 

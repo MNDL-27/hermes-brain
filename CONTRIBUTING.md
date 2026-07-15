@@ -12,7 +12,7 @@ Thanks for your interest in contributing to hermes-brain! This document outlines
 
 ## Backend Scope
 
-The Notion backend is the open-source backend for this repository. Backend swaps such as Obsidian, SQLite, Logseq, and local Markdown vaults live in the paid companion package and are not accepted as feature PRs here. This keeps the MIT core focused and supportable.
+The Notion backend is the only backend in this repository today. Future backends (Obsidian, SQLite, Logseq, local Markdown vault) are part of the same project when they land — there is no separate paid package or paid companion repo to contribute to. Backend feature PRs are welcome as soon as the maintainer opens the scope for one.
 
 If you want to build your own backend, see [`BACKEND_SWAP_GUIDE.md`](BACKEND_SWAP_GUIDE.md).
 
