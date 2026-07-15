@@ -16,6 +16,7 @@
 > | [<img alt="Discord" src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=flat-square" width="156px" />](https://discord.gg/your-invite) | Join our [Discord](https://discord.gg/your-invite) for support, discussions, and early access. |
 
 <div align="center">
+
   [![GitHub Release](https://img.shields.io/github/v/release/MNDL-27/hermes-brain?color=0073FF&labelColor=black&logo=github&style=flat-square)](https://github.com/MNDL-27/hermes-brain/releases)
   [![GitHub Contributors](https://img.shields.io/github/contributors/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/graphs/contributors)
   [![GitHub Forks](https://img.shields.io/github/forks/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/network/members)
