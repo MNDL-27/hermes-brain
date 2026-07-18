@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-brain"
+version = "1.0.0"
+description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
+readme = "README.md"
+license = { text = "All Rights Reserved" }
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["notion_brain*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
