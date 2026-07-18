@@ -129,7 +129,7 @@ export HERMES_HOME=~/.hermes
 On first run, the plugin creates a **"Hermes Brain"** parent page and 7 databases under it:
 
 ```python
-from hermes_brain import bootstrap, store
+from notion_brain import bootstrap, store
 
 s = store.Store()
 bootstrap.init(s)
