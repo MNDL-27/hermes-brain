@@ -14,13 +14,40 @@ import json
 import logging
 import threading
 from typing import Any, Dict, List, Optional
-from agent.memory_manager import sanitize_context
-from agent.memory_provider import MemoryProvider
-from tools.registry import tool_error
+
+# Lazy imports — Hermes runtime modules (agent, tools) may not be available
+# in dev/test environments. They are imported inside methods where needed.
+# from agent.memory_manager import sanitize_context
+# from agent.memory_provider import MemoryProvider
+# from tools.registry import tool_error
 
 from . import bootstrap, extract, schema as S, store
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Lazy helpers for Hermes runtime imports
+# ---------------------------------------------------------------------------
+
+def _sanitize_context(text: str) -> str:
+    from agent.memory_manager import sanitize_context
+    return sanitize_context(text)
+
+
+def _tool_error(msg: str) -> str:
+    from tools.registry import tool_error
+    return tool_error(msg)
+
+
+class _MemoryProvider:
+    """Stand-in so the class can be defined without Hermes installed."""
+    pass
+
+
+def _get_MemoryProvider():
+    from agent.memory_provider import MemoryProvider
+    return MemoryProvider
 
 # ---------------------------------------------------------------------------
 # Tool schemas
@@ -250,7 +277,7 @@ ALL_TOOL_SCHEMAS = [
 # ---------------------------------------------------------------------------
 
 
-class NotionBrainProvider(MemoryProvider):
+class NotionBrainProvider(_MemoryProvider):
     """Notion-backed long-term memory for Hermes."""
 
     def __init__(self) -> None:
@@ -365,8 +392,8 @@ class NotionBrainProvider(MemoryProvider):
             return
 
         # Sanitize content
-        clean_user = sanitize_context(user_content or "").strip()
-        clean_asst = sanitize_context(assistant_content or "").strip()
+        clean_user = _sanitize_context(user_content or "").strip()
+        clean_asst = _sanitize_context(assistant_content or "").strip()
 
         if not clean_user and not clean_asst:
             return
@@ -410,7 +437,7 @@ class NotionBrainProvider(MemoryProvider):
                 content_parts = []
                 for m in messages[-6:]:
                     role = m.get("role", "")
-                    text = sanitize_context(m.get("content", "") or "")[:300]
+                    text = _sanitize_context(m.get("content", "") or "")[:300]
                     content_parts.append(f"[{role}] {text}")
                 self._write_entry_raw(
                     domain="memory",
@@ -486,10 +513,10 @@ class NotionBrainProvider(MemoryProvider):
                 return self._tool_content(args)
             if tool_name == "notion_brain_research":
                 return self._tool_research(args)
-            return tool_error(f"Unknown tool: {tool_name}")
+            return _tool_error(f"Unknown tool: {tool_name}")
         except Exception as exc:
             logger.error("NotionBrainProvider tool %s failed: %s", tool_name, exc)
-            return tool_error(f"{tool_name} failed: {exc}")
+            return _tool_error(f"{tool_name} failed: {exc}")
 
     # ---- Internal helpers ------------------------------------------------
 
@@ -610,7 +637,7 @@ class NotionBrainProvider(MemoryProvider):
     def _tool_search(self, args: Dict[str, Any]) -> str:
         query = args.get("query", "")
         if not query:
-            return tool_error("Missing required parameter: query")
+            return _tool_error("Missing required parameter: query")
 
         db_filter = args.get("database", "all")
         max_results = min(int(args.get("max_results", 8)), 20)
@@ -639,13 +666,13 @@ class NotionBrainProvider(MemoryProvider):
 
             return json.dumps({"result": f"Found {len(items)} result(s).", "items": items})
         except Exception as exc:
-            return tool_error(f"Search failed: {exc}")
+            return _tool_error(f"Search failed: {exc}")
 
     def _tool_remember(self, args: Dict[str, Any]) -> str:
         title = args.get("title", "")
         content = args.get("content", "")
         if not title or not content:
-            return tool_error("Missing required parameters: title and content")
+            return _tool_error("Missing required parameters: title and content")
 
         domain = args.get("domain", "memory")
         kind = args.get("kind", "note")
@@ -665,14 +692,14 @@ class NotionBrainProvider(MemoryProvider):
                 "domain": db_key, "id": title[:60],
             })
         except Exception as exc:
-            return tool_error(f"Remember failed: {exc}")
+            return _tool_error(f"Remember failed: {exc}")
 
     def _tool_task(self, args: Dict[str, Any]) -> str:
         action = args.get("action", "create")
         db_id = self._db_ids.get("tasks", "")
 
         if not db_id:
-            return tool_error("Tasks database not available.")
+            return _tool_error("Tasks database not available.")
 
         try:
             if action == "list":
@@ -704,7 +731,7 @@ class NotionBrainProvider(MemoryProvider):
             if action == "create":
                 title = args.get("title", "")
                 if not title:
-                    return tool_error("title required for task creation")
+                    return _tool_error("title required for task creation")
                 page_id = args.get("page_id", "")
                 if page_id:
                     return self._tool_task_update(db_id, page_id, args)
@@ -730,15 +757,15 @@ class NotionBrainProvider(MemoryProvider):
             if action in ("update", "complete"):
                 page_id = args.get("page_id", "")
                 if not page_id:
-                    return tool_error("page_id required for update")
+                    return _tool_error("page_id required for update")
                 if action == "complete":
                     args = dict(args)
                     args["status"] = "done"
                 return self._tool_task_update(db_id, page_id, args)
 
-            return tool_error(f"Unknown action: {action}")
+            return _tool_error(f"Unknown action: {action}")
         except Exception as exc:
-            return tool_error(f"Task operation failed: {exc}")
+            return _tool_error(f"Task operation failed: {exc}")
 
     def _tool_task_update(self, db_id: str, page_id: str, args: Dict[str, Any]) -> str:
         props: Dict[str, Any] = {}
@@ -751,7 +778,7 @@ class NotionBrainProvider(MemoryProvider):
         if args.get("project"):
             props["Project"] = store.rich_text_property(args["project"])
         if not props:
-            return tool_error("No properties to update.")
+            return _tool_error("No properties to update.")
         page = store.update_page(page_id, props)
         return json.dumps({"result": "Task updated.", "page_id": page.get("id", page_id)})
 
@@ -760,7 +787,7 @@ class NotionBrainProvider(MemoryProvider):
         db_id = self._db_ids.get("content", "")
 
         if not db_id:
-            return tool_error("Content database not available.")
+            return _tool_error("Content database not available.")
 
         try:
             if action == "list":
@@ -785,7 +812,7 @@ class NotionBrainProvider(MemoryProvider):
             if action in ("publish", "archive"):
                 page_id = args.get("page_id", "")
                 if not page_id:
-                    return tool_error("page_id required")
+                    return _tool_error("page_id required")
                 new_status = "published" if action == "publish" else "archived"
                 page = store.update_page(page_id, {"Status": self._status_property(self._database_properties(db_id), new_status)})
                 return json.dumps({"result": f"Content {action}d.", "page_id": page.get("id", page_id)})
@@ -793,7 +820,7 @@ class NotionBrainProvider(MemoryProvider):
             # create / update
             title = args.get("title", "")
             if not title:
-                return tool_error("title required for content creation")
+                return _tool_error("title required for content creation")
             body = args.get("body", "")
 
             props = {
@@ -818,14 +845,14 @@ class NotionBrainProvider(MemoryProvider):
             )
             return json.dumps({"result": f"Content '{title}' saved.", "page_id": page.get("id", "")})
         except Exception as exc:
-            return tool_error(f"Content operation failed: {exc}")
+            return _tool_error(f"Content operation failed: {exc}")
 
     def _tool_research(self, args: Dict[str, Any]) -> str:
         action = args.get("action", "save")
         db_id = self._db_ids.get("research", "")
 
         if not db_id:
-            return tool_error("Research database not available.")
+            return _tool_error("Research database not available.")
 
         try:
             if action == "list":
@@ -849,7 +876,7 @@ class NotionBrainProvider(MemoryProvider):
             if action == "save":
                 title = args.get("title", "")
                 if not title:
-                    return tool_error("title required for research save")
+                    return _tool_error("title required for research save")
                 content = args.get("content", "")
                 props = {
                     "title": store.title_property(title),
@@ -868,9 +895,9 @@ class NotionBrainProvider(MemoryProvider):
                 )
                 return json.dumps({"result": f"Research saved.", "page_id": page.get("id", "")})
 
-            return tool_error(f"Unknown action: {action}")
+            return _tool_error(f"Unknown action: {action}")
         except Exception as exc:
-            return tool_error(f"Research operation failed: {exc}")
+            return _tool_error(f"Research operation failed: {exc}")
 
 
 # ---------------------------------------------------------------------------

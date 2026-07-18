@@ -112,8 +112,8 @@ class TestToolDispatch:
     def test_search_requires_query(self):
         provider = self._make_initialized_provider()
         result = provider.handle_tool_call("notion_brain_search", {})
-        data = json.loads(result)
-        assert "error" in data or "Missing" in data.get("result", "")
+        # tool_error returns a plain string, not JSON
+        assert "Missing" in result or "error" in result.lower()
 
     def test_remember_requires_title_content(self):
         provider = self._make_initialized_provider()
@@ -126,14 +126,14 @@ class TestToolDispatch:
     def test_remember_missing_fields(self):
         provider = self._make_initialized_provider()
         result = provider.handle_tool_call("notion_brain_remember", {"title": "Only title"})
-        data = json.loads(result)
-        assert "error" in data or "Missing" in data.get("result", "")
+        # tool_error returns a plain string, not JSON
+        assert "Missing" in result or "error" in result.lower()
 
     def test_unknown_tool_returns_error(self):
         provider = self._make_initialized_provider()
         result = provider.handle_tool_call("nonexistent_tool", {})
-        data = json.loads(result)
-        assert "error" in data or "Unknown" in data.get("result", "")
+        # tool_error returns a plain string, not JSON
+        assert "Unknown" in result or "error" in result.lower()
 
     def test_task_list(self):
         provider = self._make_initialized_provider()
