@@ -41,7 +41,7 @@ DOMAIN_DATABASE = {
     "memory": "memory",
 }
 
-STATUSES = {"active", "done", "draft", "published", "archived", "needs_review", "conflict"}
+STATUSES = {"active", "done", "needs_review"}
 CONFIDENCES = {"high", "medium", "low"}
 
 _SECRET_PATTERNS = [

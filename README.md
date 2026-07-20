@@ -129,13 +129,19 @@ export HERMES_HOME=~/.hermes
 On first run, the plugin creates a **"Hermes Brain"** parent page and 7 databases under it:
 
 ```python
-from notion_brain import bootstrap, store
+from notion_brain import bootstrap
 
-s = store.Store()
-bootstrap.init(s)
+cache = bootstrap.ensure_brain("~/.hermes")
+print(cache["parent_page_id"])  # Notion page ID
 ```
 
-If your Notion workspace has no pages, create one manually first, or set `HERMES_NOTION_PARENT_PAGE` to an existing page ID.
+Or from the CLI:
+
+```bash
+python -m notion_brain health    # prints health report, auto-repairs schema mismatches
+python -m notion_brain url       # prints the Notion URL of the Hermes Brain page
+python -m notion_brain reset     # archive and recreate mismatched databases
+```
 
 ---
 
@@ -179,7 +185,7 @@ notion_brain_remember(
 | `content` | string | Full content/description |
 | `domain` | string | `daily_work`, `projects`, `social_content`, `research`, `career`, `entities` |
 | `kind` | string | `note`, `task`, `decision`, `preference`, `source_note`, `draft`, `lesson`, `reminder` |
-| `status` | string | `active`, `done`, `draft`, `published`, `archived`, `needs_review`, `conflict` |
+| `status` | string | `active`, `done`, `needs_review` |
 | `tags` | array | Tags for filtering |
 | `entities` | array | People/companies/projects mentioned |
 
@@ -272,7 +278,7 @@ Every memory entry in Notion has these common properties:
 |---|---|---|
 | **Title** | Title | Extracted from triggering sentence (max 120 chars) |
 | **Domain** | Select | `Daily Work`, `Projects`, `Social Content`, `Research`, `Career`, `Entities`, `Memory` |
-| **Status** | Status | `active`, `done`, `draft`, `published`, `archived`, `needs_review`, `conflict` |
+| **Status** | Status | `active`, `done`, `needs_review` |
 | **Tags** | Multi-select | Keyword tags (up to 8, deduplicated) |
 | **Confidence** | Select | `high`, `medium`, `low` |
 | **Kind** | Select | `note`, `task`, `decision`, `preference`, `source_note`, `draft`, `lesson`, `reminder` |
@@ -376,23 +382,25 @@ The cache maps database display names to Notion IDs. It's safe to delete — boo
 
 ```
 hermes-brain/
-├── __init__.py          # Plugin entry point, tool schemas, provider (850 lines)
-├── schema.py            # BrainEntry dataclass, constants, normalization (169 lines)
-├── extract.py           # Heuristic classifier (187 lines)
-├── store.py             # Notion REST API client (260 lines)
-├── bootstrap.py         # Workspace setup, database creation (249 lines)
-├── plugin.yaml          # Plugin manifest
-├── README.md            # This file
-├── LICENSE              # All Rights Reserved
-├── CONTRIBUTING.md      # Contribution guidelines
-├── .gitignore
+├── notion_brain/
+│   ├── __init__.py          # Plugin entry point, tool schemas, provider
+│   ├── schema.py            # BrainEntry dataclass, constants, normalization
+│   ├── extract.py           # Heuristic classifier
+│   ├── store.py             # Notion REST API client
+│   ├── bootstrap.py         # Workspace setup, database creation, health, reset
+│   └── __main__.py          # CLI: health, reset, url
+├── tests/
+│   ├── test_provider.py     # Provider interface and tool dispatch tests
+│   ├── test_extract.py      # Classifier tests
+│   └── test_bootstrap_schema.py  # Schema consistency tests
+├── pyproject.toml
+├── README.md
+├── LICENSE
 └── .github/
     ├── assets/
-    │   └── hero.png     # Hero image for README
-    ├── badges/
-    │   └── coverage.svg # Coverage badge
+    │   └── hero.png
     └── workflows/
-        └── ci.yml       # GitHub Actions CI
+        └── ci.yml
 ```
 
 ---
