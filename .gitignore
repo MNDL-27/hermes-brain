@@ -19,4 +19,4 @@ __pycache__/
 build/
 out/
 target/
-egg-info/
+*.egg-info/
