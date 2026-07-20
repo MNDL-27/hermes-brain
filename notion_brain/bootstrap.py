@@ -17,14 +17,18 @@ from . import store
 
 logger = logging.getLogger(__name__)
 
+# Single source of truth: every Status option created across our 7 DBs must
+# be a name listed in S.STATUSES. ``_STATUS_OPTIONS`` here must stay ⊆
+# S.STATUSES — see ``_validate_status_options`` below.
+_STATUS_OPTIONS = [{"name": "active", "color": "blue"},
+                   {"name": "done", "color": "green"},
+                   {"name": "needs_review", "color": "yellow"}]
+
 _PROPS: dict[str, dict[str, Any]] = {
     "tasks": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {"options": [
-            {"name": "active", "color": "blue"}, {"name": "done", "color": "green"},
-            {"name": "needs_review", "color": "yellow"},
-        ]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Priority": {"select": {"options": [
             {"name": "urgent", "color": "red"}, {"name": "high", "color": "orange"},
             {"name": "medium", "color": "yellow"}, {"name": "low", "color": "green"},
@@ -39,10 +43,7 @@ _PROPS: dict[str, dict[str, Any]] = {
     "projects": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {"options": [
-            {"name": "active", "color": "blue"}, {"name": "done", "color": "green"},
-            {"name": "needs_review", "color": "yellow"},
-        ]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
         "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
         "Source Session": {"rich_text": {}},
@@ -64,9 +65,7 @@ _PROPS: dict[str, dict[str, Any]] = {
     "research": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {"options": [
-            {"name": "active", "color": "blue"}, {"name": "archived", "color": "gray"},
-        ]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
         "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
         "Source Session": {"rich_text": {}},
@@ -75,10 +74,7 @@ _PROPS: dict[str, dict[str, Any]] = {
     "career": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {"options": [
-            {"name": "active", "color": "blue"}, {"name": "done", "color": "green"},
-            {"name": "needs_review", "color": "yellow"},
-        ]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
         "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
         "Source Session": {"rich_text": {}},
@@ -99,9 +95,7 @@ _PROPS: dict[str, dict[str, Any]] = {
     "memory": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"status": {"options": [
-            {"name": "active", "color": "blue"}, {"name": "archived", "color": "gray"},
-        ]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Kind": {"select": {"options": [
             {"name": "note", "color": "blue"}, {"name": "preference", "color": "yellow"},
             {"name": "lesson", "color": "green"}, {"name": "decision", "color": "orange"},
@@ -115,9 +109,45 @@ _PROPS: dict[str, dict[str, Any]] = {
 }
 
 
+SCHEMA_VERSION = 2
+
+
+def _validate_status_options() -> None:
+    """Fail loudly if a Status option name isn't in S.STATUSES.
+
+    Notion's status-property writes reject unknown names with a 400 and the
+    provider used to swallow those as "Saved" → silent failure. Catch the
+    mistake at bootstrap time, before it costs a write.
+    """
+    for key, props in _PROPS.items():
+        status = props.get("Status") or {}
+        kind = next(iter(status), "")
+        if kind != "status":
+            continue
+        opts = status.get(kind, {}).get("options")
+        if not opts:
+            continue
+        bad = [o["name"] for o in opts if o.get("name") not in S.STATUSES]
+        if bad:
+            raise RuntimeError(
+                f"bootstrap._PROPS['{key}']['Status'] has options {bad} "
+                f"not in schema.STATUSES ({sorted(S.STATUSES)}). "
+                f"Update _STATUS_OPTIONS or schema.STATUSES so they agree."
+            )
+
+
+_validate_status_options()
+
+
 def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
     cache_path = Path(hermes_home) / S.CACHE_FILE
     cached = _load_cache(cache_path)
+    cached_version = int(cached.get("schema_version") or 0)
+    if cached_version < SCHEMA_VERSION:
+        logger.info("Cache is at schema_version=%d (current=%d); validating all DBs",
+                    cached_version, SCHEMA_VERSION)
+        reset_databases(hermes_home, dry_run=False)
+        cached = _load_cache(cache_path)
 
     if cached.get("parent_page_id"):
         try:
@@ -148,6 +178,129 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
 
     logger.info("Notion brain ready: %d database(s)", len(S.DATABASES))
     return dict(cached)
+
+
+def reset_databases(
+    hermes_home: str | Path,
+    *,
+    only: set[str] | None = None,
+    dry_run: bool = False,
+    force: bool = False,
+) -> list[str]:
+    """Archive/recreate cached DBs whose schema does not match _PROPS.
+
+    This removes stale Notion status options that PATCH cannot delete. It does
+    not migrate pages; Notion keeps them under archived DBs.
+    """
+    cache_path = Path(hermes_home) / S.CACHE_FILE
+    cached = _load_cache(cache_path)
+    reset: list[str] = []
+    for key in S.DATABASES:
+        if only and key not in only:
+            continue
+        db_id = cached.get(f"db_{key}")
+        if not db_id:
+            continue
+        try:
+            db = store.get_database(db_id)
+        except Exception:
+            logger.info("Cached database '%s' unreachable — recreating", key)
+            cached.pop(f"db_{key}", None)
+            reset.append(key)
+            continue
+        if force or not _database_schema_matches(db, _PROPS[key]):
+            reset.append(key)
+            if not dry_run:
+                store.archive_database(db_id)
+                cached.pop(f"db_{key}", None)
+    if reset and not dry_run:
+        cached["schema_version"] = SCHEMA_VERSION
+        _save_cache(cache_path, cached)
+        ensure_brain(hermes_home)
+    return reset
+
+
+def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bool:
+    actual = db.get("properties") or {}
+    for name, spec in expected.items():
+        current = actual.get(name)
+        if not current:
+            return False
+        expected_type = next(iter(spec))
+        if current.get("type") != expected_type:
+            return False
+        expected_opts = spec.get(expected_type, {}).get("options")
+        if expected_opts is not None:
+            actual_opts = current.get(expected_type, {}).get("options", [])
+            if {o.get("name") for o in actual_opts} != {o.get("name") for o in expected_opts}:
+                return False
+    return True
+
+
+def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
+    """Print Notion URL(s) for the parent page and (optionally) every DB.
+
+    Reads ``$HERMES_HOME/notion_brain.json``, fetches each ID, and returns the
+    ``url`` field Notion returns alongside the resource.
+    """
+    cache_path = Path(hermes_home) / S.CACHE_FILE
+    cached = _load_cache(cache_path)
+    lines: list[str] = []
+    parent_id = cached.get("parent_page_id", "")
+    if parent_id:
+        try:
+            page = store.get_page(parent_id)
+            url = page.get("url") or ""
+            if url:
+                title = page.get("title") or "Hermes Brain"
+                lines.append(f"{title}\t{url}")
+        except Exception as exc:
+            logger.debug("Could not fetch parent page %s: %s", parent_id, exc)
+    if db:
+        for key, db_id in cached.items():
+            if not key.startswith("db_") or not db_id:
+                continue
+            try:
+                d = store.get_database(db_id)
+                url = d.get("url") or ""
+                title = (d.get("title") or [{}])[0].get("plain_text", key)
+                if url:
+                    lines.append(f"{title}\t{url}")
+            except Exception as exc:
+                logger.debug("Could not fetch database %s: %s", db_id, exc)
+    return "\n".join(lines)
+
+
+def health_report(hermes_home: str | Path) -> str:
+    """One-line-per-DB summary: schema match, entry count, last entry, latest sync."""
+    cached = _load_cache(Path(hermes_home) / S.CACHE_FILE)
+    parent_id = cached.get("parent_page_id", "")
+    lines: list[str] = []
+    if not parent_id:
+        return "error: no parent page cached; run `python -m notion_brain reset`"
+    try:
+        parent = store.get_page(parent_id)
+        title = parent.get("title") or "Hermes Brain"
+        lines.append(f"parent: {title}  url={parent.get('url','')}")
+    except Exception as exc:
+        lines.append(f"parent: ERROR fetching {parent_id}: {exc}")
+    for key in S.DATABASES:
+        db_id = cached.get(f"db_{key}")
+        if not db_id:
+            lines.append(f"  {key:<10}  MISSING (no cache entry)")
+            continue
+        try:
+            db = store.get_database(db_id)
+            match = _database_schema_matches(db, _PROPS[key])
+            schema = "schema=ok" if match else "schema=MISMATCH"
+            entries = store.query_database(db_id, page_size=100, sorts=[{"timestamp": "created_time", "direction": "descending"}])
+            count = len(entries)
+            last = entries[0].get("created_time", "")[:19] if entries else "(empty)"
+            url = db.get("url", "")
+            lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
+        except Exception as exc:
+            lines.append(f"  {key:<10}  ERROR: {exc}")
+    return "\n".join(lines)
 
 
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
@@ -193,8 +346,11 @@ def _find_or_create_parent(title: str) -> str:
     existing = store.search_page_by_title(title, object_type="page")
     if existing:
         return existing["id"]
-    # Find any existing page to use as parent, or create under workspace root
-    parent_id = _workspace_root()
+    parent_override = os.environ.get("HERMES_NOTION_PARENT_PAGE", "").strip()
+    if parent_override:
+        parent_id = parent_override
+    else:
+        parent_id = _workspace_root_or_fail()
     page = store.create_page(
         parent_id,
         properties=store.title_property(title),
@@ -208,11 +364,17 @@ def _find_or_create_parent(title: str) -> str:
     return page_id
 
 
-def _workspace_root() -> str:
-    """Find an existing page to use as parent for the Hermes Brain page.
+def _workspace_root_or_fail() -> str:
+    """Pick the parent page for the Hermes Brain page.
 
-    Searches for any existing page in the workspace via the Notion search API.
+    Resolution order:
+      1. ``HERMES_NOTION_PARENT_PAGE`` env var (UUID/ID of any page).
+      2. Notion search for existing pages — pick the first result.
+      3. Raise with a message to create a parent page manually.
     """
+    env = os.environ.get("HERMES_NOTION_PARENT_PAGE", "").strip()
+    if env:
+        return env
     try:
         results = store.search_entries("", page_size=1)
         if results:
@@ -220,8 +382,10 @@ def _workspace_root() -> str:
     except Exception:
         pass
     raise RuntimeError(
-        "No existing pages found in workspace. Create at least one page "
-        "manually in Notion, or set HERMES_NOTION_PARENT_PAGE env var."
+        "Notion brain needs an existing parent page in your workspace but none "
+        "was found via search. Either: (1) create any page in Notion, then rerun; "
+        "(2) set HERMES_NOTION_PARENT_PAGE to the page ID; or (3) invite the "
+        "notion_brain integration to a page first so search can see it."
     )
 
 

@@ -7,9 +7,8 @@ Uses stdlib string matching only.
 from __future__ import annotations
 
 import re
-from typing import Any
 
-from .schema import BrainEntry, compact, dedupe_strings, keyword_tokens, redact_secrets
+from .schema import BrainEntry, compact, dedupe_strings, keyword_tokens
 
 _CLEAN = re.compile(r"[`\"'”“‘’]")
 _MERGE_WS = re.compile(r"\s+")
@@ -136,11 +135,12 @@ def classify_turn(user_content: str, assistant_content: str) -> list[BrainEntry]
     # User preferences (always capture when triggered)
     if _TRIGGERS_PREFERENCE.search(combined):
         snippet = _extract_sentence(combined, _TRIGGERS_PREFERENCE)
+        snip_lower = snippet.lower()
         entries.append(BrainEntry(
             domain="entities", title=_brief_title(snippet, "Preference"),
             content=compact(snippet, 600),
             kind="preference", tags=["preference"] + tokens,
-            confidence="high" if ("always" in combined.lower() and ("prefer" in combined.lower() or "favorite" in combined.lower() or "use" in combined.lower())) or "prefer" in combined.lower() else "medium",
+            confidence="high" if ("always" in snip_lower or "prefer" in snip_lower or "favorite" in snip_lower) else "medium",
         ))
 
     return entries

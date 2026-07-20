@@ -752,7 +752,7 @@ class NotionBrainProvider(_MemoryProvider):
                     props["Project"] = store.rich_text_property(project)
 
                 page = store.create_database_page(database_id=db_id, properties=props)
-                return json.dumps({"result": f"Task created.", "page_id": page.get("id", "")})
+                return json.dumps({"result": "Task created.", "page_id": page.get("id", "")})
 
             if action in ("update", "complete"):
                 page_id = args.get("page_id", "")
@@ -893,7 +893,7 @@ class NotionBrainProvider(_MemoryProvider):
                 page = store.create_database_page(
                     database_id=db_id, properties=props, children=children or None
                 )
-                return json.dumps({"result": f"Research saved.", "page_id": page.get("id", "")})
+                return json.dumps({"result": "Research saved.", "page_id": page.get("id", "")})
 
             return _tool_error(f"Unknown action: {action}")
         except Exception as exc:

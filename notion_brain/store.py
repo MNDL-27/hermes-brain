@@ -157,6 +157,11 @@ def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, A
     return _request("PATCH", f"/databases/{database_id}", {"properties": properties})
 
 
+def archive_database(database_id: str) -> dict[str, Any]:
+    """Archive (soft-delete) a database. Call before recreate to drop zombie options."""
+    return _request("PATCH", f"/databases/{database_id}", {"archived": True})
+
+
 # ─── Blocks (page content) ──────────────────────────────────────────────
 
 
@@ -236,15 +241,16 @@ def _flatten_result(raw: dict[str, Any]) -> dict[str, Any]:
                 props[key] = "".join(v.get("text", {}).get("content", "") for v in texts)
             elif t == "select":
                 s = val.get("select")
-                props[key] = s.get("name") if s else None
+                props[key] = s.get("name") if isinstance(s, dict) else None
             elif t == "multi_select":
-                props[key] = [s.get("name") for s in (val.get("multi_select") or [])]
+                ms = val.get("multi_select")
+                props[key] = [s.get("name") for s in (ms if isinstance(ms, list) else [])]
             elif t == "status":
                 s = val.get("status")
-                props[key] = s.get("name") if s else None
+                props[key] = s.get("name") if isinstance(s, dict) else None
             elif t == "date":
                 d = val.get("date")
-                props[key] = d.get("start") if d else None
+                props[key] = d.get("start") if isinstance(d, dict) else None
             elif t == "number":
                 props[key] = val.get("number")
             elif t == "checkbox":

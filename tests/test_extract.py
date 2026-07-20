@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
-import re
-import pytest
-
 # We must set up sys.path so relative imports resolve
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from notion_brain.extract import classify_turn, _rev_sentence_boundary, _fwd_sentence_boundary
+from notion_brain.schema import (
+    normalize_domain,
+    database_for_domain,
+    dedupe_strings,
+    keyword_tokens,
+    redact_secrets,
+    compact,
+    clean_title,
+    BrainEntry,
+    CONFIDENCES,
+    STATUSES,
+    DOMAINS,
+    DATABASES,
+    DOMAIN_DATABASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -260,22 +272,6 @@ class TestSentenceBoundaries:
 # ---------------------------------------------------------------------------
 # Schema functions
 # ---------------------------------------------------------------------------
-
-from notion_brain.schema import (
-    normalize_domain,
-    database_for_domain,
-    dedupe_strings,
-    keyword_tokens,
-    redact_secrets,
-    compact,
-    clean_title,
-    BrainEntry,
-    CONFIDENCES,
-    STATUSES,
-    DOMAINS,
-    DATABASES,
-    DOMAIN_DATABASE,
-)
 
 
 class TestSchema:

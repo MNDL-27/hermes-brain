@@ -6,18 +6,18 @@ import json
 import sys
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import patch
 
 # Set up path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from notion_brain.schema import (
-    BrainEntry, normalize_domain, database_for_domain,
+    normalize_domain, database_for_domain,
     DOMAINS, DATABASES, DOMAIN_DATABASE,
 )
 from notion_brain.store import (
     title_property, select_property, multi_select_property,
-    status_property, rich_text_property, get_api_key,
+    status_property, rich_text_property,
 )
 
 
@@ -27,7 +27,7 @@ from notion_brain.store import (
 
 class TestProviderInterface:
     def test_import(self):
-        from notion_brain import NotionBrainProvider, ALL_TOOL_SCHEMAS, register
+        from notion_brain import NotionBrainProvider, register
         assert NotionBrainProvider is not None
         assert callable(register)
 
