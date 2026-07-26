@@ -169,8 +169,12 @@ def archive_database(database_id: str) -> dict[str, Any]:
 # ─── Rich text / property helpers ────────────────────────────────────────
 
 
+from .schema import redact_secrets
+
+
 def _rich_text(content: str) -> list[dict]:
-    return [{"type": "text", "text": {"content": content[:2000]}}]
+    redacted = redact_secrets(content)
+    return [{"type": "text", "text": {"content": redacted[:2000]}}]
 
 
 def title_property(text: str) -> dict[str, Any]:
@@ -182,11 +186,11 @@ def rich_text_property(text: str) -> dict[str, Any]:
 
 
 def select_property(name: str) -> dict[str, Any]:
-    return {"select": {"name": name}}
+    return {"select": {"name": redact_secrets(name)}}
 
 
 def multi_select_property(names: list[str]) -> dict[str, Any]:
-    options = [{"name": n[:80]} for n in names if n.strip()] if names else []
+    options = [{"name": redact_secrets(n)[:80]} for n in names if n.strip()] if names else []
     return {"multi_select": options}
 
 
