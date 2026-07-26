@@ -77,13 +77,13 @@ class BrainEntry:
         confidence = self.confidence if self.confidence in CONFIDENCES else "medium"
         return BrainEntry(
             domain=domain,
-            title=clean_title(self.title),
+            title=clean_title(redact_secrets(self.title)),
             content=redact_secrets(self.content).strip(),
             kind=(self.kind or "note").strip()[:80],
             status=status,
             confidence=confidence,
-            tags=dedupe_strings(self.tags),
-            entities=dedupe_strings(self.entities),
+            tags=dedupe_strings([redact_secrets(t) for t in (self.tags or [])]),
+            entities=dedupe_strings([redact_secrets(e) for e in (self.entities or [])]),
             source_session_id=self.source_session_id,
             metadata=dict(self.metadata or {}),
         )
