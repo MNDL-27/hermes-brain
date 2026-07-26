@@ -15,7 +15,7 @@ from typing import Any
 
 import requests
 
-from .schema import NOTION_API_VERSION
+from .schema import NOTION_API_VERSION, redact_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -167,9 +167,6 @@ def archive_database(database_id: str) -> dict[str, Any]:
 
 
 # ─── Rich text / property helpers ────────────────────────────────────────
-
-
-from .schema import redact_secrets
 
 
 def _rich_text(content: str) -> list[dict]:
