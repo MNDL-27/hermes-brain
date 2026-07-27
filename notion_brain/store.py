@@ -68,6 +68,7 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                 time.sleep(_RETRY_DELAY_S * attempt)
                 continue
             raise RuntimeError(f"Notion API connection error on {method} {path}")
+    raise RuntimeError(f"Notion API {method} {path} max retries exceeded")
 
 
 # ─── Search ──────────────────────────────────────────────────────────────
@@ -77,6 +78,8 @@ def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any
     """Find the first page whose title matches exactly (case-insensitive)."""
     body: dict[str, Any] = {"query": title, "filter": {"value": object_type, "property": "object"}}
     data = _request("POST", "/search", body)
+    if not isinstance(data, dict):
+        return None
     for result in data.get("results", []):
         obj_type = result.get("object")
         if object_type and obj_type != object_type:
@@ -91,6 +94,8 @@ def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
     """Search Notion and return results with extracted metadata."""
     body: dict[str, Any] = {"query": query, "page_size": min(page_size, 100)}
     data = _request("POST", "/search", body)
+    if not isinstance(data, dict):
+        return []
     return [_flatten_result(r) for r in (data.get("results") or [])]
 
 
@@ -104,6 +109,8 @@ def query_database(database_id: str, *, page_size: int = 100,
     if filter_obj:
         body["filter"] = filter_obj
     data = _request("POST", f"/databases/{database_id}/query", body)
+    if not isinstance(data, dict):
+        return []
     return [_flatten_result(r) for r in (data.get("results") or [])]
 
 
@@ -118,7 +125,9 @@ def create_page(parent_page_id: str, properties: dict[str, Any],
     }
     if children:
         body["children"] = children
-    return _request("POST", "/pages", body)
+    result = _request("POST", "/pages", body)
+    assert isinstance(result, dict)
+    return result
 
 
 def create_database_page(database_id: str, properties: dict[str, Any],
@@ -129,15 +138,21 @@ def create_database_page(database_id: str, properties: dict[str, Any],
     }
     if children:
         body["children"] = children
-    return _request("POST", "/pages", body)
+    result = _request("POST", "/pages", body)
+    assert isinstance(result, dict)
+    return result
 
 
 def update_page(page_id: str, properties: dict[str, Any]) -> dict[str, Any]:
-    return _request("PATCH", f"/pages/{page_id}", {"properties": properties})
+    result = _request("PATCH", f"/pages/{page_id}", {"properties": properties})
+    assert isinstance(result, dict)
+    return result
 
 
 def get_page(page_id: str) -> dict[str, Any]:
-    return _request("GET", f"/pages/{page_id}")
+    result = _request("GET", f"/pages/{page_id}")
+    assert isinstance(result, dict)
+    return result
 
 
 # ─── Databases ───────────────────────────────────────────────────────────
@@ -150,22 +165,44 @@ def create_database(parent_page_id: str, title: str,
         "title": _rich_text(title),
         "properties": properties,
     }
-    return _request("POST", "/databases", body)
+    result = _request("POST", "/databases", body)
+    assert isinstance(result, dict)
+    return result
 
 
 def get_database(database_id: str) -> dict[str, Any]:
-    return _request("GET", f"/databases/{database_id}")
+    result = _request("GET", f"/databases/{database_id}")
+    assert isinstance(result, dict)
+    return result
 
 
 def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, Any]:
-    return _request("PATCH", f"/databases/{database_id}", {"properties": properties})
+    result = _request("PATCH", f"/databases/{database_id}", {"properties": properties})
+    assert isinstance(result, dict)
+    return result
 
 
 def archive_database(database_id: str) -> dict[str, Any]:
     """Archive (soft-delete) a database. Call before recreate to drop zombie options."""
-    return _request("PATCH", f"/databases/{database_id}", {"archived": True})
+    result = _request("PATCH", f"/databases/{database_id}", {"archived": True})
+    assert isinstance(result, dict)
+    return result
 
 
+# ─── Blocks (page content) ──────────────────────────────────────────────
+
+
+def get_block_children(block_id: str, page_size: int = 100) -> list[dict[str, Any]]:
+    data = _request("GET", f"/blocks/{block_id}/children?page_size={page_size}")
+    if not isinstance(data, dict):
+        return []
+    return data.get("results") or []
+
+
+def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]:
+    result = _request("PATCH", f"/blocks/{block_id}/children", {"children": children})
+    assert isinstance(result, dict)
+    return result
 # ─── Rich text / property helpers ────────────────────────────────────────
 
 
