@@ -178,7 +178,7 @@ class TestToolDispatch:
 
 class TestDomainMapping:
     def test_all_domains_have_database(self):
-        for domain_key in DOMAINS.keys():
+        for domain_key in DOMAINS:
             db = database_for_domain(domain_key)
             assert db in DATABASES, f"Domain {domain_key} -> DB {db} unknown"
 
