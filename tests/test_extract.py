@@ -340,6 +340,11 @@ class TestSchema:
         result = redact_secrets(text)
         assert "mysecret123" not in result
 
+    def test_redact_secrets_quoted_pattern(self):
+        text = 'api_key="mysecret123"'
+        result = redact_secrets(text)
+        assert "mysecret123" not in result
+
     def test_compact_truncation(self):
         long = "word " * 200
         result = compact(long, limit=100)
