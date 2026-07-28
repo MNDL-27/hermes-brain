@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Lazy imports — Hermes runtime modules (agent, tools) may not be available
 # in dev/test environments. They are imported inside methods where needed.
