@@ -20,8 +20,8 @@ from typing import Any, Dict, List, Optional
 # from agent.memory_manager import sanitize_context
 # from agent.memory_provider import MemoryProvider
 # from tools.registry import tool_error
-
-from . import bootstrap, extract, schema as S, store
+from . import bootstrap, extract, store
+from . import schema as S
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ def _get_MemoryProvider():
 # Tool schemas
 # ---------------------------------------------------------------------------
 
-SEARCH_SCHEMA: Dict[str, Any] = {
+SEARCH_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_search",
     "description": (
         "Semantic-text search across ALL Notion brain databases (memory, tasks, "
@@ -85,7 +85,7 @@ SEARCH_SCHEMA: Dict[str, Any] = {
     },
 }
 
-REMEMBER_SCHEMA: Dict[str, Any] = {
+REMEMBER_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_remember",
     "description": (
         "Explicitly save something to the Notion brain. Use this when the user "
@@ -132,7 +132,7 @@ REMEMBER_SCHEMA: Dict[str, Any] = {
     },
 }
 
-TASK_SCHEMA: Dict[str, Any] = {
+TASK_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_task",
     "description": (
         "Manage tasks in the Notion brain Tasks database. "
@@ -181,7 +181,7 @@ TASK_SCHEMA: Dict[str, Any] = {
     },
 }
 
-CONTENT_SCHEMA: Dict[str, Any] = {
+CONTENT_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_content",
     "description": (
         "Manage social content ideas in the Notion brain Content database. "
@@ -226,7 +226,7 @@ CONTENT_SCHEMA: Dict[str, Any] = {
     },
 }
 
-RESEARCH_SCHEMA: Dict[str, Any] = {
+RESEARCH_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_research",
     "description": (
         "Save or query research findings in the Notion brain Research database. "
@@ -284,12 +284,12 @@ class NotionBrainProvider(_MemoryProvider):
         # Set by initialize()
         self._session_id: str = ""
         self._hermes_home: str = ""
-        self._db_ids: Dict[str, str] = {}
+        self._db_ids: dict[str, str] = {}
         self._parent_page_id: str = ""
 
         # Background sync state
         self._sync_lock = threading.Lock()
-        self._sync_thread: Optional[threading.Thread] = None
+        self._sync_thread: threading.Thread | None = None
 
         # Prefetch cache
         self._prefetch_cache: str = ""
@@ -414,7 +414,7 @@ class NotionBrainProvider(_MemoryProvider):
             self._sync_thread = threading.Thread(target=_do_sync, daemon=True, name="notion-sync")
             self._sync_thread.start()
 
-    def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
+    def on_session_end(self, messages: list[dict[str, Any]]) -> None:
         """Flush pending sync and optionally save a session summary to Notion."""
         # Wait for pending sync to complete
         with self._sync_lock:
@@ -475,7 +475,7 @@ class NotionBrainProvider(_MemoryProvider):
         action: str,
         target: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Mirror built-in memory writes to the Notion Entities or Memory DB."""
         if action != "add" or target not in ("memory", "user") or not content:
@@ -498,10 +498,10 @@ class NotionBrainProvider(_MemoryProvider):
 
     # ---- Tool schemas & dispatch ----------------------------------------
 
-    def get_tool_schemas(self) -> List[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         return list(ALL_TOOL_SCHEMAS)
 
-    def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
+    def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs) -> str:
         try:
             if tool_name == "notion_brain_search":
                 return self._tool_search(args)
@@ -548,8 +548,8 @@ class NotionBrainProvider(_MemoryProvider):
         kind: str = "note",
         status: str = "active",
         confidence: str = "medium",
-        tags: Optional[List[str]] = None,
-        entities: Optional[List[str]] = None,
+        tags: list[str] | None = None,
+        entities: list[str] | None = None,
         db_id: str = "",
     ) -> None:
         """Write a page to the appropriate database."""
@@ -564,7 +564,7 @@ class NotionBrainProvider(_MemoryProvider):
         domain_label = S.DOMAINS.get(domain, "Memory")
         db_props = self._database_properties(db_id)
 
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "title": store.title_property(title),
             "Domain": store.select_property(domain_label),
             "Status": self._status_property(db_props, status),
@@ -603,14 +603,14 @@ class NotionBrainProvider(_MemoryProvider):
                            domain, title[:60], exc)
             raise
 
-    def _database_properties(self, db_id: str) -> Dict[str, Any]:
+    def _database_properties(self, db_id: str) -> dict[str, Any]:
         try:
             return store.get_database(db_id).get("properties", {}) or {}
         except Exception as exc:
             logger.debug("Could not fetch database schema for %s: %s", db_id, exc)
             return {}
 
-    def _status_property(self, db_props: Dict[str, Any], status: str) -> Dict[str, Any]:
+    def _status_property(self, db_props: dict[str, Any], status: str) -> dict[str, Any]:
         prop = db_props.get("Status") or {}
         if prop.get("type") == "select":
             return store.select_property(status)
@@ -634,7 +634,7 @@ class NotionBrainProvider(_MemoryProvider):
 
     # ---- Tool handlers ---------------------------------------------------
 
-    def _tool_search(self, args: Dict[str, Any]) -> str:
+    def _tool_search(self, args: dict[str, Any]) -> str:
         query = args.get("query", "")
         if not query:
             return _tool_error("Missing required parameter: query")
@@ -668,7 +668,7 @@ class NotionBrainProvider(_MemoryProvider):
         except Exception as exc:
             return _tool_error(f"Search failed: {exc}")
 
-    def _tool_remember(self, args: Dict[str, Any]) -> str:
+    def _tool_remember(self, args: dict[str, Any]) -> str:
         title = args.get("title", "")
         content = args.get("content", "")
         if not title or not content:
@@ -694,7 +694,7 @@ class NotionBrainProvider(_MemoryProvider):
         except Exception as exc:
             return _tool_error(f"Remember failed: {exc}")
 
-    def _tool_task(self, args: Dict[str, Any]) -> str:
+    def _tool_task(self, args: dict[str, Any]) -> str:
         action = args.get("action", "create")
         db_id = self._db_ids.get("tasks", "")
 
@@ -767,8 +767,8 @@ class NotionBrainProvider(_MemoryProvider):
         except Exception as exc:
             return _tool_error(f"Task operation failed: {exc}")
 
-    def _tool_task_update(self, db_id: str, page_id: str, args: Dict[str, Any]) -> str:
-        props: Dict[str, Any] = {}
+    def _tool_task_update(self, db_id: str, page_id: str, args: dict[str, Any]) -> str:
+        props: dict[str, Any] = {}
         if args.get("status"):
             props["Status"] = self._status_property(self._database_properties(db_id), args["status"])
         if args.get("priority"):
@@ -782,7 +782,7 @@ class NotionBrainProvider(_MemoryProvider):
         page = store.update_page(page_id, props)
         return json.dumps({"result": "Task updated.", "page_id": page.get("id", page_id)})
 
-    def _tool_content(self, args: Dict[str, Any]) -> str:
+    def _tool_content(self, args: dict[str, Any]) -> str:
         action = args.get("action", "create")
         db_id = self._db_ids.get("content", "")
 
@@ -847,7 +847,7 @@ class NotionBrainProvider(_MemoryProvider):
         except Exception as exc:
             return _tool_error(f"Content operation failed: {exc}")
 
-    def _tool_research(self, args: Dict[str, Any]) -> str:
+    def _tool_research(self, args: dict[str, Any]) -> str:
         action = args.get("action", "save")
         db_id = self._db_ids.get("research", "")
 
