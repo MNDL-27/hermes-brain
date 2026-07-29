@@ -116,6 +116,7 @@ def database_for_domain(domain: str | None) -> str:
 
 def clean_title(title: str) -> str:
     text = re.sub(r"\s+", " ", (title or "Untitled").strip())
+    text = redact_secrets(text)
     return text[:120] or "Untitled"
 
 
@@ -124,6 +125,7 @@ def dedupe_strings(values: list[str] | tuple[str, ...] | None) -> list[str]:
     out: list[str] = []
     for value in values or []:
         item = re.sub(r"\s+", " ", str(value).strip())
+        item = redact_secrets(item)
         if not item:
             continue
         key = item.lower()

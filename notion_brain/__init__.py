@@ -732,6 +732,7 @@ class NotionBrainProvider(_MemoryProvider):
                 title = args.get("title", "")
                 if not title:
                     return _tool_error("title required for task creation")
+                title = S.clean_title(title)
                 page_id = args.get("page_id", "")
                 if page_id:
                     return self._tool_task_update(db_id, page_id, args)
@@ -749,7 +750,7 @@ class NotionBrainProvider(_MemoryProvider):
                     props["Due"] = store.date_property(due)
                 project = args.get("project", "")
                 if project:
-                    props["Project"] = store.rich_text_property(project)
+                    props["Project"] = store.rich_text_property(S.redact_secrets(project))
 
                 page = store.create_database_page(database_id=db_id, properties=props)
                 return json.dumps({"result": "Task created.", "page_id": page.get("id", "")})
@@ -776,7 +777,7 @@ class NotionBrainProvider(_MemoryProvider):
         if args.get("due"):
             props["Due"] = store.date_property(args["due"])
         if args.get("project"):
-            props["Project"] = store.rich_text_property(args["project"])
+            props["Project"] = store.rich_text_property(S.redact_secrets(args["project"]))
         if not props:
             return _tool_error("No properties to update.")
         page = store.update_page(page_id, props)
@@ -821,7 +822,9 @@ class NotionBrainProvider(_MemoryProvider):
             title = args.get("title", "")
             if not title:
                 return _tool_error("title required for content creation")
+            title = S.clean_title(title)
             body = args.get("body", "")
+            body = S.redact_secrets(body)
 
             props = {
                 "title": store.title_property(title),
@@ -877,7 +880,9 @@ class NotionBrainProvider(_MemoryProvider):
                 title = args.get("title", "")
                 if not title:
                     return _tool_error("title required for research save")
+                title = S.clean_title(title)
                 content = args.get("content", "")
+                content = S.redact_secrets(content)
                 props = {
                     "title": store.title_property(title),
                     "Status": self._status_property(self._database_properties(db_id), args.get("status", "active")),
