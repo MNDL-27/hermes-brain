@@ -827,7 +827,7 @@ class NotionBrainProvider(object):
 
             properties: dict[str, Any] = {}
             if "title" in args:
-                properties["title"] = store.title_property(args["title"])
+                properties["title"] = store.title_property(S.clean_title(args["title"]))
             if "status" in args:
                 status_payload, status_err = self._validated_status(
                     args["status"], "tasks"
