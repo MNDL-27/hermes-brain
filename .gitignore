@@ -19,4 +19,20 @@ __pycache__/
 build/
 out/
 target/
+dist/
 *.egg-info/
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment-specific config
+config.yaml
+config.local.yaml
+
+# Lockfile is fine to commit when intentional (uv.lock + uv sync --locked).
+# Uncomment to ignore:
+# uv.lock

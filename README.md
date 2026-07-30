@@ -13,7 +13,7 @@
 >
 > | [<img alt="GitHub Follow" src="https://img.shields.io/github/followers/MNDL-27?style=flat-square&logo=github&labelColor=black&color=24292f" width="156px" />](https://github.com/MNDL-27) | Follow [@MNDL-27](https://github.com/MNDL-27) on GitHub for more AI infrastructure tools. |
 > | :-----| :----- |
-> | [<img alt="Discord" src="https://img.shields.io/discord/1234567890?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=flat-square" width="156px" />](https://discord.gg/your-invite) | Join our [Discord](https://discord.gg/your-invite) for support, discussions, and early access. |
+> | [<img alt="GitHub Discussions" src="https://img.shields.io/github/discussions/MNDL-27/hermes-brain?color=5865F2&label=discussions&labelColor=black&logo=github&logoColor=white&style=flat-square" width="156px" />](https://github.com/MNDL-27/hermes-brain/discussions) | Join our [GitHub Discussions](https://github.com/MNDL-27/hermes-brain/discussions) for support and ideas. |
 
 <div align="center">
 
@@ -22,7 +22,7 @@
   [![GitHub Forks](https://img.shields.io/github/forks/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/network/members)
   [![GitHub Stars](https://img.shields.io/github/stars/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/stargazers)
   [![GitHub Issues](https://img.shields.io/github/issues/MNDL-27/hermes-brain?color=0073FF&labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/issues)
-  [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-red?labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/blob/main/LICENSE)
+  [![License](https://img.shields.io/badge/license-MIT-green?labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/blob/main/LICENSE)
   [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MNDL-27)
 </div>
 
@@ -63,7 +63,7 @@ Two ways to recall:
 - **Session Summaries** — Automatic end-of-session summaries saved to Memory database
 - **Disk Import** — Migrate existing `MEMORY.md` and `USER.md` into Notion
 - **Idempotent Bootstrap** — Creates "Hermes Brain" page + 7 databases on first run
-- **Cross-Platform** — Runs anywhere Python 3.10+ runs (Linux, macOS, Windows)
+- **Cross-Platform** — Runs anywhere Python 3.11+ runs (Linux, macOS, Windows)
 
 ---
 
@@ -96,7 +96,7 @@ pip install -e .
 
 ### Prerequisites
 
-- **Python 3.10+**
+- **Python 3.11–3.13**
 - **Notion workspace** with an [internal integration](https://www.notion.so/my-integrations)
 - **Hermes agent framework** (this is a plugin, not a standalone app)
 
@@ -428,7 +428,6 @@ Contributions are welcome!
 
 ## Acknowledgments
 
-- [Hermes Agent Framework](https://github.com/NousResearch/hermes-agent) — the agent ecosystem this plugin powers
 - [Notion API](https://developers.notion.com/) — the persistent storage backend
 - [Requests](https://docs.python-requests.org/) — HTTP client
 - All contributors and users
@@ -444,7 +443,7 @@ Contributions are welcome!
 </p>
 
 <p align="center">
-  <strong>All Rights Reserved © <a href="https://github.com/MNDL-27">MNDL-27</a></strong>
+  <strong>MIT License © <a href="https://github.com/MNDL-27">MNDL-27</a></strong>
 </p>
 
 <p align="center">
