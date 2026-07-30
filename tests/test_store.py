@@ -12,6 +12,8 @@ from notion_brain.store import (
     number_property,
     rich_text_property,
     search_page_by_title,
+    select_property,
+    multi_select_property,
     _page_title,
     _flatten_result,
     _rich_text,
@@ -235,3 +237,22 @@ class TestSearchPageByTitle:
         monkeypatch.setattr(store_mod, "_request",
                             lambda *a, **k: {"results": []})
         assert search_page_by_title("Hermes Brain") is None
+
+
+# ---------------------------------------------------------------------------
+# Defensive Secret Redaction Coverage on Properties
+# ---------------------------------------------------------------------------
+
+class TestSecretRedactionCoverage:
+    def test_rich_text_redacts_secrets(self):
+        rt = _rich_text("key: sk-12345678901234567890")
+        assert rt == [{"type": "text", "text": {"content": "key: [REDACTED_SECRET]"}}]
+
+    def test_select_property_redacts_secrets(self):
+        prop = select_property("token: ntn_12345678901234567890")
+        assert prop == {"select": {"name": "[REDACTED_SECRET]"}}
+
+    def test_multi_select_property_redacts_secrets(self):
+        prop = multi_select_property(["secret: ghp_12345678901234567890"])
+        assert prop == {"multi_select": [{"name": "[REDACTED_SECRET]"}]}
+
