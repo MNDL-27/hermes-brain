@@ -108,9 +108,7 @@ _PROPS: dict[str, dict[str, Any]] = {
     },
 }
 
-
 SCHEMA_VERSION = 2
-
 
 def _validate_status_options() -> None:
     """Fail loudly if a Status option name isn't in S.STATUSES.
@@ -135,14 +133,15 @@ def _validate_status_options() -> None:
                 f"Update _STATUS_OPTIONS or schema.STATUSES so they agree."
             )
 
-
 _validate_status_options()
-
 
 def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
     cache_path = Path(hermes_home) / S.CACHE_FILE
     cached = _load_cache(cache_path)
-    cached_version = int(cached.get("schema_version") or 0)
+    try:
+        cached_version = int(cached.get("schema_version") or 0)
+    except (ValueError, TypeError):
+        cached_version = 0
     if cached_version < SCHEMA_VERSION:
         logger.info("Cache is at schema_version=%d (current=%d); validating all DBs",
                     cached_version, SCHEMA_VERSION)
@@ -178,7 +177,6 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
 
     logger.info("Notion brain ready: %d database(s)", len(S.DATABASES))
     return dict(cached)
-
 
 def reset_databases(
     hermes_home: str | Path,
@@ -219,7 +217,6 @@ def reset_databases(
         ensure_brain(hermes_home)
     return reset
 
-
 def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bool:
     actual = db.get("properties") or {}
     for name, spec in expected.items():
@@ -235,7 +232,6 @@ def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bo
             if {o.get("name") for o in actual_opts} != {o.get("name") for o in expected_opts}:
                 return False
     return True
-
 
 def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
     """Print Notion URL(s) for the parent page and (optionally) every DB.
@@ -262,14 +258,13 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
                 continue
             try:
                 d = store.get_database(db_id)
-                url = d.get("url") or ""
+                url = d.get("url", "")
                 title = (d.get("title") or [{}])[0].get("plain_text", key)
                 if url:
                     lines.append(f"{title}\t{url}")
             except Exception as exc:
                 logger.debug("Could not fetch database %s: %s", db_id, exc)
     return "\n".join(lines)
-
 
 def health_report(hermes_home: str | Path) -> str:
     """One-line-per-DB summary: schema match, entry count, last entry, latest sync."""
@@ -293,7 +288,7 @@ def health_report(hermes_home: str | Path) -> str:
             db = store.get_database(db_id)
             match = _database_schema_matches(db, _PROPS[key])
             schema = "schema=ok" if match else "schema=MISMATCH"
-            entries = store.query_database(db_id, page_size=100, sorts=[{"timestamp": "created_time", "direction": "descending"}])
+            entries = store.query_database(db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}])
             count = len(entries)
             last = entries[0].get("created_time", "")[:19] if entries else "(empty)"
             url = db.get("url", "")
@@ -301,7 +296,6 @@ def health_report(hermes_home: str | Path) -> str:
         except Exception as exc:
             lines.append(f"  {key:<10}  ERROR: {exc}")
     return "\n".join(lines)
-
 
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
     """Add any properties that are missing from an existing Notion database.
@@ -319,11 +313,10 @@ def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> Non
         return
     try:
         store.update_database(db["id"], missing)
-        logger.info("Repaired '%s' database: added %d missing prop(s) (%s)",
+        logger.info("Repaired '%s' database schema: added %d missing prop(s) (%s)",
                     key, len(missing), ", ".join(missing))
     except Exception as exc:
         logger.warning("Could not repair '%s' database schema: %s", key, exc)
-
 
 def _load_cache(path: Path) -> dict[str, str]:
     try:
@@ -333,14 +326,12 @@ def _load_cache(path: Path) -> dict[str, str]:
         logger.debug("Failed to read cache: %s", exc)
     return {}
 
-
 def _save_cache(path: Path, data: dict[str, str]) -> None:
     try:
         os.makedirs(path.parent, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
     except Exception as exc:
         logger.warning("Failed to write cache: %s", exc)
-
 
 def _find_or_create_parent(title: str) -> str:
     existing = store.search_page_by_title(title, object_type="page")
@@ -363,22 +354,22 @@ def _find_or_create_parent(title: str) -> str:
     logger.info("Created parent page '%s': %s", title, page_id)
     return page_id
 
-
 def _workspace_root_or_fail() -> str:
     """Pick the parent page for the Hermes Brain page.
 
     Resolution order:
       1. ``HERMES_NOTION_PARENT_PAGE`` env var (UUID/ID of any page).
-      2. Notion search for existing pages — pick the first result.
+      2. Search for existing "Hermes Brain" page by exact title.
       3. Raise with a message to create a parent page manually.
     """
     env = os.environ.get("HERMES_NOTION_PARENT_PAGE", "").strip()
     if env:
         return env
+    # Search for existing Hermes Brain page by exact title
     try:
-        results = store.search_entries("", page_size=1)
-        if results:
-            return results[0]["id"]
+        existing = store.search_page_by_title("Hermes Brain", object_type="page")
+        if existing:
+            return existing["id"]
     except Exception:
         pass
     raise RuntimeError(
@@ -388,7 +379,6 @@ def _workspace_root_or_fail() -> str:
         "notion_brain integration to a page first so search can see it."
     )
 
-
 def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, Any]) -> str:
     existing = store.search_page_by_title(title, object_type="database")
     if existing:
@@ -397,53 +387,64 @@ def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, A
     logger.info("Created database '%s': %s", title, db["id"])
     return db["id"]
 
-
-def import_memory_files(hermes_home: str | Path, cache: dict[str, str]) -> int:
-    memories_dir = Path(hermes_home) / "memories"
-    imported = 0
-    for fname in ("MEMORY.md", "USER.md"):
-        fpath = memories_dir / fname
-        if not fpath.exists():
-            continue
-        content = fpath.read_text(encoding="utf-8").strip()
-        if not content:
-            continue
-        domain = "entities" if fname == "USER.md" else "memory"
-        _write_entry(cache, domain, f"Imported: {fname}", content,
-                     kind="note", status="active", confidence="medium",
-                     tags=["imported", fname.lower().replace(".md", "")])
-        imported += 1
-    return imported
-
-
-def _write_entry(cache: dict[str, str], domain: str, title: str,
-                 content: str, **props: Any) -> None:
-    db_key = f"db_{S.database_for_domain(domain)}"
-    db_id = cache.get(db_key)
-    if not db_id:
-        logger.warning("No database for domain '%s'", domain)
-        return
-    store.create_database_page(
-        database_id=db_id,
-        properties={
-            "title": store.title_property(title),
-            "Domain": store.select_property(S.DOMAINS.get(domain, "Memory")),
-            "Status": store.status_property(props.get("status", "active")),
-            "Tags": store.multi_select_property(props.get("tags", [])),
-            "Confidence": store.select_property(props.get("confidence", "medium")),
-        },
-    )
-
-
 def read_memory_from_disk(hermes_home: str | Path) -> str:
     fpath = Path(hermes_home) / "memories" / "MEMORY.md"
     if fpath.exists():
         return fpath.read_text(encoding="utf-8")
     return ""
 
-
 def read_user_from_disk(hermes_home: str | Path) -> str:
     fpath = Path(hermes_home) / "memories" / "USER.md"
     if fpath.exists():
         return fpath.read_text(encoding="utf-8")
     return ""
+
+def write_memory_to_disk(hermes_home: str | Path, entries: list[dict[str, Any]]) -> None:
+    """Rebuild MEMORY.md from a list of entries.
+
+    Entries should be flattened results from Notion.
+    """
+    memories_dir = Path(hermes_home) / "memories"
+    memories_dir.mkdir(parents=True, exist_ok=True)
+    fpath = memories_dir / "MEMORY.md"
+
+    lines = ["# Memory\n"]
+    for e in entries:
+        title = e.get("title", "Untitled")
+        props = e.get("properties", {})
+        domain = props.get("Domain", "Memory")
+        kind = props.get("Kind", "note")
+        tags = props.get("Tags", [])
+        # Defensive: tolerate str, None items, or non-list shapes from Notion
+        if not isinstance(tags, list):
+            tags = [tags] if tags else []
+        tags = [str(t) for t in tags if t]
+        content = props.get("Content", "") or title
+
+        # Simple frontmatter-like block for each entry
+        lines.append("---")
+        lines.append(f"name: {title}")
+        lines.append(f"domain: {domain}")
+        lines.append(f"kind: {kind}")
+        lines.append(f"tags: {', '.join(tags)}")
+        lines.append("---")
+        lines.append(f"{content}\n")
+
+    fpath.write_text("\n".join(lines), encoding="utf-8")
+
+def write_user_to_disk(hermes_home: str | Path, entries: list[dict[str, Any]]) -> None:
+    """Rebuild USER.md from a list of entries (usually entities with Kind=preference)."""
+    memories_dir = Path(hermes_home) / "memories"
+    memories_dir.mkdir(parents=True, exist_ok=True)
+    fpath = memories_dir / "USER.md"
+
+    lines = ["# User Profile\n"]
+    for e in entries:
+        title = e.get("title", "User Preference")
+        props = e.get("properties", {})
+        content = props.get("Content", "") or title
+
+        lines.append(f"## {title}")
+        lines.append(f"{content}\n")
+
+    fpath.write_text("\n".join(lines), encoding="utf-8")
