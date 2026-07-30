@@ -5,25 +5,33 @@ from __future__ import annotations
 # We must set up sys.path so relative imports resolve
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from notion_brain.extract import classify_turn, _rev_sentence_boundary, _fwd_sentence_boundary
+from notion_brain.extract import (
+    _fwd_sentence_boundary,
+    _rev_sentence_boundary,
+    classify_turn,
+    _brief_title,
+    _find_platform,
+    _extract_sentence,
+)
+import re
 from notion_brain.schema import (
-    normalize_domain,
+    CONFIDENCES,
+    DATABASES,
+    DOMAIN_DATABASE,
+    DOMAINS,
+    STATUSES,
+    BrainEntry,
+    clean_title,
+    compact,
     database_for_domain,
     dedupe_strings,
     keyword_tokens,
+    normalize_domain,
     redact_secrets,
-    compact,
-    clean_title,
-    BrainEntry,
-    CONFIDENCES,
-    STATUSES,
-    DOMAINS,
-    DATABASES,
-    DOMAIN_DATABASE,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -340,6 +348,11 @@ class TestSchema:
         result = redact_secrets(text)
         assert "mysecret123" not in result
 
+    def test_redact_secrets_quoted_pattern(self):
+        text = 'api_key="mysecret123"'
+        result = redact_secrets(text)
+        assert "mysecret123" not in result
+
     def test_compact_truncation(self):
         long = "word " * 200
         result = compact(long, limit=100)
@@ -395,3 +408,48 @@ class TestDatabaseMapping:
         # entities should not be aliased to projects
         assert normalize_domain("entities") == "entities"
         assert normalize_domain("preferences") != "entities"
+
+
+# ---------------------------------------------------------------------------
+# Internal extract helpers
+# ---------------------------------------------------------------------------
+
+class TestBriefTitle:
+    def test_truncates_to_80(self):
+        assert len(_brief_title("x" * 200, "Fallback")) == 80
+
+    def test_short_stays(self):
+        assert _brief_title("Short title", "Fallback") == "Short title"
+
+    def test_fallback_on_empty(self):
+        assert _brief_title("", "Fallback") == "Fallback"
+
+
+class TestFindPlatform:
+    def test_detects_twitter(self):
+        assert _find_platform("Post this on twitter") == "twitter"
+
+    def test_detects_linkedin(self):
+        assert _find_platform("Draft a LinkedIn post") == "linkedin"
+
+    def test_returns_none_when_missing(self):
+        assert _find_platform("just some text") is None
+
+    def test_handles_none(self):
+        assert _find_platform(None) is None
+
+
+class TestExtractSentence:
+    def test_finds_sentence_around_trigger(self):
+        text = "We had a meeting. I need to ship the API by Friday. Then we moved on."
+        pattern = re.compile(r"ship\s")
+        result = _extract_sentence(text, pattern)
+        assert "ship" in result
+        assert "API" in result
+
+    def test_skips_too_short_candidates(self):
+        text = "Ship it. We decided to migrate to PostgreSQL for all new services."
+        pattern = re.compile(r"ship", re.IGNORECASE)
+        result = _extract_sentence(text, pattern)
+        # skip "Ship it." (too short), pick longer match
+        assert "PostgreSQL" in result

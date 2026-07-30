@@ -7,7 +7,8 @@ import os
 import sys
 from pathlib import Path
 
-from . import bootstrap, schema as S
+from . import bootstrap
+from . import schema as S
 
 
 def main(argv: list[str] | None = None) -> int:

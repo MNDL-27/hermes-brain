@@ -34,3 +34,18 @@ def test_database_schema_mismatch_detects_zombie_status_options():
     db = _notion_db_from_expected(bootstrap._PROPS["memory"])
     db["properties"]["Status"]["status"]["options"].append({"name": "Not started"})
     assert not bootstrap._database_schema_matches(db, bootstrap._PROPS["memory"])
+
+
+def test_database_schema_mismatch_detects_missing_property():
+    db = _notion_db_from_expected(bootstrap._PROPS["memory"])
+    # remove a required property
+    del db["properties"]["Status"]
+    assert not bootstrap._database_schema_matches(db, bootstrap._PROPS["memory"])
+
+
+def test_database_schema_mismatch_detects_wrong_type():
+    db = _notion_db_from_expected(bootstrap._PROPS["memory"])
+    # change type from 'status' to 'select'
+    db["properties"]["Status"] = {"type": "select", "select": {}}
+    assert not bootstrap._database_schema_matches(db, bootstrap._PROPS["memory"])
+
