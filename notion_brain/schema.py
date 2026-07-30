@@ -52,7 +52,7 @@ _SECRET_PATTERNS = [
     re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |)PRIVATE KEY-----"),
     re.compile(r"\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\b"),
     re.compile(r"://[^\s:@/]*:[^\s:@/]*@[^\s/]+"),
-    re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s`'\"]+"),
+    re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*(?:[\"\'`][^\"\'`\r\n]+[\"\'`]|[^\s\"\'`]+)"),
 ]
 
 
@@ -71,7 +71,7 @@ class BrainEntry:
     source_session_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def normalized(self) -> "BrainEntry":
+    def normalized(self) -> BrainEntry:
         domain = normalize_domain(self.domain)
         status = self.status if self.status in STATUSES else "active"
         confidence = self.confidence if self.confidence in CONFIDENCES else "medium"

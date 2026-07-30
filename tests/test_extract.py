@@ -5,26 +5,33 @@ from __future__ import annotations
 # We must set up sys.path so relative imports resolve
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from notion_brain.extract import classify_turn, _rev_sentence_boundary, _fwd_sentence_boundary, _brief_title, _find_platform, _extract_sentence
+from notion_brain.extract import (
+    _fwd_sentence_boundary,
+    _rev_sentence_boundary,
+    classify_turn,
+    _brief_title,
+    _find_platform,
+    _extract_sentence,
+)
 import re
 from notion_brain.schema import (
-    normalize_domain,
+    CONFIDENCES,
+    DATABASES,
+    DOMAIN_DATABASE,
+    DOMAINS,
+    STATUSES,
+    BrainEntry,
+    clean_title,
+    compact,
     database_for_domain,
     dedupe_strings,
     keyword_tokens,
+    normalize_domain,
     redact_secrets,
-    compact,
-    clean_title,
-    BrainEntry,
-    CONFIDENCES,
-    STATUSES,
-    DOMAINS,
-    DATABASES,
-    DOMAIN_DATABASE,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -338,6 +345,11 @@ class TestSchema:
 
     def test_redact_secrets_generic_pattern(self):
         text = "api_key=mysecret123"
+        result = redact_secrets(text)
+        assert "mysecret123" not in result
+
+    def test_redact_secrets_quoted_pattern(self):
+        text = 'api_key="mysecret123"'
         result = redact_secrets(text)
         assert "mysecret123" not in result
 
