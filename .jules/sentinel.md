@@ -1,3 +1,8 @@
+## 2026-08-01 - Bypassing Sanitization via Direct Tool Calls
+**Vulnerability:** The `notion_brain` application has a central `redact_secrets` mechanism applied in background data processing, but the explicit `notion_brain_task`, `notion_brain_content`, and `notion_brain_research` tools handled direct user input directly and bypassed this central sanitization. The `clean_title` and `dedupe_strings` (for tags) did not sanitize content. Consequently, API keys, tokens, and secrets could leak to the Notion database if a user explicitly passed them in.
+**Learning:** Security controls applied only to the "primary" or "passive" path (like automated scraping/sync) are insufficient. Every boundary/entry point (like specific explicit CLI tools or command handlers) needs to defensively ensure inputs are sanitized.
+**Prevention:** Apply input sanitization directly at the system boundary for all entry paths. Modify shared primitives (`clean_title`, `dedupe_strings`) to include standard sanitization (`redact_secrets`) where possible to prevent gaps.
+
 ## 2025-02-13 - [Fix Quoted Secret Redaction Regex]
 **Vulnerability:** The secret redaction regex `(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s`'\"]+` failed to redact secrets enclosed in quotes (e.g., `api_key="my_secret"`).
 **Learning:** Regex for token extraction needs to explicitly capture optionally quoted values to prevent evasion. Simply excluding quotes from the trailing part causes it to fail to match entirely when quotes are present.
