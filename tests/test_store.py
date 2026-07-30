@@ -27,12 +27,13 @@ class TestDateProperty:
         prop = date_property("2026-07-22")
         assert prop["date"]["start"] == "2026-07-22"
 
-    def test_none_returns_null(self):
-        assert date_property(None) == {"date": None}
+    def test_none_returns_empty_date(self):
+        # Notion rejects {"date": None}; the documented absence shape is {"date": {}}.
+        assert date_property(None) == {"date": {}}
 
-    def test_empty_string_still_set(self):
-        # non-None empty string is falsy? No — "" is falsy, so date=None
-        assert date_property("") == {"date": None}
+    def test_empty_string_still_empty(self):
+        # empty string is falsy, so we still emit the empty-date shape.
+        assert date_property("") == {"date": {}}
 
 
 class TestNumberProperty:
