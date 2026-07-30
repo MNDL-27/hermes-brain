@@ -7,9 +7,9 @@ for mod_name in ['agent', 'agent.memory_manager', 'agent.memory_provider', 'tool
     if mod_name not in sys.modules:
         mod = types.ModuleType(mod_name)
         if mod_name == 'agent.memory_manager':
-            mod.sanitize_context = lambda x: x
+            setattr(mod, 'sanitize_context', lambda x: x)
         elif mod_name == 'agent.memory_provider':
-            mod.MemoryProvider = type('MemoryProvider', (), {})
+            setattr(mod, 'MemoryProvider', type('MemoryProvider', (), {}))
         elif mod_name == 'tools.registry':
-            mod.tool_error = lambda x: 'error: ' + str(x)
+            setattr(mod, 'tool_error', lambda x: 'error: ' + str(x))
         sys.modules[mod_name] = mod
