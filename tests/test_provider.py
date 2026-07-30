@@ -144,7 +144,60 @@ class TestToolDispatch:
             result = provider.handle_tool_call("notion_brain_task", {"action": "list"})
             data = json.loads(result)
             assert "result" in data
-            assert len(data.get("items", [])) == 1
+            assert "Task 1" in data["result"]
+
+    def test_task_update_rejects_unknown_status(self):
+        """Status updates must validate against the DB's option set, not guess."""
+        provider = self._make_initialized_provider()
+        # Tasks DB schema only allows active/done/needs_review
+        with patch("notion_brain.store.get_database") as mock_get:
+            mock_get.return_value = {
+                "properties": {
+                    "Status": {
+                        "status": {
+                            "options": [
+                                {"name": "active"},
+                                {"name": "done"},
+                                {"name": "needs_review"},
+                            ]
+                        }
+                    }
+                }
+            }
+            with patch("notion_brain.store.update_page") as mock_update:
+                result = provider.handle_tool_call(
+                    "notion_brain_task",
+                    {"action": "update", "page_id": "page-1", "status": "draft"},
+                )
+                data = json.loads(result)
+                assert "Error" in data["result"], data
+                assert "draft" in data["result"]
+                assert "active" in data["result"]
+                mock_update.assert_not_called()
+
+    def test_task_update_accepts_known_status(self):
+        provider = self._make_initialized_provider()
+        with patch("notion_brain.store.get_database") as mock_get:
+            mock_get.return_value = {
+                "properties": {
+                    "Status": {
+                        "status": {
+                            "options": [{"name": "active"}, {"name": "done"}, {"name": "needs_review"}]
+                        }
+                    }
+                }
+            }
+            with patch("notion_brain.store.update_page") as mock_update:
+                mock_update.return_value = {"id": "page-1"}
+                result = provider.handle_tool_call(
+                    "notion_brain_task",
+                    {"action": "complete", "page_id": "page-1"},
+                )
+                data = json.loads(result)
+                assert "Task completed" in data["result"]
+                # Status payload was written with a valid option name.
+                args = mock_update.call_args.args
+                assert args[1]["Status"]["status"]["name"] == "done"
 
     def test_content_create(self):
         provider = self._make_initialized_provider()
@@ -168,7 +221,97 @@ class TestToolDispatch:
 
 
 # ---------------------------------------------------------------------------
-# Domain mapping consistency
+# Merge helpers for disk-only entries
+# ---------------------------------------------------------------------------
+
+class TestMergeDiskOnly:
+    """Tests for _merge_disk_only and _merge_user_disk_only."""
+
+    # --- MEMORY.md format (_merge_disk_only) ---
+    # Blocks separated by ---, each with name: / domain: / kind: / tags: lines
+
+    def test_merge_disk_only_no_disk_text(self):
+        from notion_brain import _merge_disk_only
+        entries = [{"title": "Foo", "properties": {"Content": "bar"}}]
+        result = _merge_disk_only(entries, "")
+        assert result == entries
+
+    def test_merge_disk_only_keeps_new_title(self):
+        from notion_brain import _merge_disk_only
+        notion = [{"title": "Already", "properties": {"Content": "x"}}]
+        disk = "---\nname: New Entry\ndomain: Memory\nkind: note\ntags: a, b\n---\nSome body text\n"
+        result = _merge_disk_only(notion, disk)
+        titles = {e["title"] for e in result}
+        assert "Already" in titles
+        assert "New Entry" in titles
+
+    def test_merge_disk_only_drops_duplicate_title(self):
+        from notion_brain import _merge_disk_only
+        notion = [{"title": "Duplicate", "properties": {"Content": "x"}}]
+        disk = "---\nname: Duplicate\ndomain: Memory\nkind: note\n---\nBody\n"
+        result = _merge_disk_only(notion, disk)
+        assert len(result) == 1
+
+    # --- USER.md format (_merge_user_disk_only) ---
+    # # User Profile\n## Title\ncontent
+
+    USER_DISK_TEXT = (
+        "# User Profile\n"
+        "## Code Style Preference\n"
+        "I prefer functional style, no classes.\n"
+        "## Editing Tools\n"
+        "Use VSCode with Vim keybindings.\n"
+        "## Already In Notion\n"
+        "This should be dropped.\n"
+    )
+
+    def test_merge_user_disk_only_no_disk_text(self):
+        from notion_brain import _merge_user_disk_only
+        entries = [{"title": "Foo", "properties": {"Content": "bar"}}]
+        result = _merge_user_disk_only(entries, "")
+        assert result == entries
+
+    def test_merge_user_disk_only_parses_sections(self):
+        from notion_brain import _merge_user_disk_only
+        notion = [{"title": "Already In Notion", "properties": {"Content": "from notion", "Kind": "preference"}}]
+        result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
+        titles = {e["title"] for e in result}
+        # "Already In Notion" should be dropped (already in notion entries)
+        assert "Code Style Preference" in titles
+        assert "Editing Tools" in titles
+        assert len(result) == 3  # 1 notion + 2 disk-only
+
+    def test_merge_user_disk_only_content_preserved(self):
+        from notion_brain import _merge_user_disk_only
+        notion: list = []
+        result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
+        code_entry = next(e for e in result if e["title"] == "Code Style Preference")
+        assert "functional style" in code_entry["properties"]["Content"]
+        assert code_entry["properties"]["Kind"] == "preference"
+
+    def test_merge_user_disk_only_empty_user_md(self):
+        from notion_brain import _merge_user_disk_only
+        result = _merge_user_disk_only([], "# User Profile\n")
+        assert result == []
+
+    def test_merge_user_disk_only_all_duplicates(self):
+        from notion_brain import _merge_user_disk_only
+        notion = [
+            {"title": "Code Style Preference", "properties": {"Content": "c"}},
+            {"title": "Editing Tools", "properties": {"Content": "c"}},
+            {"title": "Already In Notion", "properties": {"Content": "c"}},
+        ]
+        result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
+        assert len(result) == 3  # only notion entries
+
+    # --- USER.md without the leading "# User Profile" header ---
+
+    def test_merge_user_disk_only_no_profile_header(self):
+        from notion_brain import _merge_user_disk_only
+        disk = "## Preference One\nBody one.\n\n## Preference Two\nBody two.\n"
+        result = _merge_user_disk_only([], disk)
+        titles = {e["title"] for e in result}
+        assert titles == {"Preference One", "Preference Two"}
 # ---------------------------------------------------------------------------
 
 class TestDomainMapping:
