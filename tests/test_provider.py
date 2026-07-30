@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,14 +12,19 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from notion_brain.schema import (
-    normalize_domain, database_for_domain,
-    DOMAINS, DATABASES, DOMAIN_DATABASE,
+    DATABASES,
+    DOMAIN_DATABASE,
+    DOMAINS,
+    database_for_domain,
+    normalize_domain,
 )
 from notion_brain.store import (
-    title_property, select_property, multi_select_property,
-    status_property, rich_text_property,
+    multi_select_property,
+    rich_text_property,
+    select_property,
+    status_property,
+    title_property,
 )
-
 
 # ---------------------------------------------------------------------------
 # Provider existence and interface
@@ -173,7 +178,7 @@ class TestToolDispatch:
 
 class TestDomainMapping:
     def test_all_domains_have_database(self):
-        for domain_key, display_name in DOMAINS.items():
+        for domain_key in DOMAINS:
             db = database_for_domain(domain_key)
             assert db in DATABASES, f"Domain {domain_key} -> DB {db} unknown"
 
@@ -232,6 +237,7 @@ class TestStoreHelpers:
             assert get_api_key() is None
         with patch.dict(os.environ, {"NOTION_API_KEY": "test-key-123"}):
             from importlib import reload
+
             import notion_brain.store as store_mod
             reload(store_mod)
             assert store_mod.get_api_key() == "test-key-123"
