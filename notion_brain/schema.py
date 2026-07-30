@@ -68,7 +68,7 @@ class BrainEntry:
     source_session_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def normalized(self) -> BrainEntry:
+    def normalized(self) -> "BrainEntry":
         domain = normalize_domain(self.domain)
         status = self.status if self.status in STATUSES else "active"
         confidence = self.confidence if self.confidence in CONFIDENCES else "medium"

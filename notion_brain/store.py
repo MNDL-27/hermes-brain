@@ -204,7 +204,7 @@ def date_property(date_str: str | None) -> dict[str, Any]:
     return {"date": None}
 
 
-def number_property(value: float | None) -> dict[str, Any]:
+def number_property(value: float | int | None) -> dict[str, Any]:
     return {"number": value}
 
 
