@@ -329,6 +329,12 @@ class TestSchema:
         assert "sk-" not in result
         assert "REDACTED_SECRET" in result
 
+    def test_redact_secrets_stripe_pattern(self):
+        text = "key=sk_live_1234567890abcdefghij"
+        result = redact_secrets(text)
+        assert "sk_live_" not in result
+        assert "REDACTED_SECRET" in result
+
     def test_redact_secrets_ntn_pattern(self):
         text = "token: ntn_AbCdEfGhIjKlMnOpQrStUvWxYz12345"
         result = redact_secrets(text)

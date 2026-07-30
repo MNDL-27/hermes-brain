@@ -45,7 +45,7 @@ STATUSES = {"active", "done", "needs_review"}
 CONFIDENCES = {"high", "medium", "low"}
 
 _SECRET_PATTERNS = [
-    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+    re.compile(r"\bsk[_-][A-Za-z0-9_-]{16,}\b"),
     re.compile(r"\bntn_[A-Za-z0-9_-]{20,}\b"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
     re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b"),
