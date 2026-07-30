@@ -12,7 +12,11 @@ from notion_brain.extract import (
     _fwd_sentence_boundary,
     _rev_sentence_boundary,
     classify_turn,
+    _brief_title,
+    _find_platform,
+    _extract_sentence,
 )
+import re
 from notion_brain.schema import (
     CONFIDENCES,
     DATABASES,
@@ -404,3 +408,48 @@ class TestDatabaseMapping:
         # entities should not be aliased to projects
         assert normalize_domain("entities") == "entities"
         assert normalize_domain("preferences") != "entities"
+
+
+# ---------------------------------------------------------------------------
+# Internal extract helpers
+# ---------------------------------------------------------------------------
+
+class TestBriefTitle:
+    def test_truncates_to_80(self):
+        assert len(_brief_title("x" * 200, "Fallback")) == 80
+
+    def test_short_stays(self):
+        assert _brief_title("Short title", "Fallback") == "Short title"
+
+    def test_fallback_on_empty(self):
+        assert _brief_title("", "Fallback") == "Fallback"
+
+
+class TestFindPlatform:
+    def test_detects_twitter(self):
+        assert _find_platform("Post this on twitter") == "twitter"
+
+    def test_detects_linkedin(self):
+        assert _find_platform("Draft a LinkedIn post") == "linkedin"
+
+    def test_returns_none_when_missing(self):
+        assert _find_platform("just some text") is None
+
+    def test_handles_none(self):
+        assert _find_platform(None) is None
+
+
+class TestExtractSentence:
+    def test_finds_sentence_around_trigger(self):
+        text = "We had a meeting. I need to ship the API by Friday. Then we moved on."
+        pattern = re.compile(r"ship\s")
+        result = _extract_sentence(text, pattern)
+        assert "ship" in result
+        assert "API" in result
+
+    def test_skips_too_short_candidates(self):
+        text = "Ship it. We decided to migrate to PostgreSQL for all new services."
+        pattern = re.compile(r"ship", re.IGNORECASE)
+        result = _extract_sentence(text, pattern)
+        # skip "Ship it." (too short), pick longer match
+        assert "PostgreSQL" in result
