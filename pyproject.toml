@@ -7,8 +7,8 @@ name = "hermes-brain"
 version = "1.0.0"
 description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
 readme = "README.md"
-license = { text = "All Rights Reserved" }
-requires-python = ">=3.10"
+license = { text = "MIT" }
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "requests>=2.28",
 ]
@@ -20,7 +20,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
+    "build==1.5.0",
+    "mypy==2.3.0",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.0",
+    "twine==6.2.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -28,3 +33,23 @@ include = ["notion_brain*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["--strict-config", "--strict-markers"]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["notion_brain"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.mypy]
+python_version = "3.11"
+files = ["notion_brain", "tests"]
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unused_configs = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
