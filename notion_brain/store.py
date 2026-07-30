@@ -51,8 +51,12 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                 if attempt < _MAX_RETRIES:
                     time.sleep(_RETRY_DELAY_S * attempt)
                     continue
-            data = resp.json()
-            msg = data.get("message", resp.reason or "unknown error")
+            # Non-retryable error or retries exhausted: parse body safely
+            try:
+                data = resp.json()
+                msg = data.get("message", resp.reason or "unknown error")
+            except requests.exceptions.JSONDecodeError:
+                msg = resp.text[:200] if resp.text else resp.reason or "unknown error"
             raise RuntimeError(f"Notion API {resp.status_code} on {method} {path}: {msg}")
         except requests.Timeout:
             if attempt < _MAX_RETRIES:
@@ -162,18 +166,6 @@ def archive_database(database_id: str) -> dict[str, Any]:
     return _request("PATCH", f"/databases/{database_id}", {"archived": True})
 
 
-# ─── Blocks (page content) ──────────────────────────────────────────────
-
-
-def get_block_children(block_id: str, page_size: int = 100) -> list[dict[str, Any]]:
-    data = _request("GET", f"/blocks/{block_id}/children?page_size={page_size}")
-    return data.get("results") or []
-
-
-def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]:
-    return _request("PATCH", f"/blocks/{block_id}/children", {"children": children})
-
-
 # ─── Rich text / property helpers ────────────────────────────────────────
 
 
@@ -199,9 +191,15 @@ def multi_select_property(names: list[str]) -> dict[str, Any]:
 
 
 def date_property(date_str: str | None) -> dict[str, Any]:
+    """Build a Notion date property payload.
+
+    Returns a payload with an empty ``date`` object (Notion's documented
+    "no value" shape) rather than ``{"date": null}``, which the API rejects.
+    Callers that want to omit the property entirely should do so themselves.
+    """
     if date_str:
         return {"date": {"start": date_str}}
-    return {"date": None}
+    return {"date": {}}
 
 
 def number_property(value: float | None) -> dict[str, Any]:
