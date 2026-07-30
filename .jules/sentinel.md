@@ -6,4 +6,9 @@
 ## 2025-02-13 - [Fix Quoted Secret Redaction Regex]
 **Vulnerability:** The secret redaction regex `(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s`'\"]+` failed to redact secrets enclosed in quotes (e.g., `api_key="my_secret"`).
 **Learning:** Regex for token extraction needs to explicitly capture optionally quoted values to prevent evasion. Simply excluding quotes from the trailing part causes it to fail to match entirely when quotes are present.
-**Prevention:** Use a regex pattern that explicitly handles quoted strings (e.g., `(?:[\"\'`][^\"\'`\r\n]+[\"\'`]|[^\s\"\'`]+)`) for generic secret matching.
+**Prevention:** Use a regex pattern that explicitly handles quoted strings (e.g., `(?:[\"\'`][^\"\'`\r\n]+[\"\'`]|[^\s\"\'`])`) for generic secret matching.
+
+## 2024-05-27 - Security Fix: Secret Redaction Coverage Leak
+**Vulnerability:** API keys and sensitive tokens could be leaked to external services via the Notion integration. The redaction function `redact_secrets()` was originally only applied to the content body of the `BrainEntry` in `notion_brain/schema.py`. It missed properties like `title`, `tags`, and `entities`. Also, explicit tool calls bypassed `BrainEntry.normalized()` and generated Notion API JSON dictionaries directly, which didn't redact anything natively.
+**Learning:** Redaction must be applied defensively and as close to the external API boundary (serialization step) as possible. If multiple layers can construct output payloads, each layer or the lowest common layer must apply the redaction. Relying on an intermediate normalization function (`BrainEntry.normalized()`) is unsafe when other code paths bypass it.
+**Prevention:** Integrate secret redaction directly into output helper/formatting functions (e.g., `_rich_text`, `select_property`, `multi_select_property` in `notion_brain/store.py`). Always ensure all fields holding arbitrary string input, including metadata fields like titles and tags, are verified or redacted.

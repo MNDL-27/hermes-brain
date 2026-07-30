@@ -212,7 +212,7 @@ def reset_databases(
                 store.archive_database(db_id)
                 cached.pop(f"db_{key}", None)
     if reset and not dry_run:
-        cached["schema_version"] = SCHEMA_VERSION
+        cached["schema_version"] = str(SCHEMA_VERSION)
         _save_cache(cache_path, cached)
         ensure_brain(hermes_home)
     return reset
