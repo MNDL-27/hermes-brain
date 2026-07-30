@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import urllib.parse
 from typing import Any
 
 import requests
@@ -68,6 +69,14 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                 time.sleep(_RETRY_DELAY_S * attempt)
                 continue
             raise RuntimeError(f"Notion API connection error on {method} {path}")
+    raise RuntimeError(f"Notion API {method} {path} failed after {_MAX_RETRIES} retries")
+
+
+def _request_dict(method: str, path: str, json_body: dict | None = None) -> dict[str, Any]:
+    res = _request(method, path, json_body)
+    if not isinstance(res, dict):
+        raise RuntimeError(f"Expected dict from Notion API {method} {path}, got {type(res).__name__}")
+    return res
 
 
 # ─── Search ──────────────────────────────────────────────────────────────
@@ -76,7 +85,7 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
 def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any] | None:
     """Find the first page whose title matches exactly (case-insensitive)."""
     body: dict[str, Any] = {"query": title, "filter": {"value": object_type, "property": "object"}}
-    data = _request("POST", "/search", body)
+    data = _request_dict("POST", "/search", body)
     for result in data.get("results", []):
         obj_type = result.get("object")
         if object_type and obj_type != object_type:
@@ -90,7 +99,7 @@ def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any
 def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
     """Search Notion and return results with extracted metadata."""
     body: dict[str, Any] = {"query": query, "page_size": min(page_size, 100)}
-    data = _request("POST", "/search", body)
+    data = _request_dict("POST", "/search", body)
     return [_flatten_result(r) for r in (data.get("results") or [])]
 
 
@@ -103,7 +112,7 @@ def query_database(database_id: str, *, page_size: int = 100,
         body["sorts"] = sorts
     if filter_obj:
         body["filter"] = filter_obj
-    data = _request("POST", f"/databases/{database_id}/query", body)
+    data = _request_dict("POST", f"/databases/{urllib.parse.quote(database_id, safe='')}/query", body)
     return [_flatten_result(r) for r in (data.get("results") or [])]
 
 
@@ -118,7 +127,7 @@ def create_page(parent_page_id: str, properties: dict[str, Any],
     }
     if children:
         body["children"] = children
-    return _request("POST", "/pages", body)
+    return _request_dict("POST", "/pages", body)
 
 
 def create_database_page(database_id: str, properties: dict[str, Any],
@@ -129,15 +138,15 @@ def create_database_page(database_id: str, properties: dict[str, Any],
     }
     if children:
         body["children"] = children
-    return _request("POST", "/pages", body)
+    return _request_dict("POST", "/pages", body)
 
 
 def update_page(page_id: str, properties: dict[str, Any]) -> dict[str, Any]:
-    return _request("PATCH", f"/pages/{page_id}", {"properties": properties})
+    return _request_dict("PATCH", f"/pages/{urllib.parse.quote(page_id, safe='')}", {"properties": properties})
 
 
 def get_page(page_id: str) -> dict[str, Any]:
-    return _request("GET", f"/pages/{page_id}")
+    return _request_dict("GET", f"/pages/{urllib.parse.quote(page_id, safe='')}")
 
 
 # ─── Databases ───────────────────────────────────────────────────────────
@@ -150,20 +159,32 @@ def create_database(parent_page_id: str, title: str,
         "title": _rich_text(title),
         "properties": properties,
     }
-    return _request("POST", "/databases", body)
+    return _request_dict("POST", "/databases", body)
 
 
 def get_database(database_id: str) -> dict[str, Any]:
-    return _request("GET", f"/databases/{database_id}")
+    return _request_dict("GET", f"/databases/{urllib.parse.quote(database_id, safe='')}")
 
 
 def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, Any]:
-    return _request("PATCH", f"/databases/{database_id}", {"properties": properties})
+    return _request_dict("PATCH", f"/databases/{urllib.parse.quote(database_id, safe='')}", {"properties": properties})
 
 
 def archive_database(database_id: str) -> dict[str, Any]:
     """Archive (soft-delete) a database. Call before recreate to drop zombie options."""
-    return _request("PATCH", f"/databases/{database_id}", {"archived": True})
+    return _request_dict("PATCH", f"/databases/{urllib.parse.quote(database_id, safe='')}", {"archived": True})
+
+
+# ─── Blocks (page content) ──────────────────────────────────────────────
+
+
+def get_block_children(block_id: str, page_size: int = 100) -> list[dict[str, Any]]:
+    data = _request_dict("GET", f"/blocks/{urllib.parse.quote(block_id, safe='')}/children?page_size={page_size}")
+    return data.get("results") or []
+
+
+def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]:
+    return _request_dict("PATCH", f"/blocks/{urllib.parse.quote(block_id, safe='')}/children", {"children": children})
 
 
 # ─── Rich text / property helpers ────────────────────────────────────────
