@@ -740,7 +740,7 @@ class NotionBrainProvider(_MemoryProvider):
                 props = {
                     "title": store.title_property(title),
                     "Status": self._status_property(self._database_properties(db_id), args.get("status", "active")),
-                    "Tags": store.multi_select_property(args.get("tags", [])),
+                    "Tags": store.multi_select_property(S.dedupe_strings(args.get("tags", []))),
                 }
                 priority = args.get("priority", "")
                 if priority:
@@ -829,7 +829,7 @@ class NotionBrainProvider(_MemoryProvider):
             props = {
                 "title": store.title_property(title),
                 "Status": store.select_property(args.get("status", "draft")),
-                "Tags": store.multi_select_property(args.get("tags", [])),
+                "Tags": store.multi_select_property(S.dedupe_strings(args.get("tags", []))),
             }
             platform = args.get("platform", "")
             if platform:
@@ -886,7 +886,7 @@ class NotionBrainProvider(_MemoryProvider):
                 props = {
                     "title": store.title_property(title),
                     "Status": self._status_property(self._database_properties(db_id), args.get("status", "active")),
-                    "Tags": store.multi_select_property(args.get("tags", [])),
+                    "Tags": store.multi_select_property(S.dedupe_strings(args.get("tags", []))),
                 }
                 children = []
                 if content:

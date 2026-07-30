@@ -166,6 +166,84 @@ class TestToolDispatch:
             data = json.loads(result)
             assert "result" in data
 
+    def test_direct_tools_redact_secrets(self):
+        provider = self._make_initialized_provider()
+        secret = "sk-A1B2C3D4E5F6G7H8"
+        redacted = "[REDACTED_SECRET]"
+
+        # 1. Test notion_brain_task redacts secrets in title, project, and tags
+        with patch("notion_brain.store.create_database_page") as mock_create:
+            mock_create.return_value = {"id": "task-page-secret"}
+            provider.handle_tool_call("notion_brain_task", {
+                "action": "create",
+                "title": f"Fix key {secret}",
+                "project": f"Project for {secret}",
+                "tags": [f"tag-{secret}", "safe-tag"],
+            })
+            args, kwargs = mock_create.call_args
+            properties = kwargs["properties"]
+            assert secret not in properties["title"]["title"][0]["text"]["content"]
+            assert redacted in properties["title"]["title"][0]["text"]["content"]
+            assert secret not in properties["Project"]["rich_text"][0]["text"]["content"]
+            assert redacted in properties["Project"]["rich_text"][0]["text"]["content"]
+            tag_names = [t["name"] for t in properties["Tags"]["multi_select"]]
+            assert f"tag-{secret}" not in tag_names
+            assert f"tag-{redacted}" in tag_names
+            assert "safe-tag" in tag_names
+
+        # 2. Test notion_brain_content redacts secrets in title, body, and tags
+        with patch("notion_brain.store.create_database_page") as mock_create:
+            mock_create.return_value = {"id": "content-page-secret"}
+            provider.handle_tool_call("notion_brain_content", {
+                "action": "create",
+                "title": f"Idea {secret}",
+                "body": f"Post my secret: {secret}",
+                "tags": [secret],
+            })
+            args, kwargs = mock_create.call_args
+            properties = kwargs["properties"]
+            children = kwargs["children"]
+            assert secret not in properties["title"]["title"][0]["text"]["content"]
+            assert redacted in properties["title"]["title"][0]["text"]["content"]
+            assert secret not in children[0]["paragraph"]["rich_text"][0]["text"]["content"]
+            assert redacted in children[0]["paragraph"]["rich_text"][0]["text"]["content"]
+            tag_names = [t["name"] for t in properties["Tags"]["multi_select"]]
+            assert secret not in tag_names
+            assert redacted in tag_names
+
+        # 3. Test notion_brain_research redacts secrets in title, content, and tags
+        with patch("notion_brain.store.create_database_page") as mock_create:
+            mock_create.return_value = {"id": "research-page-secret"}
+            provider.handle_tool_call("notion_brain_research", {
+                "action": "save",
+                "title": f"Research on {secret}",
+                "content": f"Confidential {secret}",
+                "tags": [f"tag-{secret}"],
+            })
+            args, kwargs = mock_create.call_args
+            properties = kwargs["properties"]
+            children = kwargs["children"]
+            assert secret not in properties["title"]["title"][0]["text"]["content"]
+            assert redacted in properties["title"]["title"][0]["text"]["content"]
+            assert secret not in children[0]["paragraph"]["rich_text"][0]["text"]["content"]
+            assert redacted in children[0]["paragraph"]["rich_text"][0]["text"]["content"]
+            tag_names = [t["name"] for t in properties["Tags"]["multi_select"]]
+            assert f"tag-{secret}" not in tag_names
+            assert f"tag-{redacted}" in tag_names
+
+        # 4. Test notion_brain_task update action redacts projects
+        with patch("notion_brain.store.update_page") as mock_update:
+            mock_update.return_value = {"id": "task-page-secret"}
+            provider.handle_tool_call("notion_brain_task", {
+                "action": "update",
+                "page_id": "task-page-secret",
+                "project": f"New project {secret}",
+            })
+            args, kwargs = mock_update.call_args
+            properties = args[1]
+            assert secret not in properties["Project"]["rich_text"][0]["text"]["content"]
+            assert redacted in properties["Project"]["rich_text"][0]["text"]["content"]
+
 
 # ---------------------------------------------------------------------------
 # Domain mapping consistency
