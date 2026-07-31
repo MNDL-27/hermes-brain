@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import urllib.parse
 from typing import Any
 
 import requests
@@ -103,12 +104,13 @@ def query_database(database_id: str, *, page_size: int = 100,
                    sorts: list[dict] | None = None,
                    filter_obj: dict | None = None) -> list[dict[str, Any]]:
     """Query a Notion database and return flat results."""
+    safe_db_id = urllib.parse.quote(database_id, safe="")
     body: dict[str, Any] = {"page_size": min(page_size, 100)}
     if sorts:
         body["sorts"] = sorts
     if filter_obj:
         body["filter"] = filter_obj
-    data = _request("POST", f"/databases/{database_id}/query", body)
+    data = _request("POST", f"/databases/{safe_db_id}/query", body)
     if not isinstance(data, dict):
         return []
     return [_flatten_result(r) for r in (data.get("results") or [])]
@@ -144,13 +146,15 @@ def create_database_page(database_id: str, properties: dict[str, Any],
 
 
 def update_page(page_id: str, properties: dict[str, Any]) -> dict[str, Any]:
-    result = _request("PATCH", f"/pages/{page_id}", {"properties": properties})
+    safe_page_id = urllib.parse.quote(page_id, safe="")
+    result = _request("PATCH", f"/pages/{safe_page_id}", {"properties": properties})
     assert isinstance(result, dict)
     return result
 
 
 def get_page(page_id: str) -> dict[str, Any]:
-    result = _request("GET", f"/pages/{page_id}")
+    safe_page_id = urllib.parse.quote(page_id, safe="")
+    result = _request("GET", f"/pages/{safe_page_id}")
     assert isinstance(result, dict)
     return result
 
@@ -171,20 +175,23 @@ def create_database(parent_page_id: str, title: str,
 
 
 def get_database(database_id: str) -> dict[str, Any]:
-    result = _request("GET", f"/databases/{database_id}")
+    safe_db_id = urllib.parse.quote(database_id, safe="")
+    result = _request("GET", f"/databases/{safe_db_id}")
     assert isinstance(result, dict)
     return result
 
 
 def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, Any]:
-    result = _request("PATCH", f"/databases/{database_id}", {"properties": properties})
+    safe_db_id = urllib.parse.quote(database_id, safe="")
+    result = _request("PATCH", f"/databases/{safe_db_id}", {"properties": properties})
     assert isinstance(result, dict)
     return result
 
 
 def archive_database(database_id: str) -> dict[str, Any]:
     """Archive (soft-delete) a database. Call before recreate to drop zombie options."""
-    result = _request("PATCH", f"/databases/{database_id}", {"archived": True})
+    safe_db_id = urllib.parse.quote(database_id, safe="")
+    result = _request("PATCH", f"/databases/{safe_db_id}", {"archived": True})
     assert isinstance(result, dict)
     return result
 
@@ -193,14 +200,16 @@ def archive_database(database_id: str) -> dict[str, Any]:
 
 
 def get_block_children(block_id: str, page_size: int = 100) -> list[dict[str, Any]]:
-    data = _request("GET", f"/blocks/{block_id}/children?page_size={page_size}")
+    safe_block_id = urllib.parse.quote(block_id, safe="")
+    data = _request("GET", f"/blocks/{safe_block_id}/children?page_size={page_size}")
     if not isinstance(data, dict):
         return []
     return data.get("results") or []
 
 
 def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]:
-    result = _request("PATCH", f"/blocks/{block_id}/children", {"children": children})
+    safe_block_id = urllib.parse.quote(block_id, safe="")
+    result = _request("PATCH", f"/blocks/{safe_block_id}/children", {"children": children})
     assert isinstance(result, dict)
     return result
 # ─── Rich text / property helpers ────────────────────────────────────────
