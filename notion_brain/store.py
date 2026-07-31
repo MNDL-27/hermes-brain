@@ -16,7 +16,7 @@ from typing import Any
 
 import requests
 
-from .schema import NOTION_API_VERSION
+from .schema import NOTION_API_VERSION, redact_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]
 
 
 def _rich_text(content: str) -> list[dict]:
-    return [{"type": "text", "text": {"content": content[:2000]}}]
+    return [{"type": "text", "text": {"content": redact_secrets(content[:2000])}}]
 
 
 def title_property(text: str) -> dict[str, Any]:
@@ -203,11 +203,11 @@ def rich_text_property(text: str) -> dict[str, Any]:
 
 
 def select_property(name: str) -> dict[str, Any]:
-    return {"select": {"name": name}}
+    return {"select": {"name": redact_secrets(name)}}
 
 
 def multi_select_property(names: list[str]) -> dict[str, Any]:
-    options = [{"name": n[:80]} for n in names if n.strip()] if names else []
+    options = [{"name": redact_secrets(n)[:80]} for n in names if n.strip()] if names else []
     return {"multi_select": options}
 
 

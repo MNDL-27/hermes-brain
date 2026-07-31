@@ -235,3 +235,56 @@ class TestSearchPageByTitle:
         monkeypatch.setattr(store_mod, "_request",
                             lambda *a, **k: {"results": []})
         assert search_page_by_title("Hermes Brain") is None
+
+
+# ---------------------------------------------------------------------------
+# Path traversal: user-provided IDs must be URL-encoded in paths
+# ---------------------------------------------------------------------------
+
+class TestUrlEncodingAndPathTraversal:
+    """Verify that IDs containing / are encoded so they can't escape their path segment."""
+
+    def test_get_page_encodes_path_traversal(self, monkeypatch):
+        called = []
+        def mock_request(method, path, json_body=None):
+            called.append(path)
+            return {"results": []}
+        import notion_brain.store as store_mod
+        monkeypatch.setattr(store_mod, "_request", mock_request)
+        from notion_brain.store import get_page
+        get_page("../users/me")
+        assert called[0] == "/pages/..%2Fusers%2Fme"
+        assert "/" not in called[0].removeprefix("/pages/")
+
+    def test_update_page_encodes_path_traversal(self, monkeypatch):
+        called = []
+        def mock_request(method, path, json_body=None):
+            called.append(path)
+            return {"results": []}
+        import notion_brain.store as store_mod
+        monkeypatch.setattr(store_mod, "_request", mock_request)
+        from notion_brain.store import update_page
+        update_page("db/../hack", {"properties": {}})
+        assert called[0] == "/pages/db%2F..%2Fhack"
+
+    def test_query_database_encodes_path_traversal(self, monkeypatch):
+        called = []
+        def mock_request(method, path, json_body=None):
+            called.append(path)
+            return {"results": []}
+        import notion_brain.store as store_mod
+        monkeypatch.setattr(store_mod, "_request", mock_request)
+        from notion_brain.store import query_database
+        query_database("../databases/secret")
+        assert called[0] == "/databases/..%2Fdatabases%2Fsecret/query"
+
+    def test_get_block_children_encodes_path_traversal(self, monkeypatch):
+        called = []
+        def mock_request(method, path, json_body=None):
+            called.append(path)
+            return {"results": []}
+        import notion_brain.store as store_mod
+        monkeypatch.setattr(store_mod, "_request", mock_request)
+        from notion_brain.store import get_block_children
+        get_block_children("../../etc/passwd")
+        assert called[0].startswith("/blocks/..%2F..%2Fetc%2Fpasswd/children")
