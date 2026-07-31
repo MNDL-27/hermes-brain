@@ -12,3 +12,12 @@
 **Vulnerability:** API keys and sensitive tokens could be leaked to external services via the Notion integration. The redaction function `redact_secrets()` was originally only applied to the content body of the `BrainEntry` in `notion_brain/schema.py`. It missed properties like `title`, `tags`, and `entities`. Also, explicit tool calls bypassed `BrainEntry.normalized()` and generated Notion API JSON dictionaries directly, which didn't redact anything natively.
 **Learning:** Redaction must be applied defensively and as close to the external API boundary (serialization step) as possible. If multiple layers can construct output payloads, each layer or the lowest common layer must apply the redaction. Relying on an intermediate normalization function (`BrainEntry.normalized()`) is unsafe when other code paths bypass it.
 **Prevention:** Integrate secret redaction directly into output helper/formatting functions (e.g., `_rich_text`, `select_property`, `multi_select_property` in `notion_brain/store.py`). Always ensure all fields holding arbitrary string input, including metadata fields like titles and tags, are verified or redacted.
+
+## 2026-07-31 - [CRITICAL] Fix API Path Traversal (SSRF risk) and Exception Leakage
+**Vulnerability:**
+The Notion API client (`notion_brain/store.py`) allowed API Path Traversal (SSRF risk) by embedding unescaped resource IDs directly into request URLs (e.g., `/databases/{database_id}`). A malicious payload like `../../users` could have been crafted to traverse to unintended backend endpoints.
+Additionally, in `notion_brain/provider.py`, when a tool failed, the raw `Exception` string was directly logged and returned in the JSON payload, potentially leaking unredacted API secrets or internal paths.
+**Learning:**
+String concatenation with unsanitized identifiers in URL paths is a critical security vulnerability even if those identifiers are presumed to be safe internal UUIDs. Furthermore, `str(exc)` cannot be trusted as safe to log or return because Python exceptions capture their arguments directly, meaning secret tokens passed to failed operations could leak.
+**Prevention:**
+Always URL-encode dynamic path segments using `urllib.parse.quote(id, safe="")` before embedding them into a URL. All logged or returned exception messages must be wrapped in `redact_secrets()` (or similar scrubbing mechanisms) to ensure no sensitive credentials escape via stack traces or error responses.
