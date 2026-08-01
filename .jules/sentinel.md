@@ -21,3 +21,8 @@ Additionally, in `notion_brain/provider.py`, when a tool failed, the raw `Except
 String concatenation with unsanitized identifiers in URL paths is a critical security vulnerability even if those identifiers are presumed to be safe internal UUIDs. Furthermore, `str(exc)` cannot be trusted as safe to log or return because Python exceptions capture their arguments directly, meaning secret tokens passed to failed operations could leak.
 **Prevention:**
 Always URL-encode dynamic path segments using `urllib.parse.quote(id, safe="")` before embedding them into a URL. All logged or returned exception messages must be wrapped in `redact_secrets()` (or similar scrubbing mechanisms) to ensure no sensitive credentials escape via stack traces or error responses.
+
+## 2026-08-01 - Prevent Exception Leakage via Logs
+**Vulnerability:** The logging statements sometimes logged exceptions (`logger.error("... %s", exc)`) which implicitly triggered `str(exc)`. This is a problem because if the exception contains sensitive information like API tokens or inputs, these will be leaked in log outputs directly. This bypasses the redaction logic applied in `notion_brain/provider.py` which was only manually applied in a few specific locations (like tool return bodies).
+**Learning:** Log messages directly formatting exceptions without using `redact_secrets(str(exc))` are vulnerable to leaking sensitive data if the exception object encapsulates sensitive arguments.
+**Prevention:** Systematically apply `redact_secrets(str(exc))` in all logging statements that capture and log exceptions.

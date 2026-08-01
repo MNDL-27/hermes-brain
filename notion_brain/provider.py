@@ -432,7 +432,7 @@ class NotionBrainProvider(object):
                 self._db_ids[key] = cache.get(f"db_{key}", "")
             logger.info("Notion brain initialized: %d databases", len(self._db_ids))
         except Exception as exc:
-            logger.error("NotionBrainProvider bootstrap failed: %s", exc)
+            logger.error("NotionBrainProvider bootstrap failed: %s", S.redact_secrets(str(exc)))
 
         # Pre-load memory files from disk as fallback context
         if self._hermes_home:
@@ -502,7 +502,7 @@ class NotionBrainProvider(object):
                     # TODO: implement actual sync logic
                     logger.debug("NotionBrainProvider: sync turn complete")
                 except Exception as exc:
-                    logger.error("NotionBrainProvider sync error: %s", exc)
+                    logger.error("NotionBrainProvider sync error: %s", S.redact_secrets(str(exc)))
 
             self._sync_thread = threading.Thread(target=_do_sync, daemon=True)
             self._sync_thread.start()
@@ -655,7 +655,7 @@ class NotionBrainProvider(object):
             if "Source Session" in schema_props and entry.source_session_id:
                 props["Source Session"] = store.rich_text_property(entry.source_session_id)
         except Exception as exc:
-            logger.warning("Could not get database schema for %s: %s", database_id, exc)
+            logger.warning("Could not get database schema for %s: %s", database_id, S.redact_secrets(str(exc)))
             # Fallback to known properties — pick the safest status shape per-DB.
             props["Domain"] = store.select_property(S.DOMAINS.get(entry.domain, entry.domain))
             props["Kind"] = store.select_property(entry.kind)
@@ -871,7 +871,7 @@ class NotionBrainProvider(object):
             db = store.get_database(db_id)
             schema_props = db.get("properties", {})
         except Exception as exc:
-            logger.warning("Could not read schema for %s: %s", db_key, exc)
+            logger.warning("Could not read schema for %s: %s", db_key, S.redact_secrets(str(exc)))
             return store.status_property(status), None
 
         payload = self._status_property(status, schema_props, strict=True)
