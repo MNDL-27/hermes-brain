@@ -263,7 +263,7 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
                 if url:
                     lines.append(f"{title}\t{url}")
             except Exception as exc:
-                logger.debug("Could not fetch database %s: %s", db_id, exc)
+                logger.debug("Could not fetch database %s: %s", db_id, S.redact_secrets(str(exc)))
     return "\n".join(lines)
 
 def health_report(hermes_home: str | Path) -> str:
@@ -331,7 +331,7 @@ def _save_cache(path: Path, data: dict[str, str]) -> None:
         os.makedirs(path.parent, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
     except Exception as exc:
-        logger.warning("Failed to write cache: %s", exc)
+        logger.warning("Failed to write cache: %s", S.redact_secrets(str(exc)))
 
 def _find_or_create_parent(title: str) -> str:
     existing = store.search_page_by_title(title, object_type="page")
