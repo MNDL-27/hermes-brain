@@ -13,15 +13,15 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from . import bootstrap, extract, schema as S, store
+from . import bootstrap, extract, store
+from . import schema as S
 
 logger = logging.getLogger(__name__)
 
 
-def _safe_select_value(value: str, prop_schema: Dict[str, Any]) -> str | None:
+def _safe_select_value(value: str, prop_schema: dict[str, Any]) -> str | None:
     """Return ``value`` if it is a defined option on this select property, else ``None``.
 
     Per-DB option sets differ (memory Kind: note/preference/lesson/decision/reminder;
@@ -117,7 +117,7 @@ def _merge_user_disk_only(notion_entries: list[dict], disk_text: str) -> list[di
 
     disk_entries: list[dict] = []
     lines = disk_text.splitlines()
-    title: Optional[str] = None
+    title: str | None = None
     body: list[str] = []
     for line in lines[1:] if lines and lines[0].lstrip().startswith("# ") else lines:
         if line.startswith("## "):
@@ -145,7 +145,7 @@ def _user_disk_entry(title: str, body: list[str]) -> dict:
 # Tool schemas
 # ---------------------------------------------------------------------------
 
-SEARCH_SCHEMA: Dict[str, Any] = {
+SEARCH_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_search",
     "description": (
         "Semantic-text search across ALL Notion brain databases (memory, tasks, "
@@ -177,7 +177,7 @@ SEARCH_SCHEMA: Dict[str, Any] = {
     },
 }
 
-REMEMBER_SCHEMA: Dict[str, Any] = {
+REMEMBER_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_remember",
     "description": (
         "Explicitly save something to the Notion brain. Use this when the user "
@@ -224,7 +224,7 @@ REMEMBER_SCHEMA: Dict[str, Any] = {
     },
 }
 
-TASK_SCHEMA: Dict[str, Any] = {
+TASK_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_task",
     "description": (
         "Manage tasks in the Notion brain Tasks database. "
@@ -273,7 +273,7 @@ TASK_SCHEMA: Dict[str, Any] = {
     },
 }
 
-CONTENT_SCHEMA: Dict[str, Any] = {
+CONTENT_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_content",
     "description": (
         "Manage social content ideas in the Notion brain Content database. "
@@ -318,7 +318,7 @@ CONTENT_SCHEMA: Dict[str, Any] = {
     },
 }
 
-RESEARCH_SCHEMA: Dict[str, Any] = {
+RESEARCH_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_research",
     "description": (
         "Save or query research findings in the Notion brain Research database. "
@@ -390,19 +390,19 @@ def _paragraph_blocks(content: str, *, max_paras: int = 8, chunk: int = 1900) ->
             })
     return blocks
 
-class NotionBrainProvider(object):
+class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
     def __init__(self) -> None:
         # Set by initialize()
         self._session_id: str = ""
         self._hermes_home: str = ""
-        self._db_ids: Dict[str, str] = {}
+        self._db_ids: dict[str, str] = {}
         self._parent_page_id: str = ""
 
         # Background sync state
         self._sync_lock = threading.Lock()
-        self._sync_thread: Optional[threading.Thread] = None
+        self._sync_thread: threading.Thread | None = None
 
         # Prefetch cache
         self._prefetch_cache: str = ""
@@ -432,7 +432,7 @@ class NotionBrainProvider(object):
                 self._db_ids[key] = cache.get(f"db_{key}", "")
             logger.info("Notion brain initialized: %d databases", len(self._db_ids))
         except Exception as exc:
-            logger.error("NotionBrainProvider bootstrap failed: %s", exc)
+            logger.error("NotionBrainProvider bootstrap failed: %s", S.redact_secrets(str(exc)))
 
         # Pre-load memory files from disk as fallback context
         if self._hermes_home:
@@ -488,7 +488,7 @@ class NotionBrainProvider(object):
                 self._prefetch_cache = "\n".join(lines)
                 return self._prefetch_cache
             except Exception as exc:
-                logger.warning("NotionBrainProvider prefetch failed: %s", exc)
+                logger.warning("NotionBrainProvider prefetch failed: %s", S.redact_secrets(str(exc)))
                 return ""
 
     def sync_turn(self, **kwargs) -> None:
@@ -502,7 +502,7 @@ class NotionBrainProvider(object):
                     # TODO: implement actual sync logic
                     logger.debug("NotionBrainProvider: sync turn complete")
                 except Exception as exc:
-                    logger.error("NotionBrainProvider sync error: %s", exc)
+                    logger.error("NotionBrainProvider sync error: %s", S.redact_secrets(str(exc)))
 
             self._sync_thread = threading.Thread(target=_do_sync, daemon=True)
             self._sync_thread.start()
@@ -561,10 +561,10 @@ class NotionBrainProvider(object):
 
         self._store_entry(entry)
 
-    def get_tool_schemas(self) -> list[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         return ALL_TOOL_SCHEMAS
 
-    def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+    def handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> str:
         handlers = {
             "notion_brain_search": self._tool_search,
             "notion_brain_remember": self._tool_remember,
@@ -625,9 +625,9 @@ class NotionBrainProvider(object):
                 f"Failed to save {safe_title!r} to Notion: {safe_detail}"
             ) from exc
 
-    def _database_properties(self, database_id: str, entry: S.BrainEntry) -> Dict[str, Any]:
+    def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "title": store.title_property(entry.title),
         }
 
@@ -655,7 +655,7 @@ class NotionBrainProvider(object):
             if "Source Session" in schema_props and entry.source_session_id:
                 props["Source Session"] = store.rich_text_property(entry.source_session_id)
         except Exception as exc:
-            logger.warning("Could not get database schema for %s: %s", database_id, exc)
+            logger.warning("Could not get database schema for %s: %s", database_id, S.redact_secrets(str(exc)))
             # Fallback to known properties — pick the safest status shape per-DB.
             props["Domain"] = store.select_property(S.DOMAINS.get(entry.domain, entry.domain))
             props["Kind"] = store.select_property(entry.kind)
@@ -669,10 +669,10 @@ class NotionBrainProvider(object):
     def _status_property(
         self,
         status: str,
-        schema_props: Dict[str, Any],
+        schema_props: dict[str, Any],
         *,
         strict: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Map status to a valid Notion Status option, respecting the DB's actual type.
 
         ``Status`` in our content DB is a ``select`` type (draft/published/scheduled/idea);
@@ -703,7 +703,7 @@ class NotionBrainProvider(object):
             return store.select_property(target)
         return store.status_property(target)
 
-    def _tool_search(self, args: Dict[str, Any]) -> str:
+    def _tool_search(self, args: dict[str, Any]) -> str:
         """Search across brain databases."""
         query = args.get("query", "")
         database = args.get("database")
@@ -747,7 +747,7 @@ class NotionBrainProvider(object):
 
         return "\n".join(lines)
 
-    def _tool_remember(self, args: Dict[str, Any]) -> str:
+    def _tool_remember(self, args: dict[str, Any]) -> str:
         """Explicitly remember something."""
         title = args.get("title", "").strip()
         content = args.get("content", "").strip()
@@ -776,10 +776,10 @@ class NotionBrainProvider(object):
         try:
             self._store_entry(entry)
         except RuntimeError as exc:
-            return f"Error: {exc}"
+            return f"Error: {S.redact_secrets(str(exc))}"
         return f"Saved: {title}"
 
-    def _tool_task(self, args: Dict[str, Any]) -> str:
+    def _tool_task(self, args: dict[str, Any]) -> str:
         """Manage tasks."""
         action = args.get("action", "list")
 
@@ -801,7 +801,7 @@ class NotionBrainProvider(object):
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Task created: {title}"
 
         elif action == "list":
@@ -857,7 +857,7 @@ class NotionBrainProvider(object):
 
     def _validated_status(
         self, status: str, db_key: str
-    ) -> tuple[Dict[str, Any], str | None]:
+    ) -> tuple[dict[str, Any], str | None]:
         """Build a Status payload validated against ``db_key``'s real options.
 
         Returns (payload, None) on success, ({}, error_message) if ``status``
@@ -871,7 +871,7 @@ class NotionBrainProvider(object):
             db = store.get_database(db_id)
             schema_props = db.get("properties", {})
         except Exception as exc:
-            logger.warning("Could not read schema for %s: %s", db_key, exc)
+            logger.warning("Could not read schema for %s: %s", db_key, S.redact_secrets(str(exc)))
             return store.status_property(status), None
 
         payload = self._status_property(status, schema_props, strict=True)
@@ -888,7 +888,7 @@ class NotionBrainProvider(object):
         valid = sorted({opt.get("name", "") for opt in options if isinstance(opt, dict)})
         return {}, f"Error: status '{status}' is not valid for {db_key}. Valid: {valid}"
 
-    def _tool_content(self, args: Dict[str, Any]) -> str:
+    def _tool_content(self, args: dict[str, Any]) -> str:
         """Manage social content."""
         action = args.get("action", "list")
 
@@ -911,7 +911,7 @@ class NotionBrainProvider(object):
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Content saved: {title}"
 
         elif action == "list":
@@ -933,7 +933,7 @@ class NotionBrainProvider(object):
 
         return f"Unknown content action: {action}"
 
-    def _tool_research(self, args: Dict[str, Any]) -> str:
+    def _tool_research(self, args: dict[str, Any]) -> str:
         """Manage research findings."""
         action = args.get("action", "save")
 
@@ -956,7 +956,7 @@ class NotionBrainProvider(object):
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Research saved: {title}"
 
         elif action == "list":

@@ -251,7 +251,7 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
                 title = page.get("title") or "Hermes Brain"
                 lines.append(f"{title}\t{url}")
         except Exception as exc:
-            logger.debug("Could not fetch parent page %s: %s", parent_id, exc)
+            logger.debug("Could not fetch parent page %s: %s", parent_id, S.redact_secrets(str(exc)))
     if db:
         for key, db_id in cached.items():
             if not key.startswith("db_") or not db_id:
@@ -263,7 +263,7 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
                 if url:
                     lines.append(f"{title}\t{url}")
             except Exception as exc:
-                logger.debug("Could not fetch database %s: %s", db_id, exc)
+                logger.debug("Could not fetch database %s: %s", db_id, S.redact_secrets(str(exc)))
     return "\n".join(lines)
 
 def health_report(hermes_home: str | Path) -> str:
@@ -278,7 +278,7 @@ def health_report(hermes_home: str | Path) -> str:
         title = parent.get("title") or "Hermes Brain"
         lines.append(f"parent: {title}  url={parent.get('url','')}")
     except Exception as exc:
-        lines.append(f"parent: ERROR fetching {parent_id}: {exc}")
+        lines.append(f"parent: ERROR fetching {parent_id}: {S.redact_secrets(str(exc))}")
     for key in S.DATABASES:
         db_id = cached.get(f"db_{key}")
         if not db_id:
@@ -294,7 +294,7 @@ def health_report(hermes_home: str | Path) -> str:
             url = db.get("url", "")
             lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
         except Exception as exc:
-            lines.append(f"  {key:<10}  ERROR: {exc}")
+            lines.append(f"  {key:<10}  ERROR: {S.redact_secrets(str(exc))}")
     return "\n".join(lines)
 
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
@@ -316,14 +316,14 @@ def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> Non
         logger.info("Repaired '%s' database schema: added %d missing prop(s) (%s)",
                     key, len(missing), ", ".join(missing))
     except Exception as exc:
-        logger.warning("Could not repair '%s' database schema: %s", key, exc)
+        logger.warning("Could not repair '%s' database schema: %s", key, S.redact_secrets(str(exc)))
 
 def _load_cache(path: Path) -> dict[str, str]:
     try:
         if path.exists():
             return json.loads(path.read_text())
     except Exception as exc:
-        logger.debug("Failed to read cache: %s", exc)
+        logger.debug("Failed to read cache: %s", S.redact_secrets(str(exc)))
     return {}
 
 def _save_cache(path: Path, data: dict[str, str]) -> None:
@@ -331,7 +331,7 @@ def _save_cache(path: Path, data: dict[str, str]) -> None:
         os.makedirs(path.parent, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
     except Exception as exc:
-        logger.warning("Failed to write cache: %s", exc)
+        logger.warning("Failed to write cache: %s", S.redact_secrets(str(exc)))
 
 def _find_or_create_parent(title: str) -> str:
     existing = store.search_page_by_title(title, object_type="page")
