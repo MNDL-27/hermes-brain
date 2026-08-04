@@ -481,3 +481,95 @@ class TestStoreHelpers:
             import notion_brain.store as store_mod
             reload(store_mod)
             assert store_mod.get_api_key() == "test-key-123"
+
+
+# ---------------------------------------------------------------------------
+# Regression: exception log redaction (Sentinel CRITICAL — PR #13)
+# ---------------------------------------------------------------------------
+
+class TestExceptionLogRedaction:
+    """Production paths must redact secrets in exception messages before logging or returning."""
+
+    SECRET = "sk-A1B2C3D4E5F6G7H8"
+
+    def _assert_no_leak(self, caplog, secret: str, logger_name: str = "notion_brain") -> None:
+        assert secret not in caplog.text
+        assert "[REDACTED_SECRET]" in caplog.text
+
+    @patch("notion_brain.bootstrap.ensure_brain")
+    def test_initialize_error_redacts_secrets(self, mock_ensure, caplog):
+        """provider.initialize() logs bootstrap exception with redaction."""
+        from notion_brain import NotionBrainProvider
+        caplog.set_level("ERROR", logger="notion_brain")
+        mock_ensure.side_effect = RuntimeError(f"db connection: {self.SECRET}")
+        provider = NotionBrainProvider()
+        provider.initialize("test-session", hermes_home="/tmp/test")
+        self._assert_no_leak(caplog, self.SECRET)
+
+    @patch("notion_brain.store.create_database_page")
+    @patch("notion_brain.store.get_database")
+    def test_database_properties_error_redacts_secrets(self, mock_get_db, mock_create, caplog):
+        """_database_properties logs schema-fetch exception with redaction."""
+        from notion_brain import NotionBrainProvider, schema as S
+        caplog.set_level("WARNING", logger="notion_brain")
+        mock_get_db.side_effect = RuntimeError(f"schema read: {self.SECRET}")
+        mock_create.side_effect = RuntimeError("NOTION_API_KEY not set")
+        provider = NotionBrainProvider()
+        provider._session_id = "test"
+        provider._db_ids = {"memory": "db-id"}
+        entry = S.BrainEntry(domain="memory", title="test", content="test", kind="note").normalized()
+        try:
+            provider._write_entry_raw("db-id", entry)
+        except RuntimeError:
+            pass
+        self._assert_no_leak(caplog, self.SECRET)
+
+    @patch("notion_brain.store.get_database")
+    def test_validated_status_error_redacts_secrets(self, mock_get_db, caplog):
+        """_validated_status logs schema-read exception with redaction."""
+        from notion_brain import NotionBrainProvider
+        caplog.set_level("WARNING", logger="notion_brain")
+        mock_get_db.side_effect = RuntimeError(f"status schema: {self.SECRET}")
+        provider = NotionBrainProvider()
+        provider._db_ids = {"tasks": "db-id"}
+        _, err = provider._validated_status("active", "tasks")
+        assert err is None  # fallback path taken
+        self._assert_no_leak(caplog, self.SECRET)
+
+    def test_get_url_db_error_redacts_secrets(self, caplog):
+        """get_url logs database-fetch exception with redaction."""
+        from notion_brain import bootstrap
+        caplog.set_level("DEBUG", logger="notion_brain.bootstrap")
+        fake_cache = {"parent_page_id": "parent-123", "db_tasks": "db-456"}
+        with patch("notion_brain.bootstrap._load_cache", return_value=fake_cache), \
+             patch("notion_brain.store.get_page") as mock_pg, \
+             patch("notion_brain.store.get_database") as mock_db:
+            mock_pg.side_effect = RuntimeError(f"parent fetch: {self.SECRET}")
+            mock_db.side_effect = RuntimeError(f"db fetch: {self.SECRET}")
+            bootstrap.get_url(Path("/tmp/fake-hermes-home"), db=True)
+        self._assert_no_leak(caplog, self.SECRET, logger_name="notion_brain.bootstrap")
+
+    def test_cache_write_error_redacts_secrets(self, caplog):
+        """_save_cache logs cache-write exception with redaction."""
+        from notion_brain import bootstrap
+        caplog.set_level("WARNING", logger="notion_brain.bootstrap")
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "sub" / "cache.json"
+            with patch.object(Path, "write_text", side_effect=RuntimeError(f"disk full: {self.SECRET}")):
+                bootstrap._save_cache(cache_path, {"key": "val"})
+            self._assert_no_leak(caplog, self.SECRET, logger_name="notion_brain.bootstrap")
+
+    def test_health_report_error_redacts_secrets(self, caplog):
+        """health_report interpolates exception with redaction, not raw."""
+        from notion_brain import bootstrap
+        caplog.set_level("INFO")
+        fake_cache = {"parent_page_id": "nonexistent-parent-uuid", "db_tasks": "nonexistent-db-uuid"}
+        with patch("notion_brain.bootstrap._load_cache", return_value=fake_cache), \
+             patch("notion_brain.store.get_page") as mock_pg, \
+             patch("notion_brain.store.get_database") as mock_db:
+            mock_pg.side_effect = RuntimeError(f"page error: {self.SECRET}")
+            mock_db.side_effect = RuntimeError(f"db error: {self.SECRET}")
+            report = bootstrap.health_report(Path("/tmp/fake-hermes-home"))
+        assert self.SECRET not in report
+        assert "[REDACTED_SECRET]" in report
