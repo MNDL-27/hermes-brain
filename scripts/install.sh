@@ -207,7 +207,7 @@ if [ -z "$EXISTING_KEY" ]; then
     echo "  (Create one at https://www.notion.so/my-integrations)"
     echo "  Token starts with: ntn_"
     echo ""
-    read -rp "  NOTION_API_KEY=" -s NOTION_API_KEY
+    read -rp "  NOTION_API_KEY=" -s NOTION_API_KEY </dev/tty
     echo ""
     if [ -z "$NOTION_API_KEY" ]; then
         fail "No token provided. You can set it later:"
