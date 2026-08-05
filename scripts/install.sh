@@ -177,9 +177,9 @@ fi
 info "Installing Python package…"
 
 PIP_INSTALL_OUTPUT=""
-if PIP_INSTALL_OUTPUT=$(run_pip install -e "$INSTALL_DIR" 2>&1); then
+if PIP_INSTALL_OUTPUT=$(run_pip install "$INSTALL_DIR" 2>&1); then
     ok "Package installed"
-elif PIP_INSTALL_OUTPUT=$(run_pip install -e "$INSTALL_DIR" --break-system-packages 2>&1); then
+elif PIP_INSTALL_OUTPUT=$(run_pip install "$INSTALL_DIR" --break-system-packages 2>&1); then
     ok "Package installed (with --break-system-packages)"
 else
     fail "pip install failed:"
