@@ -31,37 +31,60 @@
 
 ## First 5 Minutes
 
-Get your first memory into Notion in under 5 minutes. Assumes you have a Hermes agent host and a Notion workspace.
+Get your first memory into Notion in under 5 minutes. One command after install.
 
-### Step 1 — Install
+### 1. Install
 
 ```bash
 git clone https://github.com/MNDL-27/hermes-brain.git
 cd hermes-brain
 sudo pip install -e . --break-system-packages
-python3 -c "import notion_brain; print(notion_brain.__file__)"
 ```
 
-Expected: prints the path to `notion_brain/__init__.py` in the cloned repo.
-
-### Step 2 — Set env vars
+### 2. Set env vars (once)
 
 ```bash
 export NOTION_API_KEY=ntn_xxxxx_xxxxx
 export HERMES_HOME=~/.hermes
 ```
 
-`NOTION_API_KEY` is the Internal Integration Token from [My Integrations](https://www.notion.so/my-integrations).
+Get `NOTION_API_KEY` from [My Integrations](https://www.notion.so/my-integrations) → New integration.
 
-### Step 3 — Confirm the parent page
+### 3. Run the quickstart (one command)
+
+```bash
+python examples/quickstart.py
+```
+
+That's it. The script bootstraps the 7 databases, stores a sample memory, and searches for it. Open your Notion workspace — you'll see a "Hermes Brain" page with everything populated.
+
+> **Want to see each step?** — [Detailed walkthrough](#detailed-walkthrough) below breaks it down.
+>
+> **Troubleshooting?** — [Common Pitfalls](#common-pitfalls) covers the 5 most frequent setup failures.
+
+---
+
+## Detailed Walkthrough
+
+If you prefer to see each step individually:
+
+### Step 1 — Verify install
+
+```bash
+python3 -c "import notion_brain; print(notion_brain.__file__)"
+```
+
+Expected: prints the path to `notion_brain/__init__.py`.
+
+### Step 2 — Confirm the parent page
 
 ```bash
 python -m notion_brain url
 ```
 
-Expected: prints a `notion.so/...` URL. Open it — you should see an empty "Hermes Brain" page in your workspace. If you don't, [share the page with your integration](docs/troubleshooting.md#1-i-get-unauthorized-from-notion).
+Expected: prints a `notion.so/...` URL. Open it — you should see an empty "Hermes Brain" page. If you don't, [share the page with your integration](docs/troubleshooting.md#1-i-get-unauthorized-from-notion).
 
-### Step 4 — Bootstrap the 7 databases
+### Step 3 — Bootstrap the 7 databases
 
 ```python
 from notion_brain import bootstrap
@@ -73,7 +96,7 @@ Expected: `['parent_page_id', 'db_memory', 'db_tasks', 'db_projects', 'db_conten
 
 Open the Notion page again — 7 databases now appear under it.
 
-### Step 5 — Remember and search
+### Step 4 — Remember and search
 
 ```python
 from notion_brain import remember, search
@@ -89,10 +112,6 @@ for r in results:
 ```
 
 Expected: `Saved: https://notion.so/...` then `1 result(s)` then `- Design review notes`.
-
-That's it. Your agent now has a persistent brain. See [Usage](#usage) for the full tool reference, or run `python examples/quickstart.py` for more patterns.
-
-> **Troubleshooting?** — [Common Pitfalls](#common-pitfalls) below covers the 5 most frequent setup failures.
 
 ---
 
