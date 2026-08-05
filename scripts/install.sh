@@ -60,6 +60,40 @@ if is_root; then
     exit 1
 fi
 
+# ─── Step 0.5: Check Hermes agent ────────────────────────────────────────
+info "Checking for Hermes agent…"
+
+HERMES_FOUND=false
+
+# Check common Hermes indicators
+if "$PYTHON_PKG" -c "import agent; print(agent.__file__)" &>/dev/null 2>&1; then
+    HERMES_FOUND=true
+    ok "Hermes agent found (python import)"
+elif command_exists hermes &>/dev/null; then
+    HERMES_FOUND=true
+    ok "Hermes agent found (hermes command)"
+elif [ -d "$HOME/hermes" ] || [ -d "$HOME/.hermes-agent" ] || [ -d "/opt/hermes" ]; then
+    HERMES_FOUND=true
+    ok "Hermes agent directory found"
+fi
+
+if [ "$HERMES_FOUND" = false ]; then
+    echo ""
+    warn "Hermes agent not detected on this system."
+    echo "  hermes-brain is a plugin — it requires Hermes to be installed first."
+    echo ""
+    echo "  Install Hermes: https://github.com/MNDL-27/hermes"
+    echo "  (or your Hermes distribution of choice)"
+    echo ""
+    read -rp "  Continue anyway? [y/N] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        info "Aborted. Install Hermes first, then re-run this script."
+        exit 0
+    fi
+    warn "Continuing without Hermes — you will need to install it separately."
+fi
+
 # ─── Step 1: Detect distro & package manager ─────────────────────────────
 info "Detecting system…"
 
