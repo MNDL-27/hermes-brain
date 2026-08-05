@@ -145,23 +145,11 @@ else
     ok "Python $($PYTHON_PKG --version) installed"
 fi
 
-# pip command
-if "$PYTHON_PKG" -m pip --version &>/dev/null; then
-    PIP_CMD="$PYTHON_PKG -m pip"
-elif command_exists pip3; then
-    PIP_CMD="pip3"
-elif command_exists pip; then
-    PIP_CMD="pip"
-else
-    # Install pip
-    case "$PKG_MANAGER" in
-        apt-get) sudo apt-get install -y python3-pip ;;
-        dnf|yum) sudo "$PKG_MANAGER" install -y python3-pip ;;
-        pacman)  sudo pacman -S --noconfirm python-pip ;;
-    esac
-    PIP_CMD="$PYTHON_PKG -m pip"
-fi
-ok "pip ready: $($PIP_CMD --version)"
+# pip helper — always use $PYTHON_PKG -m pip so it works regardless of pip path
+run_pip() {
+    "$PYTHON_PKG" -m pip "$@"
+}
+ok "pip ready: $($PYTHON_PKG -m pip --version)"
 
 # ─── Step 3: git ─────────────────────────────────────────────────────────
 if ! command_exists git; then
@@ -189,9 +177,9 @@ fi
 info "Installing Python package…"
 
 PIP_INSTALL_OUTPUT=""
-if PIP_INSTALL_OUTPUT=$("$PIP_CMD" install -e "$INSTALL_DIR" 2>&1); then
+if PIP_INSTALL_OUTPUT=$(run_pip install -e "$INSTALL_DIR" 2>&1); then
     ok "Package installed"
-elif PIP_INSTALL_OUTPUT=$("$PIP_CMD" install -e "$INSTALL_DIR" --break-system-packages 2>&1); then
+elif PIP_INSTALL_OUTPUT=$(run_pip install -e "$INSTALL_DIR" --break-system-packages 2>&1); then
     ok "Package installed (with --break-system-packages)"
 else
     fail "pip install failed:"
