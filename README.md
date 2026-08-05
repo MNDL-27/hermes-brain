@@ -195,8 +195,17 @@ See [`BACKENDS.md`](BACKENDS.md) for the long-term plan.
 
 ### Quick Start
 
+**One-line install (recommended):**
+
 ```bash
-# On your agent host
+curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash
+```
+
+This script detects your distro, installs Python 3.11+ if missing, clones the repo, installs the package, prompts for your Notion API key, bootstraps the workspace, and verifies everything.
+
+**Manual install:**
+
+```bash
 git clone https://github.com/MNDL-27/hermes-brain.git
 cd hermes-brain
 sudo pip install -e . --break-system-packages
