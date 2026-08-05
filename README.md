@@ -3,6 +3,7 @@
   <a href="https://github.com/MNDL-27/hermes-brain">
     <img src=".github/assets/hero.png" alt="hermes-brain" width="600"/>
   </a>
+  <!-- TODO: swap hero.png for .github/assets/demo.gif when recorded (30s install→bootstrap→remember→search flow) -->
 </div>
 
 > **Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets.**
@@ -25,6 +26,87 @@
   [![License](https://img.shields.io/badge/license-MIT-green?labelColor=black&style=flat-square)](https://github.com/MNDL-27/hermes-brain/blob/main/LICENSE)
   [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MNDL-27)
 </div>
+
+---
+
+## First 5 Minutes
+
+Get your first memory into Notion in under 5 minutes. Assumes you have a Hermes agent host and a Notion workspace.
+
+### Step 1 — Install
+
+```bash
+git clone https://github.com/MNDL-27/hermes-brain.git
+cd hermes-brain
+sudo pip install -e . --break-system-packages
+python3 -c "import notion_brain; print(notion_brain.__file__)"
+```
+
+Expected: prints the path to `notion_brain/__init__.py` in the cloned repo.
+
+### Step 2 — Set env vars
+
+```bash
+export NOTION_API_KEY=ntn_xxxxx_xxxxx
+export HERMES_HOME=~/.hermes
+```
+
+`NOTION_API_KEY` is the Internal Integration Token from [My Integrations](https://www.notion.so/my-integrations).
+
+### Step 3 — Confirm the parent page
+
+```bash
+python -m notion_brain url
+```
+
+Expected: prints a `notion.so/...` URL. Open it — you should see an empty "Hermes Brain" page in your workspace. If you don't, [share the page with your integration](docs/troubleshooting.md#1-i-get-unauthorized-from-notion).
+
+### Step 4 — Bootstrap the 7 databases
+
+```python
+from notion_brain import bootstrap
+cache = bootstrap.ensure_brain("~/.hermes")
+print(list(cache.keys()))
+```
+
+Expected: `['parent_page_id', 'db_memory', 'db_tasks', 'db_projects', 'db_content', 'db_research', 'db_career', 'db_entities']`.
+
+Open the Notion page again — 7 databases now appear under it.
+
+### Step 5 — Remember and search
+
+```python
+from notion_brain import remember, search
+
+url = remember("Design review notes", "Team agreed on Material Design 3",
+               domain="projects", kind="decision", tags=["design"])
+print("Saved:", url)
+
+results = search("Material Design")
+print(len(results), "result(s)")
+for r in results:
+    print("-", r["title"])
+```
+
+Expected: `Saved: https://notion.so/...` then `1 result(s)` then `- Design review notes`.
+
+That's it. Your agent now has a persistent brain. See [Usage](#usage) for the full tool reference, or run `python examples/quickstart.py` for more patterns.
+
+> **Troubleshooting?** — [Common Pitfalls](#common-pitfalls) below covers the 5 most frequent setup failures.
+
+---
+
+## Common Pitfalls
+
+| Symptom | Fix |
+|---|---|
+| `unauthorized` from Notion | [Share the parent page with your integration](docs/troubleshooting.md#1-i-get-unauthorized-from-notion) |
+| `pip install` fails with PEP 668 | Use `sudo pip install -e . --break-system-packages` |
+| `ModuleNotFoundError: agent` | Install and run the Hermes agent host first |
+| Bootstrap ok, no databases appear | [Check integration capabilities](docs/troubleshooting.md#2-bootstrap-created-the-page-but-no-databases) |
+| Search returns nothing | Wait 5s for Notion indexing, then retry |
+
+Full troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ---
 
@@ -63,7 +145,7 @@ Two ways to recall:
 - **Session Summaries** — Automatic end-of-session summaries saved to Memory database
 - **Disk Import** — Migrate existing `MEMORY.md` and `USER.md` into Notion
 - **Idempotent Bootstrap** — Creates "Hermes Brain" page + 7 databases on first run
-- **Cross-Platform** — Runs anywhere Python 3.11+ runs (Linux, macOS, Windows)
+- **Cross-Platform** — Runs on Linux (Ubuntu, Debian, Fedora, RHEL families)
 
 ---
 
@@ -82,23 +164,57 @@ See [`BACKENDS.md`](BACKENDS.md) for the long-term plan.
 
 ## Installation
 
-### Quick Start
-
-```bash
-# Install from PyPI (when published)
-pip install hermes-brain
-
-# Or install from source
-git clone https://github.com/MNDL-27/hermes-brain.git
-cd hermes-brain
-pip install -e .
-```
+> **Linux only.** hermes-brain is tested on Ubuntu, Debian, Fedora, and RHEL families. macOS and Windows are not supported.
+>
+> **Designed for a dedicated agent host.** Most users run this kind of AI-agent stack on a separate machine (or VM) with its own Python install. The instructions below assume that setup — no virtualenv, no per-user isolation beyond the host itself.
 
 ### Prerequisites
 
 - **Python 3.11–3.13**
 - **Notion workspace** with an [internal integration](https://www.notion.so/my-integrations)
 - **Hermes agent framework** (this is a plugin, not a standalone app)
+
+### Quick Start
+
+```bash
+# On your agent host
+git clone https://github.com/MNDL-27/hermes-brain.git
+cd hermes-brain
+sudo pip install -e . --break-system-packages
+```
+
+`--break-system-packages` is the standard PEP 668 override on externally-managed Python (Ubuntu 23.04+, Debian 12+, Fedora). On older systems or distros without PEP 668, plain `sudo pip install -e .` works.
+
+### Install Python on common Linux distros
+
+If `python3 --version` shows something older than 3.11:
+
+```bash
+# Ubuntu / Debian
+sudo apt update
+sudo apt install python3.11 python3-pip
+
+# Fedora
+sudo dnf install python3.11
+
+# RHEL / Rocky / Alma (via EPEL)
+sudo dnf install epel-release
+sudo dnf install python3.11
+```
+
+Then verify:
+
+```bash
+python3.11 --version   # should report 3.11.x or newer
+```
+
+### Verify the install
+
+```bash
+python3 -c "import notion_brain; print(notion_brain.__file__)"
+```
+
+This should print the path to the cloned repo's `notion_brain/__init__.py` — confirming the editable install is wired up to your source tree.
 
 ---
 
@@ -148,6 +264,8 @@ python -m notion_brain reset     # archive and recreate mismatched databases
 ## Usage
 
 The plugin registers 5 tools with the Hermes agent:
+
+More patterns: [examples/README.md](examples/README.md) — runnable `quickstart.py` and `migrate_memory.py`.
 
 ### Search Memories
 

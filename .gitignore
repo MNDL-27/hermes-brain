@@ -9,6 +9,21 @@ desktop.ini
 *.swp
 *~
 
+# Agent tooling (moved to dev/ for local use only)
+.agents/
+.codex/
+.jules/
+.claude/
+agents/
+homunculus/
+ecc-tools.json
+identity.json
+settings.local.json
+sentinel.md
+AGENTS.md
+config.toml
+skills/hermes-brain/
+
 # Python
 __pycache__/
 *.pyc
