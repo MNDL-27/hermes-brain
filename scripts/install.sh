@@ -188,16 +188,16 @@ fi
 # ─── Step 5: pip install ─────────────────────────────────────────────────
 info "Installing Python package…"
 
-PIP_BREAK=""
-if "$PIP_CMD" install -e "$INSTALL_DIR" --break-system-packages &>/dev/null 2>&1; then
-    PIP_BREAK="--break-system-packages"
-elif "$PIP_CMD" install -e "$INSTALL_DIR" &>/dev/null 2>&1; then
-    PIP_BREAK=""
+PIP_INSTALL_OUTPUT=""
+if PIP_INSTALL_OUTPUT=$("$PIP_CMD" install -e "$INSTALL_DIR" 2>&1); then
+    ok "Package installed"
+elif PIP_INSTALL_OUTPUT=$("$PIP_CMD" install -e "$INSTALL_DIR" --break-system-packages 2>&1); then
+    ok "Package installed (with --break-system-packages)"
 else
-    fail "pip install failed. Try: sudo $PIP_CMD install -e $INSTALL_DIR"
+    fail "pip install failed:"
+    echo "$PIP_INSTALL_OUTPUT" | sed 's/^/  /'
     exit 1
 fi
-ok "Package installed"
 
 # ─── Step 6: Environment variables ───────────────────────────────────────
 info "Configuring environment…"
