@@ -176,6 +176,9 @@ fi
 # ─── Step 5: pip install ─────────────────────────────────────────────────
 info "Installing Python package…"
 
+# Clean stale build artifacts that break pip
+rm -rf "$INSTALL_DIR/hermes_brain.egg-info" "$INSTALL_DIR/build" "$INSTALL_DIR/dist" 2>/dev/null || true
+
 PIP_INSTALL_OUTPUT=""
 if PIP_INSTALL_OUTPUT=$(run_pip install "$INSTALL_DIR" 2>&1); then
     ok "Package installed"
