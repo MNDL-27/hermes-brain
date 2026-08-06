@@ -57,7 +57,8 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                 msg = data.get("message", resp.reason or "unknown error")
             except requests.exceptions.JSONDecodeError:
                 msg = resp.text[:200] if resp.text else resp.reason or "unknown error"
-            raise RuntimeError(f"Notion API {resp.status_code} on {method} {path}: {msg}")
+            safe_msg = redact_secrets(str(msg))
+            raise RuntimeError(f"Notion API {resp.status_code} on {method} {path}: {safe_msg}")
         except requests.Timeout:
             if attempt < _MAX_RETRIES:
                 time.sleep(_RETRY_DELAY_S * attempt)
