@@ -156,12 +156,10 @@ def test_compat_source_clean(monkeypatch: Any) -> None:
 def test_fake_backend_passes_contract(monkeypatch: Any) -> None:
     """A fake backend implementation can satisfy the StorageBackend contract."""
     # Load parent to satisfy core's internal imports
-    import notion_brain
 
     from notion_brain.core.ports import StorageBackend, BackendCapabilities, SearchOptions, SyncResult
     from notion_brain.core.models import MemoryRecord, BackendReference
     from datetime import datetime
-    from typing import Any
 
     class FakeBackend(StorageBackend):
         def __init__(self) -> None:
