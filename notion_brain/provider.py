@@ -13,8 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from . import bootstrap, extract, schema as S, store
 
@@ -584,9 +583,10 @@ class NotionBrainProvider(object):
             result = handler(arguments)
             return json.dumps({"result": result, "error": False})
         except Exception as exc:
-            logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
+            safe_exc = S.redact_secrets(str(exc))
+            logger.error("Tool call %s failed: %s", tool_name, safe_exc)
             return json.dumps({
-                "result": f"Tool error: {exc}",
+                "result": f"Tool error: {safe_exc}",
                 "error": True,
             })
 
