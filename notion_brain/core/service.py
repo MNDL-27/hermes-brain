@@ -13,24 +13,20 @@ from datetime import datetime
 from typing import Any
 
 try:
-    from .errors import BrainError, ConflictError, NotFoundError, PrivacyError, ValidationError
+    from .errors import NotFoundError, PrivacyError, ValidationError
 except ImportError:
-    from notion_brain.core.errors import BrainError, ConflictError, NotFoundError, PrivacyError, ValidationError
+    from notion_brain.core.errors import NotFoundError, PrivacyError, ValidationError
 
 try:
     from .models import (
         BackendReference,
         ConflictRecord,
         ConflictResolution,
-        MemoryKind,
         MemoryRecord,
         MemoryStatus,
         OutboxAction,
         OutboxOperation,
-        OutboxState,
-        Priority,
         Record,
-        SyncCheckpoint,
         TaskRecord,
         TaskStatus,
     )
@@ -39,23 +35,19 @@ except ImportError:
         BackendReference,
         ConflictRecord,
         ConflictResolution,
-        MemoryKind,
         MemoryRecord,
         MemoryStatus,
         OutboxAction,
         OutboxOperation,
-        OutboxState,
-        Priority,
         Record,
-        SyncCheckpoint,
         TaskRecord,
         TaskStatus,
     )
 
 try:
-    from .ports import BackendCapabilities, SearchOptions, StorageBackend, SyncResult
+    from .ports import SearchOptions, StorageBackend, SyncResult
 except ImportError:
-    from notion_brain.core.ports import BackendCapabilities, SearchOptions, StorageBackend, SyncResult
+    from notion_brain.core.ports import SearchOptions, StorageBackend, SyncResult
 
 
 @dataclass(slots=True)
@@ -182,7 +174,6 @@ class ValidationEngine:
 
     def normalize_memory(self, record: MemoryRecord) -> MemoryRecord:
         """Normalize a memory record (domain alias mapping, etc.)."""
-        from notion_brain.schema import normalize_domain
 
         # Apply domain normalization to tags/entities if needed
         normalized = record.normalized()
@@ -191,7 +182,6 @@ class ValidationEngine:
 
     def normalize_task(self, record: TaskRecord) -> TaskRecord:
         """Normalize a task record."""
-        from notion_brain.schema import normalize_domain
 
         return record
 
