@@ -572,4 +572,34 @@ class TestExceptionLogRedaction:
             mock_db.side_effect = RuntimeError(f"db error: {self.SECRET}")
             report = bootstrap.health_report(Path("/tmp/fake-hermes-home"))
         assert self.SECRET not in report
-        assert "[REDACTED_SECRET]" in report
+
+    def test_tool_call_error_redacts_secrets(self, caplog):
+        """handle_tool_call redacts exceptions returned in JSON."""
+        from notion_brain import NotionBrainProvider
+        import json
+        caplog.set_level("ERROR", logger="notion_brain")
+        provider = NotionBrainProvider()
+        provider._session_id = "test"
+
+        with patch.object(provider, "_tool_remember", side_effect=RuntimeError(f"API failure: {self.SECRET}")):
+            result_json = provider.handle_tool_call("notion_brain_remember", {"fact": "test"})
+
+        result = json.loads(result_json)
+        assert result["error"] is True
+        assert self.SECRET not in result["result"]
+        assert "[REDACTED_SECRET]" in result["result"]
+        self._assert_no_leak(caplog, self.SECRET)
+
+    def test_store_entry_error_redacts_secrets(self, caplog):
+        """_tool_remember redacts exceptions when _store_entry fails."""
+        from notion_brain import NotionBrainProvider
+        caplog.set_level("ERROR", logger="notion_brain")
+        provider = NotionBrainProvider()
+        provider._session_id = "test"
+        provider._db_ids = {"memory": "db-id"}
+
+        with patch.object(provider, "_store_entry", side_effect=RuntimeError(f"Database error: {self.SECRET}")):
+            result = provider._tool_remember({"title": "test fact", "content": "test content"})
+
+        assert self.SECRET not in result
+        assert "[REDACTED_SECRET]" in result
