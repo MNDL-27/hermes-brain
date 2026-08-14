@@ -8,9 +8,10 @@ from typing import Any
 
 import pytest
 
-from notion_brain import NotionBrainProvider, _paragraph_blocks, bootstrap
+from notion_brain import NotionBrainProvider, bootstrap
 from notion_brain import schema as S
 from notion_brain import store
+from notion_brain.helpers import _paragraph_blocks
 
 
 def _raw_page(page_id: str, title: str) -> dict[str, Any]:

@@ -13,396 +13,29 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from . import bootstrap, extract, schema as S, store
+from . import bootstrap, extract, store
+from . import schema as S
+from .helpers import _merge_disk_only, _safe_select_value
+from .schemas import ALL_TOOL_SCHEMAS
 
 logger = logging.getLogger(__name__)
 
 
-def _safe_select_value(value: str, prop_schema: Dict[str, Any]) -> str | None:
-    """Return ``value`` if it is a defined option on this select property, else ``None``.
-
-    Per-DB option sets differ (memory Kind: note/preference/lesson/decision/reminder;
-    entities Kind: person/company/tool/project/topic/preference). Writing a value
-    that isn't a defined option makes Notion reject the whole page with a 400.
-    Dropping the property is safer than guessing — Notion will leave it blank or
-    fill the default option.
-    """
-    options = prop_schema.get("select", {}).get("options", [])
-    valid = {opt.get("name", "") for opt in options}
-    if not valid:
-        # Schema unknown — pass through; better to attempt than silently drop
-        # user data when we genuinely don't know what's allowed.
-        return value
-    return value if value in valid else None
-
-
-# ---------------------------------------------------------------------------
-# Lazy helpers for Hermes runtime imports
-# ---------------------------------------------------------------------------
-
-def _sanitize_context(text: str) -> str:
-    from agent.memory_manager import sanitize_context
-    return sanitize_context(text)
-
-def _tool_error(msg: str) -> str:
-    from tools.registry import tool_error
-    return tool_error(msg)
-
-def _merge_disk_only(notion_entries: list[dict], disk_text: str) -> list[dict]:
-    """Merge entries from disk that aren't already in the Notion list.
-
-    Simple heuristic: if the title from disk is not in Notion titles,
-    treat it as a disk-only entry and wrap it in a flat result structure.
-    """
-    import re
-
-    if not disk_text or not disk_text.strip():
-        return notion_entries
-
-    notion_titles = {e.get("title", "").lower() for e in notion_entries}
-
-    # Basic parser for the frontmatter-style blocks we write to disk
-    # Expects blocks starting with --- and having a 'name: ...' line
-    # Line-anchored split only on lines that are exactly "---", so content
-    # containing "---" (e.g. code fences, horizontal rules) is preserved.
-    disk_entries = []
-    blocks = re.split(r"(?m)^---$", disk_text)
-    for block in blocks:
-        if not block.strip():
-            continue
-        lines = block.strip().split("\n")
-        title = None
-        tags: list[str] = []
-        content = []
-        for line in lines:
-            if line.startswith("name: "):
-                title = line[6:].strip()
-            elif line.startswith("tags: "):
-                tags = [t.strip() for t in line[6:].split(",") if t.strip()]
-            elif not line.startswith("domain: ") and not line.startswith("kind: "):
-                content.append(line)
-
-        if title and title.lower() not in notion_titles:
-            disk_entries.append({
-                "title": title,
-                "properties": {
-                    "Content": "\n".join(content).strip(),
-                    "Domain": "Memory",
-                    "Kind": "note",
-                    "Tags": tags,
-                }
-            })
-
-    return notion_entries + disk_entries
-
-def _merge_user_disk_only(notion_entries: list[dict], disk_text: str) -> list[dict]:
-    """Merge USER.md disk-only preferences into Notion user entry list.
-
-    USER.md uses a different format from MEMORY.md:
-        # User Profile
-        ## Title
-        content
-
-    Splits by ``## `` headers; each section's title is the header, body is the
-    content. Entries whose title is not already in ``notion_entries`` are kept
-    as disk-only, wrapped in the same flat result structure as memory entries.
-    """
-    if not disk_text or not disk_text.strip():
-        return notion_entries
-
-    notion_titles = {e.get("title", "").lower() for e in notion_entries}
-
-    disk_entries: list[dict] = []
-    lines = disk_text.splitlines()
-    title: Optional[str] = None
-    body: list[str] = []
-    for line in lines[1:] if lines and lines[0].lstrip().startswith("# ") else lines:
-        if line.startswith("## "):
-            if title and title.lower() not in notion_titles:
-                disk_entries.append(_user_disk_entry(title, body))
-            title = line[3:].strip()
-            body = []
-        elif title is not None:
-            body.append(line)
-    if title and title.lower() not in notion_titles:
-        disk_entries.append(_user_disk_entry(title, body))
-
-    return notion_entries + disk_entries
-
-def _user_disk_entry(title: str, body: list[str]) -> dict:
-    return {
-        "title": title,
-        "properties": {
-            "Content": "\n".join(body).strip(),
-            "Kind": "preference",
-        },
-    }
-
-# ---------------------------------------------------------------------------
-# Tool schemas
-# ---------------------------------------------------------------------------
-
-SEARCH_SCHEMA: Dict[str, Any] = {
-    "name": "notion_brain_search",
-    "description": (
-        "Semantic-text search across ALL Notion brain databases (memory, tasks, "
-        "projects, content, research, career, entities). Use this to recall "
-        "anything stored in your Notion brain — past decisions, open tasks, "
-        "research notes, social content ideas, people, and preferences. "
-        "Pass a specific query string for targeted recall."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "What to search for (e.g. 'database migration plan', 'Sarah preferences').",
-            },
-            "database": {
-                "type": "string",
-                "description": (
-                    "Optional database filter: memory|tasks|projects|content|"
-                    "research|career|entities. Omit to search all."
-                ),
-            },
-            "max_results": {
-                "type": "integer",
-                "description": "Max results to return (default 8, max 20).",
-            },
-        },
-        "required": ["query"],
-    },
-}
-
-REMEMBER_SCHEMA: Dict[str, Any] = {
-    "name": "notion_brain_remember",
-    "description": (
-        "Explicitly save something to the Notion brain. Use this when the user "
-        "asks you to remember a fact, decision, or note that capture heuristics "
-        "won't pick up automatically. Domain is inferred from content but can "
-        "be overridden. "
-        "Domains: daily_work, projects, social_content, research, career, entities."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "title": {
-                "type": "string",
-                "description": "Short title for this memory entry (max 120 chars).",
-            },
-            "content": {
-                "type": "string",
-                "description": "Full content / description of what to remember.",
-            },
-            "domain": {
-                "type": "string",
-                "description": "Which domain: daily_work|projects|social_content|research|career|entities.",
-            },
-            "kind": {
-                "type": "string",
-                "description": "Entry kind: note|task|decision|preference|source_note|draft|lesson|reminder.",
-            },
-            "status": {
-                "type": "string",
-                "description": "Status: active|done|draft|published|archived|needs_review.",
-            },
-            "tags": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Tags for filtering (e.g. ['urgent', 'backend']).",
-            },
-            "entities": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Relevant people/companies/projects mentioned.",
-            },
-        },
-        "required": ["title", "content"],
-    },
-}
-
-TASK_SCHEMA: Dict[str, Any] = {
-    "name": "notion_brain_task",
-    "description": (
-        "Manage tasks in the Notion brain Tasks database. "
-        "Use this to create, update, query, or archive tasks. "
-        "When creating, pass title + optional priority, due date, status, tags, and project."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "description": "create|list|update|complete. (default: create)",
-                "enum": ["create", "list", "update", "complete"],
-            },
-            "title": {
-                "type": "string",
-                "description": "Task title (required for create/update).",
-            },
-            "status": {
-                "type": "string",
-                "description": "active|done|needs_review",
-            },
-            "priority": {
-                "type": "string",
-                "description": "urgent|high|medium|low",
-            },
-            "due": {
-                "type": "string",
-                "description": "Due date ISO (YYYY-MM-DD).",
-            },
-            "project": {
-                "type": "string",
-                "description": "Associated project name.",
-            },
-            "tags": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Tags.",
-            },
-            "page_id": {
-                "type": "string",
-                "description": "Notion page ID for update actions.",
-            },
-        },
-        "required": ["action"],
-    },
-}
-
-CONTENT_SCHEMA: Dict[str, Any] = {
-    "name": "notion_brain_content",
-    "description": (
-        "Manage social content ideas in the Notion brain Content database. "
-        "Use this to save drafts, schedule ideas, or query content by platform and status. "
-        "Platforms: twitter, linkedin, instagram, tiktok, facebook, youtube, bluesky."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "description": "create|list|update|publish|archive",
-                "enum": ["create", "list", "update", "publish", "archive"],
-            },
-            "title": {
-                "type": "string",
-                "description": "Content title / headline.",
-            },
-            "body": {
-                "type": "string",
-                "description": "The content body (draft text, hook, caption).",
-            },
-            "status": {
-                "type": "string",
-                "description": "draft|published|scheduled|idea",
-            },
-            "platform": {
-                "type": "string",
-                "description": "target platform.",
-            },
-            "tags": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Tags.",
-            },
-            "page_id": {
-                "type": "string",
-                "description": "Notion page ID for update/publish/archive.",
-            },
-        },
-        "required": ["action"],
-    },
-}
-
-RESEARCH_SCHEMA: Dict[str, Any] = {
-    "name": "notion_brain_research",
-    "description": (
-        "Save or query research findings in the Notion brain Research database. "
-        "Use this when you find a useful source, citation, or analysis worth keeping "
-        "for future reference."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "description": "save|list (default: save)",
-                "enum": ["save", "list"],
-            },
-            "title": {
-                "type": "string",
-                "description": "Research entry title.",
-            },
-            "content": {
-                "type": "string",
-                "description": "Findings, summary, or citation text.",
-            },
-            "tags": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Tags (e.g. ['ml', 'papers', 'benchmark']).",
-            },
-            "status": {
-                "type": "string",
-                "description": "active|archived",
-            },
-        },
-        "required": ["action"],
-    },
-}
-
-ALL_TOOL_SCHEMAS = [
-    SEARCH_SCHEMA,
-    REMEMBER_SCHEMA,
-    TASK_SCHEMA,
-    CONTENT_SCHEMA,
-    RESEARCH_SCHEMA,
-]
-
-# ---------------------------------------------------------------------------
-# Provider implementation
-# ---------------------------------------------------------------------------
-
-def _paragraph_blocks(content: str, *, max_paras: int = 8, chunk: int = 1900) -> list[dict]:
-    """Split content into Notion paragraph children.
-
-    Collapses blank-line paragraph gaps (Notion renders blocks without gaps),
-    caps the number of paragraphs, and chunks each to the block char limit.
-    ponytail: max_paras/chunk hardcoded; parameterize when a caller needs more.
-    """
-    if not content:
-        return []
-    paras = content.replace("\n\n", "\n").split("\n")
-    blocks: list[dict] = []
-    for para in paras[:max_paras]:
-        para = para.strip()
-        if not para:
-            continue
-        for i in range(0, len(para), chunk):
-            blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": [{"type": "text", "text": {"content": para[i:i + chunk]}}]},
-            })
-    return blocks
-
-class NotionBrainProvider(object):
+class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
     def __init__(self) -> None:
         # Set by initialize()
         self._session_id: str = ""
         self._hermes_home: str = ""
-        self._db_ids: Dict[str, str] = {}
+        self._db_ids: dict[str, str] = {}
         self._parent_page_id: str = ""
 
         # Background sync state
         self._sync_lock = threading.Lock()
-        self._sync_thread: Optional[threading.Thread] = None
+        self._sync_thread: threading.Thread | None = None
 
         # Prefetch cache
         self._prefetch_cache: str = ""
@@ -517,30 +150,6 @@ class NotionBrainProvider(object):
         """Clean shutdown."""
         self.on_session_end()
 
-    def _sync_disk_output(self, entries: list[dict]) -> str:
-        """Format entries as frontmatter-style disk output."""
-        lines: list[str] = []
-        for entry in entries:
-            title = entry.get("title", "Untitled")
-            props = entry.get("properties", {})
-            domain = props.get("Domain", "Memory")
-            kind = props.get("Kind", "note")
-            content = props.get("Content", "")
-            tags = props.get("Tags", [])
-            tag_str = ", ".join(tags) if tags else ""
-
-            lines.append("---")
-            lines.append(f"name: {title}")
-            lines.append(f"domain: {domain}")
-            lines.append(f"kind: {kind}")
-            if tag_str:
-                lines.append(f"tags: {tag_str}")
-            lines.append("")
-            lines.append(content)
-            lines.append("")
-
-        return "\n".join(lines)
-
     def on_memory_write(self, text: str, **kwargs) -> None:
         """Called when Hermes writes memory. Classify and store."""
         if not text.strip():
@@ -561,10 +170,10 @@ class NotionBrainProvider(object):
 
         self._store_entry(entry)
 
-    def get_tool_schemas(self) -> list[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         return ALL_TOOL_SCHEMAS
 
-    def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+    def handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> str:
         handlers = {
             "notion_brain_search": self._tool_search,
             "notion_brain_remember": self._tool_remember,
@@ -624,9 +233,9 @@ class NotionBrainProvider(object):
                 f"Failed to save {safe_title!r} to Notion: {safe_detail}"
             ) from exc
 
-    def _database_properties(self, database_id: str, entry: S.BrainEntry) -> Dict[str, Any]:
+    def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "title": store.title_property(entry.title),
         }
 
@@ -668,10 +277,10 @@ class NotionBrainProvider(object):
     def _status_property(
         self,
         status: str,
-        schema_props: Dict[str, Any],
+        schema_props: dict[str, Any],
         *,
         strict: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Map status to a valid Notion Status option, respecting the DB's actual type.
 
         ``Status`` in our content DB is a ``select`` type (draft/published/scheduled/idea);
@@ -693,7 +302,7 @@ class NotionBrainProvider(object):
             return {}
         elif valid_names:
             # Deterministic fallback — pick the lowest option alphabetically.
-            target = sorted(valid_names)[0]
+            target = min(valid_names)
         else:
             # No options at all — nothing safe to write; omit the property.
             return {}
@@ -702,9 +311,8 @@ class NotionBrainProvider(object):
             return store.select_property(target)
         return store.status_property(target)
 
-    def _tool_search(self, args: Dict[str, Any]) -> str:
+    def _tool_search(self, args: dict[str, Any]) -> str:
         """Search across brain databases."""
-        query = args.get("query", "")
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
 
@@ -724,7 +332,7 @@ class NotionBrainProvider(object):
         else:
             # Search all databases
             all_entries: list[dict] = []
-            for key, db_id in self._db_ids.items():
+            for db_id in self._db_ids.values():
                 try:
                     results = store.query_database(db_id, page_size=max_results)
                     all_entries.extend(results)
@@ -746,7 +354,7 @@ class NotionBrainProvider(object):
 
         return "\n".join(lines)
 
-    def _tool_remember(self, args: Dict[str, Any]) -> str:
+    def _tool_remember(self, args: dict[str, Any]) -> str:
         """Explicitly remember something."""
         title = args.get("title", "").strip()
         content = args.get("content", "").strip()
@@ -778,7 +386,7 @@ class NotionBrainProvider(object):
             return f"Error: {exc}"
         return f"Saved: {title}"
 
-    def _tool_task(self, args: Dict[str, Any]) -> str:
+    def _tool_task(self, args: dict[str, Any]) -> str:
         """Manage tasks."""
         action = args.get("action", "list")
 
@@ -856,7 +464,7 @@ class NotionBrainProvider(object):
 
     def _validated_status(
         self, status: str, db_key: str
-    ) -> tuple[Dict[str, Any], str | None]:
+    ) -> tuple[dict[str, Any], str | None]:
         """Build a Status payload validated against ``db_key``'s real options.
 
         Returns (payload, None) on success, ({}, error_message) if ``status``
@@ -887,7 +495,7 @@ class NotionBrainProvider(object):
         valid = sorted({opt.get("name", "") for opt in options if isinstance(opt, dict)})
         return {}, f"Error: status '{status}' is not valid for {db_key}. Valid: {valid}"
 
-    def _tool_content(self, args: Dict[str, Any]) -> str:
+    def _tool_content(self, args: dict[str, Any]) -> str:
         """Manage social content."""
         action = args.get("action", "list")
 
@@ -932,7 +540,7 @@ class NotionBrainProvider(object):
 
         return f"Unknown content action: {action}"
 
-    def _tool_research(self, args: Dict[str, Any]) -> str:
+    def _tool_research(self, args: dict[str, Any]) -> str:
         """Manage research findings."""
         action = args.get("action", "save")
 

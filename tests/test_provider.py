@@ -333,13 +333,13 @@ class TestMergeDiskOnly:
     # Blocks separated by ---, each with name: / domain: / kind: / tags: lines
 
     def test_merge_disk_only_no_disk_text(self):
-        from notion_brain import _merge_disk_only
+        from notion_brain.helpers import _merge_disk_only
         entries = [{"title": "Foo", "properties": {"Content": "bar"}}]
         result = _merge_disk_only(entries, "")
         assert result == entries
 
     def test_merge_disk_only_keeps_new_title(self):
-        from notion_brain import _merge_disk_only
+        from notion_brain.helpers import _merge_disk_only
         notion = [{"title": "Already", "properties": {"Content": "x"}}]
         disk = "---\nname: New Entry\ndomain: Memory\nkind: note\ntags: a, b\n---\nSome body text\n"
         result = _merge_disk_only(notion, disk)
@@ -348,7 +348,7 @@ class TestMergeDiskOnly:
         assert "New Entry" in titles
 
     def test_merge_disk_only_drops_duplicate_title(self):
-        from notion_brain import _merge_disk_only
+        from notion_brain.helpers import _merge_disk_only
         notion = [{"title": "Duplicate", "properties": {"Content": "x"}}]
         disk = "---\nname: Duplicate\ndomain: Memory\nkind: note\n---\nBody\n"
         result = _merge_disk_only(notion, disk)
@@ -368,13 +368,13 @@ class TestMergeDiskOnly:
     )
 
     def test_merge_user_disk_only_no_disk_text(self):
-        from notion_brain import _merge_user_disk_only
+        from notion_brain.helpers import _merge_user_disk_only
         entries = [{"title": "Foo", "properties": {"Content": "bar"}}]
         result = _merge_user_disk_only(entries, "")
         assert result == entries
 
     def test_merge_user_disk_only_parses_sections(self):
-        from notion_brain import _merge_user_disk_only
+        from notion_brain.helpers import _merge_user_disk_only
         notion = [{"title": "Already In Notion", "properties": {"Content": "from notion", "Kind": "preference"}}]
         result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
         titles = {e["title"] for e in result}
@@ -384,7 +384,7 @@ class TestMergeDiskOnly:
         assert len(result) == 3  # 1 notion + 2 disk-only
 
     def test_merge_user_disk_only_content_preserved(self):
-        from notion_brain import _merge_user_disk_only
+        from notion_brain.helpers import _merge_user_disk_only
         notion: list = []
         result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
         code_entry = next(e for e in result if e["title"] == "Code Style Preference")
@@ -392,12 +392,12 @@ class TestMergeDiskOnly:
         assert code_entry["properties"]["Kind"] == "preference"
 
     def test_merge_user_disk_only_empty_user_md(self):
-        from notion_brain import _merge_user_disk_only
+        from notion_brain.helpers import _merge_user_disk_only
         result = _merge_user_disk_only([], "# User Profile\n")
         assert result == []
 
     def test_merge_user_disk_only_all_duplicates(self):
-        from notion_brain import _merge_user_disk_only
+        from notion_brain.helpers import _merge_user_disk_only
         notion = [
             {"title": "Code Style Preference", "properties": {"Content": "c"}},
             {"title": "Editing Tools", "properties": {"Content": "c"}},
@@ -409,7 +409,7 @@ class TestMergeDiskOnly:
     # --- USER.md without the leading "# User Profile" header ---
 
     def test_merge_user_disk_only_no_profile_header(self):
-        from notion_brain import _merge_user_disk_only
+        from notion_brain.helpers import _merge_user_disk_only
         disk = "## Preference One\nBody one.\n\n## Preference Two\nBody two.\n"
         result = _merge_user_disk_only([], disk)
         titles = {e["title"] for e in result}

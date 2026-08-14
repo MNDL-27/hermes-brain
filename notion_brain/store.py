@@ -47,10 +47,9 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                                     json=json_body, timeout=30)
             if resp.ok:
                 return resp.json()
-            if resp.status_code in (429, 500, 502, 503, 504):
-                if attempt < _MAX_RETRIES:
-                    time.sleep(_RETRY_DELAY_S * attempt)
-                    continue
+            if resp.status_code in (429, 500, 502, 503, 504) and attempt < _MAX_RETRIES:
+                time.sleep(_RETRY_DELAY_S * attempt)
+                continue
             # Non-retryable error or retries exhausted: parse body safely
             try:
                 data = resp.json()
