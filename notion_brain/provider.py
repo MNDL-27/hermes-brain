@@ -586,7 +586,7 @@ class NotionBrainProvider(object):
         except Exception as exc:
             logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
             return json.dumps({
-                "result": f"Tool error: {exc}",
+                "result": f"Tool error: {S.redact_secrets(str(exc))}",
                 "error": True,
             })
 
