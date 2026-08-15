@@ -195,7 +195,7 @@ class NotionBrainProvider:
         except Exception as exc:
             logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
             return json.dumps({
-                "result": f"Tool error: {exc}",
+                "result": f"Tool error: {S.redact_secrets(str(exc))}",
                 "error": True,
             })
 
@@ -383,7 +383,7 @@ class NotionBrainProvider:
         try:
             self._store_entry(entry)
         except RuntimeError as exc:
-            return f"Error: {exc}"
+            return f"Error: {S.redact_secrets(str(exc))}"
         return f"Saved: {title}"
 
     def _tool_task(self, args: dict[str, Any]) -> str:
@@ -408,7 +408,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Task created: {title}"
 
         elif action == "list":
@@ -518,7 +518,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Content saved: {title}"
 
         elif action == "list":
@@ -563,7 +563,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Research saved: {title}"
 
         elif action == "list":
