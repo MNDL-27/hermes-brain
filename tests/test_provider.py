@@ -510,7 +510,8 @@ class TestExceptionLogRedaction:
     @patch("notion_brain.store.get_database")
     def test_database_properties_error_redacts_secrets(self, mock_get_db, mock_create, caplog):
         """_database_properties logs schema-fetch exception with redaction."""
-        from notion_brain import NotionBrainProvider, schema as S
+        from notion_brain import NotionBrainProvider
+        from notion_brain import schema as S
         caplog.set_level("WARNING", logger="notion_brain")
         mock_get_db.side_effect = RuntimeError(f"schema read: {self.SECRET}")
         mock_create.side_effect = RuntimeError("NOTION_API_KEY not set")
@@ -573,3 +574,24 @@ class TestExceptionLogRedaction:
             report = bootstrap.health_report(Path("/tmp/fake-hermes-home"))
         assert self.SECRET not in report
         assert "[REDACTED_SECRET]" in report
+
+    def test_handle_tool_call_error_redacts_secrets(self, caplog):
+        """Tool call error responses redact secrets before returning JSON to the caller."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+        caplog.set_level("WARNING", logger="notion_brain")
+        provider = NotionBrainProvider()
+
+        # mock a tool to raise an exception with a secret
+        def failing_tool(*args, **kwargs):
+            raise RuntimeError(f"tool error: {self.SECRET}")
+
+        with patch.object(provider, "_tool_search", side_effect=failing_tool):
+            result_json = provider.handle_tool_call("notion_brain_search", {"query": "test"})
+
+        result = json.loads(result_json)
+        assert result["error"] is True
+        assert self.SECRET not in result["result"]
+        assert "[REDACTED_SECRET]" in result["result"]
+        self._assert_no_leak(caplog, self.SECRET)
