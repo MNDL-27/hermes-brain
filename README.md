@@ -79,7 +79,8 @@ Expected: prints the path to `notion_brain/__init__.py`.
 ### Step 2 — Confirm the parent page
 
 ```bash
-python -m notion_brain url
+hermes-brain url
+# or equivalently: python -m notion_brain url
 ```
 
 Expected: prints a `notion.so/...` URL. Open it — you should see an empty "Hermes Brain" page. If you don't, [share the page with your integration](docs/troubleshooting.md#1-i-get-unauthorized-from-notion).
@@ -279,12 +280,12 @@ cache = bootstrap.ensure_brain("~/.hermes")
 print(cache["parent_page_id"])  # Notion page ID
 ```
 
-Or from the CLI:
+Or from the CLI (`hermes-brain` after install, `python -m notion_brain` from a checkout):
 
 ```bash
-python -m notion_brain health    # prints health report, auto-repairs schema mismatches
-python -m notion_brain url       # prints the Notion URL of the Hermes Brain page
-python -m notion_brain reset     # archive and recreate mismatched databases
+hermes-brain health    # prints health report, auto-repairs schema mismatches
+hermes-brain url       # prints the Notion URL of the Hermes Brain page
+hermes-brain reset     # archive and recreate mismatched databases
 ```
 
 ---
