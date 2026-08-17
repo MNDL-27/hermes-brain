@@ -10,6 +10,8 @@ Cache:  $HERMES_HOME/notion_brain.json
 
 from __future__ import annotations
 
+__version__ = "1.0.2"
+
 from .extract import classify_turn as classify_text
 from .provider import NotionBrainProvider, register
 from .schemas import (

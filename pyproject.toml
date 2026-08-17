@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-brain"
-version = "1.0.0"
+version = "1.0.2"
 description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
 readme = "README.md"
 license = { text = "MIT" }
@@ -18,6 +18,9 @@ classifiers = [
 dependencies = [
     "requests>=2.28",
 ]
+
+[project.scripts]
+hermes-brain = "notion_brain.__main__:main"
 
 # NOTE: the Hermes runtime (agent.*, tools.*) is imported lazily at call time
 # behind guards in notion_brain/__init__.py and is NOT declared here. The

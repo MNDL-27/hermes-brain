@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [v1.0.2] — 2026-08-15
+
+### Added
+- `hermes-brain` console command (`python -m notion_brain` exposed as a pip entry point) — `reset`, `url`, and `health` subcommands are now available immediately after `pip install hermes-brain`.
+- `notion_brain.__version__` attribute — verify your install with `import notion_brain; notion_brain.__version__`.
+
+### Fixed
+- Version mismatch between `pyproject.toml` (1.0.0), `plugin.yaml` (1.0.0), and `CHANGELOG.md` (v1.0.1) — all three now report 1.0.2.
+
 ## [v1.0.1] — 2026-08-05
 
 ### Added
