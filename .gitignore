@@ -48,6 +48,11 @@ htmlcov/
 config.yaml
 config.local.yaml
 
+# Status / report drafts left in tree by accident
+*.docx
+STATUS*
+project-status-report*
+
 # Lockfile is fine to commit when intentional (uv.lock + uv sync --locked).
 # Uncomment to ignore:
 # uv.lock
