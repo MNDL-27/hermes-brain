@@ -68,11 +68,6 @@ def _forbid_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(store.requests, "request", unexpected_network)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
-    reason="Workstream 3: the Notion adapter must retrieve complete page bodies",
-)
 def test_search_entries_retrieves_complete_page_body(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -151,11 +146,6 @@ def test_database_filtered_search_honors_query(
     assert [item["title"] for item in items] == ["Needle protocol"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
-    reason="Workstream 3: the Notion adapter must follow database pagination cursors",
-)
 def test_query_database_returns_all_paginated_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -194,11 +184,6 @@ def test_query_database_returns_all_paginated_records(
     assert request_bodies[1]["start_cursor"] == "database-cursor-2"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
-    reason="Workstream 3: the Notion adapter must preserve content beyond eight lines",
-)
 def test_paragraph_blocks_preserve_every_non_empty_line() -> None:
     source_lines = [f"preserved line {number}" for number in range(1, 13)]
 

@@ -116,9 +116,12 @@ class NotionBrainProvider:
                     title = entry.get("title", "Untitled")
                     content = entry.get("properties", {}).get("Content", "")
                     kind = entry.get("properties", {}).get("Kind", "note")
-                    lines.append(f"- [{kind}] {title}: {content[:200]}")
+                    safe_title = S.redact_secrets(title)
+                    safe_content = S.redact_secrets(content[:200])
+                    lines.append(f"- [{kind}] {safe_title}: {safe_content}")
 
-                self._prefetch_cache = "\n".join(lines)
+                safe_lines = S.redact_secrets("\n".join(lines))
+                self._prefetch_cache = safe_lines
                 return self._prefetch_cache
             except Exception as exc:
                 logger.warning("NotionBrainProvider prefetch failed: %s", S.redact_secrets(str(exc)))
@@ -132,7 +135,10 @@ class NotionBrainProvider:
 
             def _do_sync() -> None:
                 try:
-                    # TODO: implement actual sync logic
+                    # Refresh the prefetch cache so the next turn sees recent
+                    # memory entries without waiting for a cold Notion query.
+                    self._prefetch_cache = ""
+                    self.prefetch()
                     logger.debug("NotionBrainProvider: sync turn complete")
                 except Exception as exc:
                     logger.error("NotionBrainProvider sync error: %s", S.redact_secrets(str(exc)))
@@ -160,10 +166,15 @@ class NotionBrainProvider:
         domain = classification.get("domain", "memory")
         kind = classification.get("kind", "note")
 
+        # Scrub raw text BEFORE classification and storage so secrets never
+        # travel through classification helpers, caches, or the outbox path.
+        safe_text = S.redact_secrets(text)
+        safe_title = S.clean_title(classification.get("title", "Untitled"))
+
         entry = S.BrainEntry(
             domain=domain,
-            title=classification.get("title", "Untitled"),
-            content=text,
+            title=safe_title,
+            content=safe_text,
             kind=kind,
             source_session_id=self._session_id,
         ).normalized()
@@ -200,29 +211,58 @@ class NotionBrainProvider:
             })
 
     def _store_entry(self, entry: S.BrainEntry) -> None:
-        """Store a normalized entry in the appropriate database."""
+        """Store a normalized entry in the appropriate database.
+
+        Raises ``RuntimeError`` when the destination database is missing
+        so that callers surface a real error instead of silently dropping
+        the write.
+        """
         database_key = S.database_for_domain(entry.domain)
         database_id = self._db_ids.get(database_key)
 
         if not database_id:
-            logger.warning("No database for domain %s", entry.domain)
-            return
+            raise RuntimeError(
+                f"No database available for domain '{entry.domain}' "
+                f"(via '{database_key}'). Run `python -m notion_brain reset` to bootstrap."
+            )
 
         self._write_entry_raw(database_id, entry)
 
     def _write_entry_raw(self, database_id: str, entry: S.BrainEntry) -> None:
-        """Write entry to Notion database.
-
-        Raises ``RuntimeError`` on failure so callers (especially the tool
-        handlers) can surface a real error to the user instead of letting
-        the entry vanish. The background ``sync_turn`` path wraps its own
-        calls in ``try/except`` so it can keep running on errors.
+        """Write entry to Notion database, updating an existing page when one
+        matches the title. Raises ``RuntimeError`` on failure so callers
+        (especially the tool handlers) can surface a real error to the user
+        instead of letting the entry vanish. The background ``sync_turn``
+        path wraps its own calls in ``try/except`` so it can keep running on
+        errors.
         """
         properties = self._database_properties(database_id, entry)
 
+        # Avoid duplicate pages: if an entry with the same normalized title
+        # already exists in this database, PATCH it instead of POSTing a new
+        # page. Notion search-by-title is case-insensitive on the title field.
+        existing_id = ""
+        if entry.title:
+            try:
+                existing = store.search_page_by_title(
+                    entry.title, object_type="page"
+                )
+            except Exception:
+                existing = None
+            if existing and existing.get("parent", {}).get("database_id") == database_id:
+                existing_id = existing["id"]
+
         try:
-            store.create_database_page(database_id, properties)
-            logger.debug("Stored entry in %s: %s", database_id, entry.title)
+            if existing_id:
+                store.update_page(existing_id, properties)
+                logger.debug(
+                    "Updated entry in %s: %s", database_id, entry.title
+                )
+            else:
+                store.create_database_page(database_id, properties)
+                logger.debug(
+                    "Stored entry in %s: %s", database_id, entry.title
+                )
         except Exception as exc:
             # Scrub both the inner failure detail and the entry title before
             # logging — error paths must not leak secrets into log streams.
@@ -312,7 +352,8 @@ class NotionBrainProvider:
         return store.status_property(target)
 
     def _tool_search(self, args: dict[str, Any]) -> str:
-        """Search across brain databases."""
+        """Search across brain databases, honoring the query when provided."""
+        query = (args.get("query") or "").strip()
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
 
@@ -321,25 +362,41 @@ class NotionBrainProvider:
         if self._hermes_home:
             disk_text = bootstrap.read_memory_from_disk(self._hermes_home)
 
+        # Build a Notion rich_text "contains" filter so the query is actually
+        # applied server-side instead of being silently dropped.
+        query_filter: dict[str, Any] | None = None
+        if query:
+            query_filter = {
+                "property": "title",
+                "rich_text": {"contains": query},
+            }
+
         if database:
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
                 return f"No database found for: {database}"
 
-            entries = store.query_database(db_id, page_size=max_results)
+            entries = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
             entries = _merge_disk_only(entries, disk_text)
         else:
             # Search all databases
             all_entries: list[dict] = []
             for db_id in self._db_ids.values():
                 try:
-                    results = store.query_database(db_id, page_size=max_results)
+                    results = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
                     all_entries.extend(results)
                 except Exception:
                     pass
             all_entries = _merge_disk_only(all_entries, disk_text)
             entries = all_entries[:max_results]
+
+        # Client-side title refinement when a query is present — Notion's
+        # "contains" is case-sensitive and only matches the title property,
+        # so we keep results whose displayed title actually mentions the query.
+        if query:
+            needle = query.lower()
+            entries = [e for e in entries if needle in (e.get("title") or "").lower()]
 
         # Format results
         if not entries:
@@ -369,14 +426,16 @@ class NotionBrainProvider:
         if not content:
             return "Error: content is required"
 
+        # Scrub user-supplied fields before they reach the BrainEntry so the
+        # secret policy applies even when callers bypass BrainEntry.normalized().
         entry = S.BrainEntry(
             domain=domain,
-            title=title,
-            content=content,
-            kind=kind,
-            status=status,
-            tags=tags,
-            entities=entities,
+            title=S.clean_title(title),
+            content=S.redact_secrets(content),
+            kind=S.redact_secrets(kind),
+            status=S.redact_secrets(status),
+            tags=[S.redact_secrets(t) for t in tags],
+            entities=[S.redact_secrets(e) for e in entities],
             source_session_id=self._session_id,
         ).normalized()
 
@@ -384,7 +443,7 @@ class NotionBrainProvider:
             self._store_entry(entry)
         except RuntimeError as exc:
             return f"Error: {exc}"
-        return f"Saved: {title}"
+        return f"Saved: {entry.title}"
 
     def _tool_task(self, args: dict[str, Any]) -> str:
         """Manage tasks."""
@@ -397,11 +456,11 @@ class NotionBrainProvider:
 
             entry = S.BrainEntry(
                 domain="daily_work",
-                title=title,
-                content=args.get("content", ""),
+                title=S.clean_title(title),
+                content=S.redact_secrets(args.get("content", "")),
                 kind="task",
-                status=args.get("status", "active"),
-                tags=args.get("tags", []),
+                status=S.redact_secrets(args.get("status", "active")),
+                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -409,7 +468,7 @@ class NotionBrainProvider:
                 self._store_entry(entry)
             except RuntimeError as exc:
                 return f"Error: {exc}"
-            return f"Task created: {title}"
+            return f"Task created: {entry.title}"
 
         elif action == "list":
             db_id = self._db_ids.get("tasks")
@@ -421,9 +480,9 @@ class NotionBrainProvider:
                 return "No tasks found."
 
             lines: list[str] = []
-            for entry in entries:
-                title = entry.get("title", "Untitled")
-                status = entry.get("properties", {}).get("Status", "")
+            for item in entries:
+                title = item.get("title", "Untitled")
+                status = item.get("properties", {}).get("Status", "")
                 lines.append(f"- [{status}] {title}")
 
             return "\n".join(lines)
@@ -507,11 +566,11 @@ class NotionBrainProvider:
 
             entry = S.BrainEntry(
                 domain="social_content",
-                title=title,
-                content=body,
+                title=S.clean_title(title),
+                content=S.redact_secrets(body),
                 kind="draft",
-                status=args.get("status", "draft"),
-                tags=args.get("tags", []),
+                status=S.redact_secrets(args.get("status", "draft")),
+                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -519,7 +578,65 @@ class NotionBrainProvider:
                 self._store_entry(entry)
             except RuntimeError as exc:
                 return f"Error: {exc}"
-            return f"Content saved: {title}"
+            return f"Content saved: {entry.title}"
+
+        elif action == "update":
+            page_id = args.get("page_id")
+            if not page_id:
+                return "Error: page_id is required for update"
+
+            updates: dict[str, Any] = {}
+
+            if "title" in args:
+                updates["title"] = store.title_property(S.clean_title(args["title"]))
+            if "body" in args:
+                updates["Content"] = store.rich_text_property(args["body"])
+            if "tags" in args:
+                updates["Tags"] = store.multi_select_property(args["tags"])
+
+            if not updates:
+                return "Error: No fields provided for update."
+
+            try:
+                store.update_page(page_id, updates)
+                return f"Content updated for page ID: {page_id}"
+            except Exception as exc:
+                return f"Error updating content: {exc}"
+
+        elif action == "publish":
+            # For social content, changing status to published requires updating the status field
+            page_id = args.get("page_id")
+            if not page_id:
+                return "Error: page_id is required for update"
+
+            try:
+                # Attempt to complete the status field change
+                status_payload, status_err = self._validated_status("published", "content")
+                if status_err:
+                    return status_err
+
+                properties = {"Status": status_payload} if status_payload else {}
+                store.update_page(page_id, properties)
+                return "Content successfully marked as published."
+            except Exception as exc:
+                return f"Error publishing content: {exc}"
+
+        elif action == "archive":
+            page_id = args.get("page_id")
+            if not page_id:
+                return "Error: page_id is required for update"
+
+            try:
+                # Archive/cleanup status field (assuming 'archived' is a valid status option)
+                status_payload, status_err = self._validated_status("archived", "content")
+                if status_err:
+                    return status_err
+
+                properties = {"Status": status_payload} if status_payload else {}
+                store.update_page(page_id, properties)
+                return "Content successfully marked as archived."
+            except Exception as exc:
+                return f"Error archiving content: {exc}"
 
         elif action == "list":
             db_id = self._db_ids.get("content")
@@ -531,9 +648,9 @@ class NotionBrainProvider:
                 return "No content found."
 
             lines: list[str] = []
-            for entry in entries:
-                title = entry.get("title", "Untitled")
-                status = entry.get("properties", {}).get("Status", "")
+            for item in entries:
+                title = item.get("title", "Untitled")
+                status = item.get("properties", {}).get("Status", "")
                 lines.append(f"- [{status}] {title}")
 
             return "\n".join(lines)
@@ -552,11 +669,11 @@ class NotionBrainProvider:
 
             entry = S.BrainEntry(
                 domain="research",
-                title=title,
-                content=content,
+                title=S.clean_title(title),
+                content=S.redact_secrets(content),
                 kind="reference",
-                status=args.get("status", "active"),
-                tags=args.get("tags", []),
+                status=S.redact_secrets(args.get("status", "active")),
+                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -564,7 +681,7 @@ class NotionBrainProvider:
                 self._store_entry(entry)
             except RuntimeError as exc:
                 return f"Error: {exc}"
-            return f"Research saved: {title}"
+            return f"Research saved: {entry.title}"
 
         elif action == "list":
             db_id = self._db_ids.get("research")
@@ -576,8 +693,8 @@ class NotionBrainProvider:
                 return "No research findings found."
 
             lines: list[str] = []
-            for entry in entries:
-                title = entry.get("title", "Untitled")
+            for item in entries:
+                title = item.get("title", "Untitled")
                 lines.append(f"- {title}")
 
             return "\n".join(lines)

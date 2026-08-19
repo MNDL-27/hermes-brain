@@ -90,27 +90,68 @@ def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any
 
 
 def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
-    """Search Notion and return results with extracted metadata."""
+    """Search Notion and return results with extracted metadata + body text."""
     body: dict[str, Any] = {"query": query, "page_size": min(page_size, 100)}
     data = _request("POST", "/search", body)
     if not isinstance(data, dict):
         return []
-    return [_flatten_result(r) for r in (data.get("results") or [])]
+    results = [_flatten_result(r) for r in (data.get("results") or [])]
+    # Hydrate each page's body so recall returns full text, not just a
+    # truncated Content property. A failing body fetch must not poison the
+    # whole search; we just leave content empty for that page.
+    for entry in results:
+        page_id = entry.get("id")
+        if not page_id:
+            continue
+        body_text = _page_body_text(page_id)
+        if body_text:
+            entry["content"] = body_text
+            props = entry.setdefault("properties", {})
+            # Mirror into the Content property so callers that read either
+            # `entry["content"]` or `entry["properties"]["Content"]` see text.
+            if not props.get("Content"):
+                props["Content"] = body_text
+    return results
 
 
 def query_database(database_id: str, *, page_size: int = 100,
                    sorts: list[dict] | None = None,
                    filter_obj: dict | None = None) -> list[dict[str, Any]]:
-    """Query a Notion database and return flat results."""
-    body: dict[str, Any] = {"page_size": min(page_size, 100)}
-    if sorts:
-        body["sorts"] = sorts
-    if filter_obj:
-        body["filter"] = filter_obj
-    data = _request("POST", f"/databases/{database_id}/query", body)
-    if not isinstance(data, dict):
-        return []
-    return [_flatten_result(r) for r in (data.get("results") or [])]
+    """Query a Notion database and return flat results across all pages.
+
+    Walks cursor pagination so databases with more than 100 rows are returned
+    completely instead of being truncated after the first batch.
+    """
+    results: list[dict[str, Any]] = []
+    cursor: str | None = None
+    seen_cursors: set[str] = set()
+
+    while True:
+        if cursor and cursor in seen_cursors:
+            break
+        seen_cursors.add(cursor or "")
+
+        body: dict[str, Any] = {"page_size": min(page_size, 100)}
+        if sorts:
+            body["sorts"] = sorts
+        if filter_obj:
+            body["filter"] = filter_obj
+        if cursor:
+            body["start_cursor"] = cursor
+
+        data = _request("POST", f"/databases/{database_id}/query", body)
+        if not isinstance(data, dict):
+            break
+
+        results.extend([_flatten_result(r) for r in (data.get("results") or [])])
+
+        if not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+
+    return results
 
 
 # ─── Pages ───────────────────────────────────────────────────────────────
@@ -303,3 +344,49 @@ def _flatten_result(raw: dict[str, Any]) -> dict[str, Any]:
         "properties": props,
         "raw": raw,
     }
+
+
+def _page_body_text(page_id: str) -> str:
+    """Fetch the visible body blocks of a Notion page and concatenate text.
+
+    Walks every page of ``/blocks/{id}/children`` and joins the plain text of
+    every supported block type. Returns an empty string on error or when the
+    page has no body — callers treat the absence as "no body to recall".
+    """
+    lines: list[str] = []
+    cursor: str | None = None
+    seen_cursors: set[str] = set()
+    while True:
+        if cursor and cursor in seen_cursors:
+            break  # safety: Notion should never loop, but guard anyway
+        seen_cursors.add(cursor or "")
+        qs = "page_size=100" + (f"&start_cursor={cursor}" if cursor else "")
+        try:
+            data = _request("GET", f"/blocks/{page_id}/children?{qs}")
+        except Exception:
+            break
+        if not isinstance(data, dict):
+            break
+        for block in data.get("results") or []:
+            text = _block_text(block)
+            if text:
+                lines.append(text)
+        if not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+    return "\n".join(lines)
+
+
+def _block_text(block: dict[str, Any]) -> str:
+    """Best-effort plain-text extraction from a Notion block."""
+    btype = block.get("type")
+    payload = block.get(btype) if isinstance(btype, str) else None
+    if not isinstance(payload, dict):
+        return ""
+    rich = payload.get("rich_text") or payload.get("text") or []
+    return "".join(
+        (rt.get("plain_text") or rt.get("text", {}).get("content", "") or "")
+        for rt in rich if isinstance(rt, dict)
+    )

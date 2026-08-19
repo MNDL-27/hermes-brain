@@ -41,10 +41,6 @@ def _forbid_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("notion_brain.store.requests.request", unexpected_network)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 5: remember must expose a failed state when no destination database exists",
-)
 def test_remember_does_not_report_saved_without_destination_database() -> None:
     provider = NotionBrainProvider()
 
@@ -57,10 +53,6 @@ def test_remember_does_not_report_saved_without_destination_database() -> None:
     assert "error" in response.lower() or "fail" in response.lower()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 3: content updates must update the existing page instead of creating a duplicate",
-)
 def test_content_update_calls_update_page_without_creating_duplicate() -> None:
     provider = _provider_with_databases(content="content-db")
 
