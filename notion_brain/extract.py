@@ -185,3 +185,24 @@ def _find_platform(text: str) -> str | None:
     if m:
         return m.group(1).lower()
     return None
+
+
+def classify_text(text: str) -> dict[str, str]:
+    """Classify arbitrary text for on_memory_write extraction.
+
+    Runs classify_turn with empty assistant context and falls back to a generic
+    memory note if no specific triggers match.
+    """
+    entries = classify_turn(text, "")
+    if entries:
+        top = entries[0]
+        return {
+            "domain": top.domain,
+            "title": top.title,
+            "kind": top.kind,
+        }
+    return {
+        "domain": "memory",
+        "title": _brief_title(text, "Note"),
+        "kind": "note",
+    }
