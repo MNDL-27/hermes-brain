@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
 import threading
 from typing import Any
 
@@ -36,6 +37,7 @@ class NotionBrainProvider:
         # Background sync state
         self._sync_lock = threading.Lock()
         self._sync_thread: threading.Thread | None = None
+        self._sync_queue: queue.Queue = queue.Queue()
 
         # Prefetch cache
         self._prefetch_cache: str = ""
@@ -127,30 +129,58 @@ class NotionBrainProvider:
                 logger.warning("NotionBrainProvider prefetch failed: %s", S.redact_secrets(str(exc)))
                 return ""
 
-    def sync_turn(self, **kwargs) -> None:
-        """Background sync after a turn. Called by Hermes after each response."""
-        with self._sync_lock:
-            if self._sync_thread and self._sync_thread.is_alive():
-                return
-
-            def _do_sync() -> None:
+    def _worker_loop(self) -> None:
+        while True:
+            with self._sync_lock:
                 try:
-                    # Refresh the prefetch cache so the next turn sees recent
-                    # memory entries without waiting for a cold Notion query.
-                    self._prefetch_cache = ""
-                    self.prefetch()
-                    logger.debug("NotionBrainProvider: sync turn complete")
-                except Exception as exc:
-                    logger.error("NotionBrainProvider sync error: %s", S.redact_secrets(str(exc)))
+                    task = self._sync_queue.get_nowait()
+                except queue.Empty:
+                    self._sync_thread = None
+                    break
+            func, args, kwargs = task
+            try:
+                func(*args, **kwargs)
+            except Exception as exc:
+                logger.error("NotionBrainProvider sync worker error: %s", S.redact_secrets(str(exc)))
+            finally:
+                self._sync_queue.task_done()
 
-            self._sync_thread = threading.Thread(target=_do_sync, daemon=True)
-            self._sync_thread.start()
+    def _process_sync_turn(self, user_content: str, assistant_content: str) -> None:
+        try:
+            entries = extract.classify_turn(user_content, assistant_content)
+            for entry in entries:
+                if isinstance(entry, S.BrainEntry):
+                    entry.source_session_id = self._session_id
+                    self._store_entry(entry.normalized())
+                else:
+                    self._store_entry(entry)
+            self._prefetch_cache = ""
+            self.prefetch()
+            logger.debug("NotionBrainProvider: sync turn complete")
+        except Exception as exc:
+            logger.error("NotionBrainProvider sync error: %s", S.redact_secrets(str(exc)))
 
-    def on_session_end(self, **kwargs) -> None:
+    def sync_turn(self, *args, **kwargs) -> None:
+        """Background sync after a turn. Called by Hermes after each response."""
+        user_content = args[0] if len(args) > 0 else kwargs.get("user_content", "")
+        assistant_content = args[1] if len(args) > 1 else kwargs.get("assistant_content", "")
+        with self._sync_lock:
+            self._sync_queue.put((self._process_sync_turn, (user_content, assistant_content), {}))
+            if self._sync_thread is None or not self._sync_thread.is_alive():
+                self._sync_thread = threading.Thread(
+                    target=self._worker_loop,
+                    daemon=True,
+                    name="notion-brain-sync-worker",
+                )
+                self._sync_thread.start()
+
+    def on_session_end(self, *args, **kwargs) -> None:
         """Called when Hermes session ends. Wait for pending sync."""
+        self._sync_queue.join()
         with self._sync_lock:
             if self._sync_thread and self._sync_thread.is_alive():
                 self._sync_thread.join(timeout=5.0)
+                self._sync_thread = None
 
     def shutdown(self) -> None:
         """Clean shutdown."""
@@ -202,6 +232,10 @@ class NotionBrainProvider:
 
         try:
             result = handler(arguments)
+            if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                text_result, extra = result
+                payload = {"result": text_result, "error": False, **extra}
+                return json.dumps(payload)
             return json.dumps({"result": result, "error": False})
         except Exception as exc:
             logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
@@ -228,40 +262,71 @@ class NotionBrainProvider:
 
         self._write_entry_raw(database_id, entry)
 
-    def _write_entry_raw(self, database_id: str, entry: S.BrainEntry) -> None:
+    def _write_entry_raw(
+        self,
+        database_id: str | None = None,
+        entry: S.BrainEntry | None = None,
+        *,
+        domain: str = "memory",
+        title: str = "Untitled",
+        content: str = "",
+        kind: str = "note",
+        status: str = "active",
+        confidence: str = "medium",
+        tags: list[str] | None = None,
+        entities: list[str] | None = None,
+        db_id: str | None = None,
+    ) -> None:
         """Write entry to Notion database, updating an existing page when one
-        matches the title. Raises ``RuntimeError`` on failure so callers
-        (especially the tool handlers) can surface a real error to the user
-        instead of letting the entry vanish. The background ``sync_turn``
-        path wraps its own calls in ``try/except`` so it can keep running on
-        errors.
+        matches the title. Accepts either a BrainEntry object or keyword arguments.
+        Raises ``RuntimeError`` on failure so callers can surface real errors.
         """
-        properties = self._database_properties(database_id, entry)
+        # Resolve target database ID
+        target_db_id = database_id or db_id
+        if not target_db_id:
+            db_key = S.database_for_domain(domain)
+            target_db_id = self._db_ids.get(db_key) or ""
+
+        # Build normalized entry from either source
+        if entry is None:
+            entry = S.BrainEntry(
+                domain=domain,
+                title=title,
+                content=content,
+                kind=kind,
+                status=status,
+                confidence=confidence,
+                tags=tags or [],
+                entities=entities or [],
+                source_session_id=self._session_id,
+            ).normalized()
+
+        properties = self._database_properties(target_db_id, entry)
 
         # Avoid duplicate pages: if an entry with the same normalized title
         # already exists in this database, PATCH it instead of POSTing a new
         # page. Notion search-by-title is case-insensitive on the title field.
         existing_id = ""
-        if entry.title:
+        if entry.title and target_db_id:
             try:
                 existing = store.search_page_by_title(
                     entry.title, object_type="page"
                 )
             except Exception:
                 existing = None
-            if existing and existing.get("parent", {}).get("database_id") == database_id:
+            if existing and existing.get("parent", {}).get("database_id") == target_db_id:
                 existing_id = existing["id"]
 
         try:
             if existing_id:
                 store.update_page(existing_id, properties)
                 logger.debug(
-                    "Updated entry in %s: %s", database_id, entry.title
+                    "Updated entry in %s: %s", target_db_id, entry.title
                 )
             else:
-                store.create_database_page(database_id, properties)
+                store.create_database_page(target_db_id, properties)
                 logger.debug(
-                    "Stored entry in %s: %s", database_id, entry.title
+                    "Stored entry in %s: %s", target_db_id, entry.title
                 )
         except Exception as exc:
             # Scrub both the inner failure detail and the entry title before
@@ -283,34 +348,30 @@ class NotionBrainProvider:
         try:
             db = store.get_database(database_id)
             schema_props = db.get("properties", {})
-
-            if "Domain" in schema_props:
-                props["Domain"] = store.select_property(S.DOMAINS.get(entry.domain, entry.domain))
-            if "Status" in schema_props:
-                props["Status"] = self._status_property(entry.status, schema_props)
-            if "Kind" in schema_props:
-                kind_value = _safe_select_value(entry.kind, schema_props["Kind"])
-                if kind_value is not None:
-                    props["Kind"] = store.select_property(kind_value)
-            if "Confidence" in schema_props:
-                props["Confidence"] = store.select_property(entry.confidence)
-            if "Tags" in schema_props:
-                props["Tags"] = store.multi_select_property(entry.tags)
-            if "Entities" in schema_props:
-                props["Entities"] = store.multi_select_property(entry.entities)
-            if "Content" in schema_props:
-                props["Content"] = store.rich_text_property(entry.content)
-            if "Source Session" in schema_props and entry.source_session_id:
-                props["Source Session"] = store.rich_text_property(entry.source_session_id)
         except Exception as exc:
             logger.warning("Could not get database schema for %s: %s", database_id, S.redact_secrets(str(exc)))
-            # Fallback to known properties — pick the safest status shape per-DB.
-            props["Domain"] = store.select_property(S.DOMAINS.get(entry.domain, entry.domain))
-            props["Kind"] = store.select_property(entry.kind)
+            raise
+
+        if "Domain" in schema_props:
+            props["Domain"] = store.select_property(entry.domain)
+        if "Status" in schema_props:
+            status_payload = self._status_property(entry.status, schema_props)
+            if status_payload:
+                props["Status"] = status_payload
+        if "Kind" in schema_props:
+            kind_value = _safe_select_value(entry.kind, schema_props["Kind"])
+            if kind_value is not None:
+                props["Kind"] = store.select_property(kind_value)
+        if "Confidence" in schema_props:
             props["Confidence"] = store.select_property(entry.confidence)
+        if "Tags" in schema_props:
             props["Tags"] = store.multi_select_property(entry.tags)
+        if "Entities" in schema_props:
             props["Entities"] = store.multi_select_property(entry.entities)
+        if "Content" in schema_props:
             props["Content"] = store.rich_text_property(entry.content)
+        if "Source Session" in schema_props and entry.source_session_id:
+            props["Source Session"] = store.rich_text_property(entry.source_session_id)
 
         return props
 
@@ -400,16 +461,24 @@ class NotionBrainProvider:
 
         # Format results
         if not entries:
-            return "No results found."
+            return ("No results found.", {"items": []})
 
         lines: list[str] = []
+        structured_items: list[dict[str, Any]] = []
         for entry in entries:
             title = entry.get("title", "Untitled")
             content = entry.get("properties", {}).get("Content", "")[:200]
             kind = entry.get("properties", {}).get("Kind", "note")
             lines.append(f"- [{kind}] {title}: {content}")
+            structured_items.append({
+                "title": title,
+                "content": content,
+                "kind": kind,
+                "id": entry.get("id"),
+                "properties": entry.get("properties", {}),
+            })
 
-        return "\n".join(lines)
+        return ("\n".join(lines), {"items": structured_items})
 
     def _tool_remember(self, args: dict[str, Any]) -> str:
         """Explicitly remember something."""

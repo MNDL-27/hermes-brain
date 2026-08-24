@@ -8,9 +8,8 @@ from typing import Any
 
 import pytest
 
-from notion_brain import NotionBrainProvider, bootstrap
+from notion_brain import NotionBrainProvider, bootstrap, store
 from notion_brain import schema as S
-from notion_brain import store
 from notion_brain.helpers import _paragraph_blocks
 
 
@@ -110,11 +109,6 @@ def test_search_entries_retrieves_complete_page_body(
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
-    reason="Workstream 3: database-filtered search must honor the supplied query",
-)
 def test_database_filtered_search_honors_query(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -200,11 +194,6 @@ def test_paragraph_blocks_preserve_every_non_empty_line() -> None:
     assert emitted_lines == source_lines
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
-    reason="Workstream 3: emitted domain and status values must match bootstrap schemas",
-)
 def test_domain_writes_emit_only_values_declared_by_bootstrap_schema(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
