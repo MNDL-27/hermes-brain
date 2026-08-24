@@ -510,7 +510,8 @@ class TestExceptionLogRedaction:
     @patch("notion_brain.store.get_database")
     def test_database_properties_error_redacts_secrets(self, mock_get_db, mock_create, caplog):
         """_database_properties logs schema-fetch exception with redaction."""
-        from notion_brain import NotionBrainProvider, schema as S
+        from notion_brain import NotionBrainProvider
+        from notion_brain import schema as S
         caplog.set_level("WARNING", logger="notion_brain")
         mock_get_db.side_effect = RuntimeError(f"schema read: {self.SECRET}")
         mock_create.side_effect = RuntimeError("NOTION_API_KEY not set")

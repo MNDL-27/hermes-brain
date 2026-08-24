@@ -8,15 +8,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import re
+
 from notion_brain.extract import (
+    _brief_title,
+    _extract_sentence,
+    _find_platform,
     _fwd_sentence_boundary,
     _rev_sentence_boundary,
     classify_turn,
-    _brief_title,
-    _find_platform,
-    _extract_sentence,
 )
-import re
 from notion_brain.schema import (
     CONFIDENCES,
     DATABASES,

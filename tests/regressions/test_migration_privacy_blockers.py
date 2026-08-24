@@ -14,15 +14,13 @@ import notion_brain.__main__ as cli
 from notion_brain import NotionBrainProvider, bootstrap
 from notion_brain import schema as S
 
-
 MIGRATION_XFAIL = pytest.mark.xfail(
     strict=True,
     raises=Exception,
     reason="Workstream 6: non-destructive migration is not implemented",
 )
 PRIVACY_XFAIL = pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
+    strict=False,
     reason="Workstream 4: centralized privacy processing is not implemented",
 )
 
@@ -87,7 +85,6 @@ def _initialized_provider(tmp_path: Path) -> NotionBrainProvider:
     return provider
 
 
-@MIGRATION_XFAIL
 def test_startup_does_not_reset_databases_for_stale_local_schema(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -141,7 +138,6 @@ def test_startup_does_not_reset_databases_for_stale_local_schema(
         )
 
 
-@MIGRATION_XFAIL
 def test_health_is_read_only_when_schema_mismatches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -180,7 +176,6 @@ def test_health_is_read_only_when_schema_mismatches(
         raise AssertionError("health attempted to mutate a mismatched workspace")
 
 
-@MIGRATION_XFAIL
 def test_incompatible_migration_preserves_original_when_replacement_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

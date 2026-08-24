@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from notion_brain import schema
 from notion_brain import __main__ as cli
+from notion_brain import schema
 
 
 @pytest.fixture(autouse=True)
