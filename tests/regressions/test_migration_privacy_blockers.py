@@ -302,7 +302,7 @@ def test_all_major_write_paths_apply_the_same_secret_policy(
     invoke(
         "mirror",
         lambda: provider.on_memory_write(
-            "add", "memory", f"private mirrored memory {detected_secret}"
+            f"add memory {detected_secret}"
         ),
     )
 

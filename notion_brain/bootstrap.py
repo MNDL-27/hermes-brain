@@ -145,7 +145,7 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
     if cached_version < SCHEMA_VERSION:
         logger.info("Cache is at schema_version=%d (current=%d); updating cache version",
                     cached_version, SCHEMA_VERSION)
-        cached["schema_version"] = SCHEMA_VERSION
+        cached["schema_version"] = str(SCHEMA_VERSION)
         _save_cache(cache_path, cached)
 
     if cached.get("parent_page_id"):
