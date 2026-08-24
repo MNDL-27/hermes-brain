@@ -412,7 +412,7 @@ class NotionBrainProvider:
             return store.select_property(target)
         return store.status_property(target)
 
-    def _tool_search(self, args: dict[str, Any]) -> str:
+    def _tool_search(self, args: dict[str, Any]) -> str | tuple[str, dict[str, Any]]:
         """Search across brain databases, honoring the query when provided."""
         query = (args.get("query") or "").strip()
         database = args.get("database")
