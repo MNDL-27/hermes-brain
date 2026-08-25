@@ -283,7 +283,7 @@ print(cache["parent_page_id"])  # Notion page ID
 Or from the CLI (`hermes-brain` after install, `python -m notion_brain` from a checkout):
 
 ```bash
-hermes-brain health    # prints health report
+hermes-brain health    # prints health report, auto-repairs schema mismatches
 hermes-brain url       # prints the Notion URL of the Hermes Brain page
 hermes-brain reset     # archive and recreate mismatched databases
 ```

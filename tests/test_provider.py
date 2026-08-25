@@ -574,3 +574,47 @@ class TestExceptionLogRedaction:
             report = bootstrap.health_report(Path("/tmp/fake-hermes-home"))
         assert self.SECRET not in report
         assert "[REDACTED_SECRET]" in report
+
+    def test_handle_tool_call_error_redacts_secrets(self, caplog):
+        """Tool call error responses redact secrets before returning JSON to the caller."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+        caplog.set_level("WARNING", logger="notion_brain")
+        provider = NotionBrainProvider()
+
+        # mock a tool to raise an exception with a secret
+        def failing_tool(*args, **kwargs):
+            raise RuntimeError(f"tool error: {self.SECRET}")
+
+        with patch.object(provider, "_tool_search", side_effect=failing_tool):
+            result_json = provider.handle_tool_call("notion_brain_search", {"query": "test"})
+
+        result = json.loads(result_json)
+        assert result["error"] is True
+        assert self.SECRET not in result["result"]
+        assert "[REDACTED_SECRET]" in result["result"]
+        self._assert_no_leak(caplog, self.SECRET)
+
+    def test_handle_tool_call_error_redacts_secrets(self, caplog):
+        """Tool call error responses redact secrets before returning JSON to the caller."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+        from unittest.mock import patch
+
+        caplog.set_level("WARNING", logger="notion_brain")
+        provider = NotionBrainProvider()
+
+        # mock a tool to raise an exception with a secret
+        def failing_tool(*args, **kwargs):
+            raise RuntimeError(f"tool error: {self.SECRET}")
+
+        with patch.object(provider, "_tool_search", side_effect=failing_tool):
+            result_json = provider.handle_tool_call("notion_brain_search", {"query": "test"})
+
+        result = json.loads(result_json)
+        assert result["error"] is True
+        assert self.SECRET not in result["result"]
+        assert "[REDACTED_SECRET]" in result["result"]
+        self._assert_no_leak(caplog, self.SECRET)
