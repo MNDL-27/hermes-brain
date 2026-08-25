@@ -717,7 +717,7 @@ class NotionBrainProvider(object):
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
-                return f"No database found for: {database}"
+                return f"No database found for: {S.redact_secrets(database)}"
 
             entries = store.query_database(db_id, page_size=max_results)
             entries = _merge_disk_only(entries, disk_text)
@@ -775,7 +775,7 @@ class NotionBrainProvider(object):
         try:
             self._store_entry(entry)
         except RuntimeError as exc:
-            return f"Error: {exc}"
+            return f"Error: {S.redact_secrets(str(exc))}"
         return f"Saved: {title}"
 
     def _tool_task(self, args: Dict[str, Any]) -> str:
@@ -800,7 +800,7 @@ class NotionBrainProvider(object):
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Task created: {title}"
 
         elif action == "list":
@@ -885,7 +885,7 @@ class NotionBrainProvider(object):
             or []
         )
         valid = sorted({opt.get("name", "") for opt in options if isinstance(opt, dict)})
-        return {}, f"Error: status '{status}' is not valid for {db_key}. Valid: {valid}"
+        return {}, f"Error: status '{S.redact_secrets(status)}' is not valid for {db_key}. Valid: {valid}"
 
     def _tool_content(self, args: Dict[str, Any]) -> str:
         """Manage social content."""
@@ -910,7 +910,7 @@ class NotionBrainProvider(object):
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Content saved: {title}"
 
         elif action == "list":
@@ -955,7 +955,7 @@ class NotionBrainProvider(object):
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Research saved: {title}"
 
         elif action == "list":

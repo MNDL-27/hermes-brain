@@ -224,6 +224,43 @@ class TestToolDispatch:
             data = json.loads(result)
             assert "result" in data
 
+    def test_direct_tools_redact_secrets_in_errors(self):
+        provider = self._make_initialized_provider()
+        secret = "sk-A1B2C3D4E5F6G7H8"
+        redacted = "[REDACTED_SECRET]"
+
+        # Test 1: Search database not found error
+        res = provider.handle_tool_call("notion_brain_search", {"query": "foo", "database": f"fake {secret}"})
+        data = json.loads(res)
+        assert secret not in data.get("result", "")
+        assert redacted in data.get("result", "")
+
+        # Test 2: Task update invalid status error
+        mock_schema = {
+            "properties": {
+                "Status": {"status": {"options": [{"name": "active"}]}}
+            }
+        }
+        with patch("notion_brain.store.get_database", return_value=mock_schema):
+            res = provider.handle_tool_call("notion_brain_task", {
+                "action": "update",
+                "page_id": "page-1",
+                "status": f"invalid {secret}",
+            })
+            data = json.loads(res)
+            assert secret not in data.get("result", "")
+            assert redacted in data.get("result", "")
+
+        # Test 3: create error
+        with patch("notion_brain.store.create_database_page", side_effect=RuntimeError(f"api failed: {secret}")):
+            res = provider.handle_tool_call("notion_brain_task", {
+                "action": "create",
+                "title": "foo",
+            })
+            data = json.loads(res)
+            assert secret not in data.get("result", "")
+            assert redacted in data.get("result", "")
+
     def test_direct_tools_redact_secrets(self):
         provider = self._make_initialized_provider()
         secret = "sk-A1B2C3D4E5F6G7H8"
@@ -256,7 +293,7 @@ class TestToolDispatch:
                     "tags": [f"tag-{secret}", "safe-tag"],
                 })
                 assert mock_create.call_count == 1
-                args, kwargs = mock_create.call_args
+                args, _kwargs = mock_create.call_args
                 properties = args[1]
                 assert secret not in properties["title"]["title"][0]["text"]["content"]
                 assert redacted in properties["title"]["title"][0]["text"]["content"]
@@ -316,7 +353,7 @@ class TestToolDispatch:
                     "title": f"New title {secret}",
                 })
                 assert mock_update.call_count == 1
-                args, kwargs = mock_update.call_args
+                args, _kwargs = mock_update.call_args
                 properties = args[1]
                 assert secret not in properties["title"]["title"][0]["text"]["content"]
                 assert redacted in properties["title"]["title"][0]["text"]["content"]
