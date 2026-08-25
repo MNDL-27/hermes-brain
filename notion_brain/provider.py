@@ -646,8 +646,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Content saved: {entry.title}"
 
         elif action == "update":
@@ -707,10 +706,6 @@ class NotionBrainProvider:
                 return "Content successfully marked as archived."
             except Exception as exc:
                 return f"Error archiving content: {exc}"
-
-                return f"Error: {S.redact_secrets(str(exc))}"
-            return f"Content saved: {title}"
-
 
         elif action == "list":
             db_id = self._db_ids.get("content")
