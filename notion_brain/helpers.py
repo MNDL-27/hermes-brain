@@ -115,17 +115,19 @@ def _user_disk_entry(title: str, body: list[str]) -> dict:
     }
 
 
-def _paragraph_blocks(content: str, *, max_paras: int = 8, chunk: int = 1900) -> list[dict]:
+def _paragraph_blocks(content: str, *, max_paras: int | None = None, chunk: int = 1900) -> list[dict]:
     """Split content into Notion paragraph children.
 
-    Collapses blank-line paragraph gaps (Notion renders blocks without gaps),
-    caps the number of paragraphs, and chunks each to the block char limit.
+    Preserves every non-empty line without arbitrary truncation.
+    Chunks each line to the block char limit.
     """
     if not content:
         return []
     paras = content.replace("\n\n", "\n").split("\n")
+    if max_paras is not None:
+        paras = paras[:max_paras]
     blocks: list[dict] = []
-    for para in paras[:max_paras]:
+    for para in paras:
         para = para.strip()
         if not para:
             continue

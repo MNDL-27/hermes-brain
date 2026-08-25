@@ -8,17 +8,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from notion_brain.store import (
+    _flatten_result,
+    _page_title,
+    _rich_text,
     date_property,
+    multi_select_property,
     number_property,
     rich_text_property,
     search_page_by_title,
     select_property,
-    multi_select_property,
-    _page_title,
-    _flatten_result,
-    _rich_text,
 )
-
 
 # ---------------------------------------------------------------------------
 # Property helpers

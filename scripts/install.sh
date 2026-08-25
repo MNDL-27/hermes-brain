@@ -254,21 +254,20 @@ if [ -z "$EXISTING_HOME" ]; then
     HERMES_HOME="$HOME/.hermes"
 fi
 
-# Write to shell rc (idempotent)
+# Write HERMES_HOME to shell rc (idempotent).
+# NOTION_API_KEY is NOT written here — it lives only in $HERMES_HOME/.env
+# (chmod 600) so it is never exposed in a world-readable shell profile.
 if [ -n "$SHELL_RC" ] && [ -f "$SHELL_RC" ]; then
     if ! grep -q "HERMES_HOME=" "$SHELL_RC" 2>/dev/null; then
         echo "" >> "$SHELL_RC"
         echo "# hermes-brain" >> "$SHELL_RC"
         echo "export HERMES_HOME=\"$HERMES_HOME\"" >> "$SHELL_RC"
-        echo "export NOTION_API_KEY=\"$NOTION_API_KEY\"" >> "$SHELL_RC"
-        ok "Env vars added to $SHELL_RC"
+        ok "Env var added to $SHELL_RC"
     else
-        # Update existing values
         tmp=$(mktemp)
-        sed "s|^export HERMES_HOME=.*|export HERMES_HOME=\"$HERMES_HOME\"|" "$SHELL_RC" | \
-        sed "s|^export NOTION_API_KEY=.*|export NOTION_API_KEY=\"$NOTION_API_KEY\"|" > "$tmp"
+        sed "s|^export HERMES_HOME=.*|export HERMES_HOME=\"$HERMES_HOME\"|" "$SHELL_RC" > "$tmp"
         mv "$tmp" "$SHELL_RC"
-        ok "Env vars updated in $SHELL_RC"
+        ok "Env var updated in $SHELL_RC"
     fi
 fi
 

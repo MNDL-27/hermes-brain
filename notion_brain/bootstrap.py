@@ -143,10 +143,10 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
     except (ValueError, TypeError):
         cached_version = 0
     if cached_version < SCHEMA_VERSION:
-        logger.info("Cache is at schema_version=%d (current=%d); validating all DBs",
+        logger.info("Cache is at schema_version=%d (current=%d); updating cache version",
                     cached_version, SCHEMA_VERSION)
-        reset_databases(hermes_home, dry_run=False)
-        cached = _load_cache(cache_path)
+        cached["schema_version"] = str(SCHEMA_VERSION)
+        _save_cache(cache_path, cached)
 
     if cached.get("parent_page_id"):
         try:
@@ -192,8 +192,11 @@ def reset_databases(
     """
     cache_path = Path(hermes_home) / S.CACHE_FILE
     cached = _load_cache(cache_path)
+    parent_id = cached.get("parent_page_id") or ""
     reset: list[str] = []
-    for key in S.DATABASES:
+    to_replace: list[tuple[str, str, str]] = []  # (key, old_db_id, display_name)
+
+    for key, display_name in S.DATABASES.items():
         if only and key not in only:
             continue
         db_id = cached.get(f"db_{key}")
@@ -209,9 +212,22 @@ def reset_databases(
         if force or not _database_schema_matches(db, _PROPS[key]):
             reset.append(key)
             if not dry_run:
-                store.archive_database(db_id)
-                cached.pop(f"db_{key}", None)
-    if reset and not dry_run:
+                to_replace.append((key, db_id, display_name))
+
+    if to_replace and not dry_run:
+        # Create replacements BEFORE archiving old databases
+        # so failure leaves original intact
+        for key, old_db_id, display_name in to_replace:
+            new_db_id = _find_or_create_database(parent_id, display_name, _PROPS[key])
+            try:
+                store.archive_database(old_db_id)
+            except Exception as exc:
+                logger.warning("Could not archive old database %s: %s", old_db_id, S.redact_secrets(str(exc)))
+            cached[f"db_{key}"] = new_db_id
+
+        cached["schema_version"] = str(SCHEMA_VERSION)
+        _save_cache(cache_path, cached)
+    elif reset and not dry_run:
         cached["schema_version"] = str(SCHEMA_VERSION)
         _save_cache(cache_path, cached)
         ensure_brain(hermes_home)

@@ -41,10 +41,6 @@ def _forbid_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("notion_brain.store.requests.request", unexpected_network)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 5: remember must expose a failed state when no destination database exists",
-)
 def test_remember_does_not_report_saved_without_destination_database() -> None:
     provider = NotionBrainProvider()
 
@@ -57,10 +53,6 @@ def test_remember_does_not_report_saved_without_destination_database() -> None:
     assert "error" in response.lower() or "fail" in response.lower()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 3: content updates must update the existing page instead of creating a duplicate",
-)
 def test_content_update_calls_update_page_without_creating_duplicate() -> None:
     provider = _provider_with_databases(content="content-db")
 
@@ -87,10 +79,6 @@ def test_content_update_calls_update_page_without_creating_duplicate() -> None:
     create_page.assert_not_called()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 5: synchronization writes must execute through one serialized worker",
-)
 def test_sync_turns_do_not_execute_writes_concurrently(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -140,10 +128,6 @@ def test_sync_turns_do_not_execute_writes_concurrently(
         ("session end", lambda provider: provider.on_session_end([])),
         ("shutdown", lambda provider: provider.shutdown()),
     ],
-)
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 5: lifecycle flushes must wait for every accepted synchronization write",
 )
 def test_lifecycle_waits_for_every_accepted_sync_write(
     monkeypatch: pytest.MonkeyPatch,
@@ -214,10 +198,6 @@ def test_lifecycle_waits_for_every_accepted_sync_write(
     assert completed_writes == 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Workstream 5: backend exceptions must produce truthful failed operation states",
-)
 def test_backend_exception_produces_failure_instead_of_success() -> None:
     provider = _provider_with_databases(memory="memory-db")
 

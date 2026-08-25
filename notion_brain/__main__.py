@@ -56,21 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "health":
-        mismatched = []
-        for key in S.DATABASES:
-            db_id = bootstrap._load_cache(Path(args.home) / S.CACHE_FILE).get(f"db_{key}")
-            if not db_id:
-                continue
-            try:
-                if not bootstrap._database_schema_matches(bootstrap.store.get_database(db_id), bootstrap._PROPS[key]):
-                    mismatched.append(key)
-            except Exception:
-                pass
         print(bootstrap.health_report(args.home))
-        if mismatched:
-            print(f"\nAuto-repairing {len(mismatched)} mismatched DB(s): {', '.join(mismatched)}")
-            fixed = bootstrap.reset_databases(args.home, only=set(mismatched))
-            print(f"Reset completed: {', '.join(fixed)}")
         return 0
 
     parser.print_help()
