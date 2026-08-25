@@ -670,7 +670,7 @@ class NotionBrainProvider:
                 store.update_page(page_id, updates)
                 return f"Content updated for page ID: {page_id}"
             except Exception as exc:
-                return f"Error updating content: {exc}"
+                return f"Error updating content: {S.redact_secrets(str(exc))}"
 
         elif action == "publish":
             # For social content, changing status to published requires updating the status field
@@ -688,7 +688,7 @@ class NotionBrainProvider:
                 store.update_page(page_id, properties)
                 return "Content successfully marked as published."
             except Exception as exc:
-                return f"Error publishing content: {exc}"
+                return f"Error publishing content: {S.redact_secrets(str(exc))}"
 
         elif action == "archive":
             page_id = args.get("page_id")
@@ -705,7 +705,7 @@ class NotionBrainProvider:
                 store.update_page(page_id, properties)
                 return "Content successfully marked as archived."
             except Exception as exc:
-                return f"Error archiving content: {exc}"
+                return f"Error archiving content: {S.redact_secrets(str(exc))}"
 
         elif action == "list":
             db_id = self._db_ids.get("content")
