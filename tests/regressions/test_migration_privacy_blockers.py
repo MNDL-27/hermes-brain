@@ -14,16 +14,6 @@ import notion_brain.__main__ as cli
 from notion_brain import NotionBrainProvider, bootstrap
 from notion_brain import schema as S
 
-MIGRATION_XFAIL = pytest.mark.xfail(
-    strict=True,
-    raises=Exception,
-    reason="Workstream 6: non-destructive migration is not implemented",
-)
-PRIVACY_XFAIL = pytest.mark.xfail(
-    strict=False,
-    reason="Workstream 4: centralized privacy processing is not implemented",
-)
-
 
 def _notion_database(key: str, database_id: str) -> dict[str, Any]:
     properties: dict[str, Any] = {}
@@ -222,7 +212,6 @@ def test_incompatible_migration_preserves_original_when_replacement_fails(
         )
 
 
-@PRIVACY_XFAIL
 def test_all_major_write_paths_apply_the_same_secret_policy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -342,10 +331,6 @@ def test_secure_default_redacts_expanded_secret_classes(sample: str) -> None:
         raise AssertionError("the secure default did not redact an expanded secret class")
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="Workstream 4: centralized privacy processing is not implemented",
-)
 def test_write_failure_logs_exclude_user_content_and_detected_secrets(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
