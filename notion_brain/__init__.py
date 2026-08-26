@@ -16,6 +16,7 @@ __version__ = "1.0.2"
 
 from .extract import classify_turn as classify_text
 from .provider import NotionBrainProvider, register
+from .schema import redact_secrets
 from .schemas import (
     ALL_TOOL_SCHEMAS,
     CONTENT_SCHEMA,
@@ -87,7 +88,7 @@ def remember(
     )
     result = json.loads(raw)
     if result.get("error"):
-        raise RuntimeError(result["result"])
+        raise RuntimeError(redact_secrets(result["result"]))
     return {"status": "saved", "title": title, "message": result["result"]}
 
 
@@ -101,7 +102,7 @@ def search_entries(query: str, *, database: str = "all", max_results: int = 8,
     )
     parsed = json.loads(raw)
     if parsed.get("error"):
-        raise RuntimeError(parsed["result"])
+        raise RuntimeError(redact_secrets(parsed["result"]))
     entries: list[dict] = []
     for line in (parsed["result"] or "").splitlines():
         if not line.startswith("- "):
