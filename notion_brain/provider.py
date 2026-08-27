@@ -528,7 +528,7 @@ class NotionBrainProvider:
         try:
             self._store_entry(entry)
         except RuntimeError as exc:
-            return f"Error: {exc}"
+            return f"Error: {S.redact_secrets(str(exc))}"
         return f"Saved: {entry.title}"
 
     def _tool_task(self, args: dict[str, Any]) -> str:
@@ -553,7 +553,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Task created: {entry.title}"
 
         elif action == "list":
@@ -663,7 +663,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Content saved: {entry.title}"
 
         elif action == "update":
@@ -687,7 +687,7 @@ class NotionBrainProvider:
                 store.update_page(page_id, updates)
                 return f"Content updated for page ID: {page_id}"
             except Exception as exc:
-                return f"Error updating content: {exc}"
+                return f"Error updating content: {S.redact_secrets(str(exc))}"
 
         elif action == "publish":
             # For social content, changing status to published requires updating the status field
@@ -705,7 +705,7 @@ class NotionBrainProvider:
                 store.update_page(page_id, properties)
                 return "Content successfully marked as published."
             except Exception as exc:
-                return f"Error publishing content: {exc}"
+                return f"Error publishing content: {S.redact_secrets(str(exc))}"
 
         elif action == "archive":
             page_id = args.get("page_id")
@@ -722,7 +722,7 @@ class NotionBrainProvider:
                 store.update_page(page_id, properties)
                 return "Content successfully marked as archived."
             except Exception as exc:
-                return f"Error archiving content: {exc}"
+                return f"Error archiving content: {S.redact_secrets(str(exc))}"
 
         elif action == "list":
             db_id = self._db_ids.get("content")
@@ -766,7 +766,7 @@ class NotionBrainProvider:
             try:
                 self._store_entry(entry)
             except RuntimeError as exc:
-                return f"Error: {exc}"
+                return f"Error: {S.redact_secrets(str(exc))}"
             return f"Research saved: {entry.title}"
 
         elif action == "list":
