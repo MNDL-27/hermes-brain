@@ -24,6 +24,31 @@ from .schemas import ALL_TOOL_SCHEMAS
 logger = logging.getLogger(__name__)
 
 
+def _message_content_text(content: Any) -> str:
+    """Extract plain text from a message ``content`` field.
+
+    Hermes/OpenAI tool-call messages encode ``content`` as a list of block
+    dicts (``{"type": "text", "text": {"content": ...}}``); plain chat
+    messages use a plain string. Returns ``""`` for ``None``/missing content
+    so callers can safely pass the result to ``redact_secrets``.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        texts: list[str] = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "text":
+                t = block.get("text")
+                if isinstance(t, dict):
+                    texts.append(t.get("content", ""))
+            elif isinstance(block.get("content"), str):
+                texts.append(block["content"])
+        return "\n".join(texts)
+    return str(content) if content else ""
+
+
 class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
@@ -175,12 +200,39 @@ class NotionBrainProvider:
                 self._sync_thread.start()
 
     def on_session_end(self, *args, **kwargs) -> None:
-        """Called when Hermes session ends. Wait for pending sync."""
+        """Called when Hermes session ends. Wait for pending sync, then
+        optionally write a session-summary entry from inline messages."""
         self._sync_queue.join()
         with self._sync_lock:
             if self._sync_thread and self._sync_thread.is_alive():
                 self._sync_thread.join(timeout=5.0)
                 self._sync_thread = None
+
+        messages = args[0] if args else kwargs.get("messages")
+        if messages:
+            try:
+                self._write_session_summary(messages)
+            except Exception as exc:
+                logger.error(
+                    "NotionBrainProvider session summary failed: %s",
+                    S.redact_secrets(str(exc)),
+                )
+
+    def _write_session_summary(self, messages: list[dict[str, Any]]) -> None:
+        """Write conversation messages as a redacted session-summary entry."""
+        parts = [
+            f"{msg.get('role', '')}: {S.redact_secrets(_message_content_text(msg.get('content')))}"
+            for msg in messages
+        ]
+        text = "\n".join(parts)
+        entry = S.BrainEntry(
+            domain="memory",
+            title="Session summary",
+            content=text,
+            kind="note",
+            source_session_id=self._session_id,
+        ).normalized()
+        self._store_entry(entry)
 
     def shutdown(self) -> None:
         """Clean shutdown."""
@@ -324,19 +376,15 @@ class NotionBrainProvider:
                     "Updated entry in %s: %s", target_db_id, entry.title
                 )
             else:
-                store.create_database_page(target_db_id, properties)
+                store.create_database_page(database_id=target_db_id, properties=properties)
                 logger.debug(
                     "Stored entry in %s: %s", target_db_id, entry.title
                 )
         except Exception as exc:
-            # Scrub both the inner failure detail and the entry title before
-            # logging — error paths must not leak secrets into log streams.
-            safe_detail = S.redact_secrets(str(exc))
-            safe_title = S.redact_secrets(entry.title)
-            logger.error("Failed to store entry %r: %s", safe_title, safe_detail)
-            raise RuntimeError(
-                f"Failed to save {safe_title!r} to Notion: {safe_detail}"
-            ) from exc
+            # Never echo the failure detail or entry fields back into log
+            # streams — the exception may carry the full user payload.
+            logger.error("Failed to store entry to Notion")
+            raise RuntimeError("Failed to save entry to Notion") from exc
 
     def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
