@@ -257,7 +257,7 @@ class TestToolDispatch:
                 })
                 assert mock_create.call_count == 1
                 args, kwargs = mock_create.call_args
-                properties = args[1]
+                properties = kwargs["properties"]
                 assert secret not in properties["title"]["title"][0]["text"]["content"]
                 assert redacted in properties["title"]["title"][0]["text"]["content"]
                 assert secret not in properties["Content"]["rich_text"][0]["text"]["content"]
@@ -278,7 +278,7 @@ class TestToolDispatch:
                 })
                 assert mock_create.call_count == 1
                 args, kwargs = mock_create.call_args
-                properties = args[1]
+                properties = kwargs["properties"]
                 assert secret not in properties["title"]["title"][0]["text"]["content"]
                 assert redacted in properties["title"]["title"][0]["text"]["content"]
                 assert secret not in properties["Content"]["rich_text"][0]["text"]["content"]
@@ -298,7 +298,7 @@ class TestToolDispatch:
                 })
                 assert mock_create.call_count == 1
                 args, kwargs = mock_create.call_args
-                properties = args[1]
+                properties = kwargs["properties"]
                 assert secret not in properties["title"]["title"][0]["text"]["content"]
                 assert redacted in properties["title"]["title"][0]["text"]["content"]
                 assert secret not in properties["Content"]["rich_text"][0]["text"]["content"]
