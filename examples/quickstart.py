@@ -21,7 +21,7 @@ import sys
 # (examples live in the repo root next to the package)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from notion_brain import ensure_brain, search_entries, remember
+from notion_brain import ensure_brain, remember, search_entries
 
 # ---------------------------------------------------------------------------
 # 1. Bootstrap — one-time setup (creates "Hermes Brain" page + 7 databases)
