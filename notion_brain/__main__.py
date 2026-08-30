@@ -27,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("health", help="Summarize each DB: schema match, entry count, last entry.")
 
+    wp = sub.add_parser("wipe", help="Wipe noisy rows from Entities, Tasks, Projects (or specified DBs).")
+    wp.add_argument("--dbs", help="Comma-separated DB keys to wipe (default: entities,tasks,projects)")
+    wp.add_argument("--dry-run", action="store_true", help="Show what would be wiped without modifying Notion")
+
     im = sub.add_parser("import", help="Import local memory files (MEMORY.md/USER.md/CLAUDE.md) into Notion.")
     im.add_argument("--files", help="Comma-separated markdown files to import (default: auto-discover)")
     im.add_argument("--dry-run", action="store_true", help="Show what would be imported without writing to Notion")
@@ -62,6 +66,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "health":
         print(bootstrap.health_report(args.home))
+        return 0
+
+    if args.cmd == "wipe":
+        dbs = {x.strip() for x in args.dbs.split(",")} if getattr(args, "dbs", None) else {"entities", "tasks", "projects"}
+        deleted = bootstrap.wipe_database_rows(args.home, databases=dbs, dry_run=args.dry_run)
+        verb = "Would wipe" if args.dry_run else "Wiped"
+        total = sum(deleted.values())
+        print(f"{verb} {total} row(s) across: {', '.join(f'{k} ({v})' for k, v in deleted.items())}")
         return 0
 
     if args.cmd == "import":

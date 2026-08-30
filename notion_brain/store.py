@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -24,7 +25,33 @@ _MAX_RETRIES = 3
 _RETRY_DELAY_S = 1.0
 
 
+def _load_env_file() -> None:
+    """Populate os.environ from $HERMES_HOME/.env (KEY=VALUE lines).
+
+    Real environment variables always win — file values are only applied
+    when the key is unset. Keeps the AUD-SEC-01 posture: token lives only
+    in the chmod-600 .env, never in a shell profile.
+    """
+    home = os.environ.get("HERMES_HOME", "").strip() or str(Path.home() / ".hermes")
+    env_path = Path(home) / ".env"
+    try:
+        raw = env_path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and key not in os.environ and value:
+            os.environ[key] = value
+
+
 def get_api_key() -> str | None:
+    if not (os.environ.get("NOTION_API_KEY", "").strip()):
+        _load_env_file()
     return os.environ.get("NOTION_API_KEY", "").strip() or None
 
 
@@ -225,6 +252,13 @@ def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, A
 def archive_database(database_id: str) -> dict[str, Any]:
     """Archive (soft-delete) a database. Call before recreate to drop zombie options."""
     result = _request("PATCH", f"/databases/{database_id}", {"archived": True})
+    assert isinstance(result, dict)
+    return result
+
+
+def delete_page(page_id: str) -> dict[str, Any]:
+    """Archive / soft-delete a page in Notion."""
+    result = _request("PATCH", f"/pages/{page_id}", {"archived": True})
     assert isinstance(result, dict)
     return result
 

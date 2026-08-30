@@ -311,16 +311,18 @@ if [ -f "$CACHE_FILE" ]; then
     echo ""
     info "Hermes Brain page: $URL"
 else
-    if "$PYTHON_PKG" -m notion_brain health &>/dev/null; then
+    # Fresh install: actually create the workspace. The old `health` call only
+    # read the cache — it never created the page or databases.
+    if "$PYTHON_PKG" -c "import os, notion_brain; notion_brain.ensure_brain(os.environ['HERMES_HOME'])" &>/dev/null; then
         ok "Bootstrap complete"
-        URL=$("$PYTHON_PKG" -m notion_brain url 2>/dev/null || echo "check your Notion workspace")
-        echo ""
-        info "Hermes Brain page: $URL"
     else
         warn "Bootstrap encountered an issue. Run manually:"
-        echo "  python -m notion_brain health"
+        echo "  $PYTHON_PKG -m notion_brain health"
         echo "  Troubleshooting: https://github.com/MNDL-27/hermes-brain/blob/main/docs/troubleshooting.md"
     fi
+    URL=$("$PYTHON_PKG" -m notion_brain url 2>/dev/null || echo "check your Notion workspace")
+    echo ""
+    info "Hermes Brain page: $URL"
 fi
 
 # ─── Step 7.5: Local memory import ───────────────────────────────────────
@@ -334,10 +336,10 @@ if [ -t 0 ] || [ -e /dev/tty ]; then
         read -rp "  Import these entries into your Notion brain? [y/N]: " IMPORT_CHOICE </dev/tty
         case "$IMPORT_CHOICE" in
             y|Y)
-                "$PYTHON_PKG" -m notion_brain import && ok "Memory import complete" || warn "Import had errors — re-run: python -m notion_brain import"
+                "$PYTHON_PKG" -m notion_brain import && ok "Memory import complete" || warn "Import had errors — re-run: $PYTHON_PKG -m notion_brain import"
                 ;;
             *)
-                info "Skipping import. Run anytime: python -m notion_brain import"
+                info "Skipping import. Run anytime: $PYTHON_PKG -m notion_brain import"
                 ;;
         esac
     fi
@@ -353,6 +355,14 @@ else
     exit 1
 fi
 
+# Verify the way a fresh shell will see it: WITHOUT the exported key.
+# get_api_key() must find the token in $HERMES_HOME/.env on its own —
+# that's exactly what failed for users right after install.
+env -u NOTION_API_KEY -u HERMES_HOME "$PYTHON_PKG" -m notion_brain health &>/dev/null \
+    && ok "API key loads from $HERMES_HOME/.env (fresh-shell check)" \
+    || warn "Fresh-shell check failed — CLI won't find the key outside this script."
+
+
 # ─── Done ────────────────────────────────────────────────────────────────
 echo ""
 info "╔══════════════════════════════════════════════════════════╗"
@@ -363,7 +373,8 @@ info "Next steps:"
 info "  1. Open your Notion workspace — you should see 'Hermes Brain'"
 info "  2. Share the 'Hermes Brain' page with your integration:"
 info "     Page → ••• → Connections → Add your integration"
-info "  3. Run: python examples/quickstart.py"
+info "  3. Run: $PYTHON_PKG examples/quickstart.py"
+info "  4. CLI: hermes-brain health   (or: $PYTHON_PKG -m notion_brain health)"
 info ""
 info "Docs: https://github.com/MNDL-27/hermes-brain"
 info "Troubleshooting: https://github.com/MNDL-27/hermes-brain/blob/main/docs/troubleshooting.md"
