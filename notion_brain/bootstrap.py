@@ -440,6 +440,19 @@ def _workspace_root_or_fail() -> str:
     )
 
 def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, Any]) -> str:
+    # Deterministic first: scan the parent page's children for a
+    # child_database block with a matching title. Notion's /search index
+    # misses databases (indexing delay / relevance ranking), which made
+    # re-bootstrap create duplicates ("Projects 1", "Projects 2").
+    try:
+        for block in store.get_block_children(parent_page_id, page_size=100):
+            if block.get("type") == "child_database":
+                db_title = ((block.get("child_database") or {}).get("title") or "").strip()
+                if db_title.lower() == title.strip().lower():
+                    return block["id"]
+    except Exception as exc:
+        logger.debug("Child-block scan for '%s' failed: %s", title, S.redact_secrets(str(exc)))
+
     existing = store.search_page_by_title(title, object_type="database")
     if existing:
         return existing["id"]
