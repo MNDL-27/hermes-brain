@@ -558,3 +558,24 @@ def test__merge_user_disk_only_handles_no_disk_text() -> None:
     entries = [{"title": "existing"}]
     assert _merge_user_disk_only(entries, "") == entries
     assert _merge_user_disk_only(entries, "   ") == entries
+
+
+def test_delete_page_and_wipe_database_rows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    fake_cache = {
+        "db_entities": "db-ent-1",
+        "db_tasks": "db-task-1",
+        "db_projects": "db-proj-1",
+    }
+    monkeypatch.setattr(bootstrap, "_load_cache", lambda p: fake_cache)
+    monkeypatch.setattr(
+        store,
+        "query_database",
+        lambda db_id, page_size=100: [{"id": f"page-{db_id}-1"}, {"id": f"page-{db_id}-2"}],
+    )
+    deleted_pages: list[str] = []
+    monkeypatch.setattr(store, "delete_page", lambda pid: deleted_pages.append(pid) or {"id": pid, "archived": True})
+
+    res = bootstrap.wipe_database_rows(tmp_path, databases={"entities", "tasks"})
+    assert res == {"entities": 2, "tasks": 2}
+    assert len(deleted_pages) == 4
+

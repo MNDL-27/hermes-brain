@@ -282,6 +282,50 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
                 logger.debug("Could not fetch database %s: %s", db_id, S.redact_secrets(str(exc)))
     return "\n".join(lines)
 
+def wipe_database_rows(
+    hermes_home: str | Path,
+    *,
+    databases: set[str] | None = None,
+    filter_fn: Any | None = None,
+    dry_run: bool = False,
+) -> dict[str, int]:
+    """Wipe / purge rows from specified Notion databases to prevent prompt pollution.
+
+    Targets noisy entries in Entities, Tasks, and Projects (or custom selection).
+    """
+    target_dbs = databases or {"entities", "tasks", "projects"}
+    cached = _load_cache(Path(hermes_home) / S.CACHE_FILE)
+    deleted_counts: dict[str, int] = {}
+
+    for key in target_dbs:
+        db_id = cached.get(f"db_{key}")
+        if not db_id:
+            continue
+        try:
+            entries = store.query_database(db_id, page_size=100)
+        except Exception as exc:
+            logger.warning("Could not query DB %s during wipe: %s", key, S.redact_secrets(str(exc)))
+            continue
+
+        count = 0
+        for entry in entries:
+            page_id = entry.get("id")
+            if not page_id:
+                continue
+            if filter_fn and not filter_fn(entry):
+                continue
+            if not dry_run:
+                try:
+                    store.delete_page(page_id)
+                except Exception as exc:
+                    logger.warning("Could not delete page %s: %s", page_id, S.redact_secrets(str(exc)))
+                    continue
+            count += 1
+        deleted_counts[key] = count
+
+    return deleted_counts
+
+
 def health_report(hermes_home: str | Path) -> str:
     """One-line-per-DB summary: schema match, entry count, last entry, latest sync."""
     cached = _load_cache(Path(hermes_home) / S.CACHE_FILE)

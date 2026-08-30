@@ -134,3 +134,40 @@ def test_reset_dry_run_parses_only_without_touching_notion(
         "force": False,
     }
     assert observed["only"] <= set(schema.DATABASES)
+
+
+def test_wipe_command_wipes_noisy_rows(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    observed: dict[str, Any] = {}
+
+    def wipe_database_rows(
+        home: str, *, databases: set[str] | None = None, dry_run: bool = False
+    ) -> dict[str, int]:
+        observed.update(home=home, databases=databases, dry_run=dry_run)
+        return {"entities": 2, "tasks": 3, "projects": 1}
+
+    monkeypatch.setattr(cli.bootstrap, "wipe_database_rows", wipe_database_rows)
+
+    exit_code = cli.main(
+        [
+            "--home",
+            str(tmp_path),
+            "wipe",
+            "--dbs",
+            "entities,tasks,projects",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Wiped 6 row(s)" in captured.out
+    assert captured.err == ""
+    assert observed == {
+        "home": str(tmp_path),
+        "databases": {"entities", "tasks", "projects"},
+        "dry_run": False,
+    }
+

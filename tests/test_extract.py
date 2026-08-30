@@ -466,3 +466,75 @@ class TestExtractSentence:
         result = _extract_sentence(text, pattern)
         # skip "Ship it." (too short), pick longer match
         assert "PostgreSQL" in result
+
+
+# ---------------------------------------------------------------------------
+# Routing Rules and LLM Extractor Tests
+# ---------------------------------------------------------------------------
+
+class TestRoutingAndLLMExtraction:
+    def test_git_commands_never_route_to_content(self):
+        entries = classify_turn("git commit -m 'feat: add feature' and git push origin main", "Pushed.")
+        domains = [e.domain for e in entries]
+        assert "social_content" not in domains
+
+    def test_code_snippets_never_route_to_content(self):
+        entries = classify_turn("def hello_world(): import sys; print('test')", "Looks good.")
+        domains = [e.domain for e in entries]
+        assert "social_content" not in domains
+
+    def test_conversational_filler_never_routes_to_tasks(self):
+        entries = classify_turn("Can you check the database status when you have time?", "Checking now.")
+        tasks = [e for e in entries if e.domain == "daily_work"]
+        assert tasks == []
+
+    def test_filler_looking_into_never_routes_to_tasks(self):
+        entries = classify_turn("Just looking into the logs to see what happened", "Understood.")
+        tasks = [e for e in entries if e.domain == "daily_work"]
+        assert tasks == []
+
+    def test_atomic_key_value_preference_title(self):
+        entries = classify_turn("I prefer VPS/Docker over Cloud SaaS for hosting", "Got it.")
+        prefs = [e for e in entries if e.kind == "preference"]
+        assert prefs
+        assert "Hosting: Prefers VPS/Docker over Cloud SaaS" in prefs[0].title or "Prefers VPS/Docker" in prefs[0].title
+
+    def test_llm_extractor_integration(self, monkeypatch):
+        from unittest.mock import patch
+        from notion_brain.extract import extract_with_llm
+
+        fake_resp = [
+            {
+                "category": "fact",
+                "title": "Hosting: Prefers VPS/Docker over Cloud SaaS",
+                "content": "Prefers self-hosted VPS/Docker setups",
+                "tags": ["hosting", "infrastructure"],
+            },
+            {
+                "category": "project",
+                "title": "PostgreSQL Migration Milestone",
+                "content": "Completed phase 1 schema design",
+                "tags": ["postgres"],
+            },
+            {
+                "category": "task",
+                "title": "Write unit tests for extractor",
+                "content": "Add tests to test_extract.py",
+                "status": "todo",
+                "tags": ["testing"],
+            },
+        ]
+        import json
+        with patch("requests.post") as mock_post:
+            mock_post.return_value.ok = True
+            mock_post.return_value.json.return_value = {
+                "choices": [{"message": {"content": json.dumps(fake_resp)}}]
+            }
+            entries = classify_turn("Any conversation buffer", "Any response")
+            assert len(entries) == 3
+            assert entries[0].domain == "entities"
+            assert entries[0].title == "Hosting: Prefers VPS/Docker over Cloud SaaS"
+            assert entries[1].domain == "projects"
+            assert entries[2].domain == "daily_work"
+            assert entries[2].kind == "task"
+
