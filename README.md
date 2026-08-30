@@ -202,7 +202,7 @@ See [`BACKENDS.md`](BACKENDS.md) for the long-term plan.
 curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash
 ```
 
-This script detects your distro, installs Python 3.11+ if missing, clones the repo, installs the package, prompts for your Notion API key, bootstraps the workspace, and verifies everything.
+This script detects your distro, installs Python 3.11+ if missing, clones the repo, installs the package, prompts for your Notion API key, bootstraps the workspace, verifies everything — and if it finds local memory files (`MEMORY.md`, `USER.md`, `~/.claude/CLAUDE.md`), offers to import them into Notion. An existing brain is detected and reused automatically.
 
 **Manual install:**
 

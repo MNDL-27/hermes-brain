@@ -288,15 +288,59 @@ echo ""
 export NOTION_API_KEY
 export HERMES_HOME
 
-if "$PYTHON_PKG" -m notion_brain health &>/dev/null; then
-    ok "Bootstrap complete"
+CACHE_FILE="$HERMES_HOME/notion_brain.json"
+
+if [ -f "$CACHE_FILE" ]; then
+    ok "Existing brain found ($CACHE_FILE)"
+    if "$PYTHON_PKG" -m notion_brain health &>/dev/null; then
+        ok "Existing brain validated — reusing it (no new databases created)"
+    else
+        warn "Existing brain failed health check. Options:"
+        echo "  1. Reuse anyway"
+        echo "  2. Reset mismatched databases (archives + recreates them)"
+        echo "  3. Abort"
+        echo ""
+        read -rp "  Choose [1/2/3]: " CHOICE </dev/tty
+        case "$CHOICE" in
+            2)  "$PYTHON_PKG" -m notion_brain reset || true ;;
+            3)  exit 1 ;;
+            *)  warn "Reusing existing brain as-is" ;;
+        esac
+    fi
     URL=$("$PYTHON_PKG" -m notion_brain url 2>/dev/null || echo "check your Notion workspace")
     echo ""
     info "Hermes Brain page: $URL"
 else
-    warn "Bootstrap encountered an issue. Run manually:"
-    echo "  python -m notion_brain health"
-    echo "  Troubleshooting: https://github.com/MNDL-27/hermes-brain/blob/main/docs/troubleshooting.md"
+    if "$PYTHON_PKG" -m notion_brain health &>/dev/null; then
+        ok "Bootstrap complete"
+        URL=$("$PYTHON_PKG" -m notion_brain url 2>/dev/null || echo "check your Notion workspace")
+        echo ""
+        info "Hermes Brain page: $URL"
+    else
+        warn "Bootstrap encountered an issue. Run manually:"
+        echo "  python -m notion_brain health"
+        echo "  Troubleshooting: https://github.com/MNDL-27/hermes-brain/blob/main/docs/troubleshooting.md"
+    fi
+fi
+
+# ─── Step 7.5: Local memory import ───────────────────────────────────────
+# Skip silently when no TTY (curl|bash pipe) or no memory files found.
+if [ -t 0 ] || [ -e /dev/tty ]; then
+    DRY_OUT=$("$PYTHON_PKG" -m notion_brain import --dry-run 2>/dev/null || true)
+    if echo "$DRY_OUT" | grep -q "^Found [1-9]"; then
+        echo ""
+        echo "$DRY_OUT" | sed 's/^/  /'
+        echo ""
+        read -rp "  Import these entries into your Notion brain? [y/N]: " IMPORT_CHOICE </dev/tty
+        case "$IMPORT_CHOICE" in
+            y|Y)
+                "$PYTHON_PKG" -m notion_brain import && ok "Memory import complete" || warn "Import had errors — re-run: python -m notion_brain import"
+                ;;
+            *)
+                info "Skipping import. Run anytime: python -m notion_brain import"
+                ;;
+        esac
+    fi
 fi
 
 # ─── Step 8: Verify ──────────────────────────────────────────────────────
