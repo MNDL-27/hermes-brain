@@ -227,32 +227,70 @@ info "Configuring environment…"
 
 detect_shell_rc
 
-# Check if already set
-EXISTING_KEY="${NOTION_API_KEY:-}"
-EXISTING_HOME="${HERMES_HOME:-}"
+if [ -z "${HERMES_HOME:-}" ]; then
+    HERMES_HOME="$HOME/.hermes"
+fi
 
-if [ -z "$EXISTING_KEY" ]; then
+ENV_FILE="$HERMES_HOME/.env"
+EXISTING_KEY="${NOTION_API_KEY:-}"
+
+# Check for existing key in $HERMES_HOME/.env if not in environment
+if [ -z "$EXISTING_KEY" ] && [ -f "$ENV_FILE" ]; then
+    FILE_KEY=$(grep -E '^NOTION_API_KEY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"'\'' ' || true)
+    if [ -n "$FILE_KEY" ]; then
+        EXISTING_KEY="$FILE_KEY"
+    fi
+fi
+
+# Notion API token validation helper
+validate_notion_token() {
+    local token="$1"
+    local response
+    response=$(curl -s -o /dev/null -w "%{http_code}" -X GET "https://api.notion.com/v1/users/me" \
+        -H "Authorization: Bearer $token" \
+        -H "Notion-Version: 2022-06-28" 2>/dev/null || echo "000")
+    if [ "$response" = "200" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+TOKEN_VALID=false
+
+if [ -n "$EXISTING_KEY" ]; then
+    info "Found existing NOTION_API_KEY. Validating with Notion API…"
+    if validate_notion_token "$EXISTING_KEY"; then
+        ok "Existing Notion token validated successfully"
+        NOTION_API_KEY="$EXISTING_KEY"
+        TOKEN_VALID=true
+    else
+        warn "Existing Notion token is invalid or expired."
+    fi
+fi
+
+while [ "$TOKEN_VALID" = false ]; do
     echo ""
     echo -e "${CYAN}  Enter your Notion Internal Integration Token:${NC}"
     echo "  (Create one at https://www.notion.so/my-integrations)"
-    echo "  Token starts with: ntn_"
+    echo "  Token starts with: ntn_ or secret_"
     echo ""
     read -rp "  NOTION_API_KEY=" -s NOTION_API_KEY </dev/tty
     echo ""
-    if [ -z "$NOTION_API_KEY" ]; then
-        fail "No token provided. You can set it later:"
-        echo "  export NOTION_API_KEY=ntn_xxxxx"
-        exit 1
-    fi
-    ok "Token received"
-else
-    ok "NOTION_API_KEY already set in environment"
-    NOTION_API_KEY="$EXISTING_KEY"
-fi
 
-if [ -z "$EXISTING_HOME" ]; then
-    HERMES_HOME="$HOME/.hermes"
-fi
+    if [ -z "$NOTION_API_KEY" ]; then
+        fail "No token provided. Please provide a valid Notion token."
+        continue
+    fi
+
+    info "Validating token with Notion API…"
+    if validate_notion_token "$NOTION_API_KEY"; then
+        ok "Token verified and active"
+        TOKEN_VALID=true
+    else
+        fail "Invalid Notion token (API rejected credentials). Please check and re-enter."
+    fi
+done
 
 # Write HERMES_HOME to shell rc (idempotent).
 # NOTION_API_KEY is NOT written here — it lives only in $HERMES_HOME/.env
