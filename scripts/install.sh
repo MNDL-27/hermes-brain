@@ -295,17 +295,26 @@ if [ -f "$CACHE_FILE" ]; then
     if "$PYTHON_PKG" -m notion_brain health &>/dev/null; then
         ok "Existing brain validated — reusing it (no new databases created)"
     else
-        warn "Existing brain failed health check. Options:"
-        echo "  1. Reuse anyway"
-        echo "  2. Reset mismatched databases (archives + recreates them)"
-        echo "  3. Abort"
-        echo ""
-        read -rp "  Choose [1/2/3]: " CHOICE </dev/tty
-        case "$CHOICE" in
-            2)  "$PYTHON_PKG" -m notion_brain reset || true ;;
-            3)  exit 1 ;;
-            *)  warn "Reusing existing brain as-is" ;;
-        esac
+        warn "Existing brain failed health check — repairing link to Notion…"
+        # Cache points at dead IDs (deleted/duplicated DBs). ensure_brain()
+        # rebinds to the live databases on the parent page automatically.
+        if "$PYTHON_PKG" -c "import os, notion_brain; notion_brain.ensure_brain(os.environ['HERMES_HOME'])" &>/dev/null \
+           && "$PYTHON_PKG" -m notion_brain health &>/dev/null; then
+            ok "Repaired — rebound to live databases"
+        else
+            warn "Auto-repair failed. Options:"
+            echo "  1. Retry repair"
+            echo "  2. Reset mismatched databases (archives + recreates them)"
+            echo "  3. Abort"
+            echo ""
+            read -rp "  Choose [1/2/3]: " CHOICE </dev/tty
+            case "$CHOICE" in
+                1)  "$PYTHON_PKG" -c "import os, notion_brain; notion_brain.ensure_brain(os.environ['HERMES_HOME'])" || true ;;
+                2)  "$PYTHON_PKG" -m notion_brain reset || true ;;
+                3)  exit 1 ;;
+                *)  warn "Continuing with existing brain as-is" ;;
+            esac
+        fi
     fi
     URL=$("$PYTHON_PKG" -m notion_brain url 2>/dev/null || echo "check your Notion workspace")
     echo ""

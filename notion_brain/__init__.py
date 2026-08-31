@@ -11,6 +11,7 @@ Cache:  $HERMES_HOME/notion_brain.json
 from __future__ import annotations
 
 import json
+import os
 
 __version__ = "1.0.2"
 
@@ -44,7 +45,7 @@ __all__ = [
 
 # --- Top-level helpers for examples and standalone scripts ----------------
 
-_DEFAULT_HERMES_HOME = "~/.hermes"
+_DEFAULT_HERMES_HOME = os.path.expanduser("~/.hermes")
 
 
 def _session_provider(hermes_home: str | None = None) -> NotionBrainProvider:

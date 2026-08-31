@@ -12,6 +12,20 @@ from . import bootstrap
 from . import schema as S
 
 
+def _self_heal(home: str) -> None:
+    """Re-validate cached DB IDs before read commands; rebind stale ones.
+
+    Databases deleted in Notion (or cache pointing at a removed duplicate)
+    would otherwise 404 with a raw API error. ensure_brain() already
+    rebinds the cache to the live databases on the parent page — this
+    just runs it first so users never see the dead-end error.
+    """
+    try:
+        bootstrap.ensure_brain(home)
+    except Exception:
+        pass  # health/wipe will surface a readable report instead
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="notion_brain")
     parser.add_argument("--home", default=os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
@@ -65,10 +79,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "health":
-        print(bootstrap.health_report(args.home))
-        return 0
+        _self_heal(args.home)
+        report = bootstrap.health_report(args.home)
+        print(report)
+        # Exit 1 when anything failed — installers and scripts gate on this.
+        return 1 if ("ERROR" in report or "MISSING" in report) else 0
 
     if args.cmd == "wipe":
+        _self_heal(args.home)
         dbs = {x.strip() for x in args.dbs.split(",")} if getattr(args, "dbs", None) else {"entities", "tasks", "projects"}
         deleted = bootstrap.wipe_database_rows(args.home, databases=dbs, dry_run=args.dry_run)
         verb = "Would wipe" if args.dry_run else "Wiped"
