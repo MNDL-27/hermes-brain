@@ -243,6 +243,17 @@ def get_database(database_id: str) -> dict[str, Any]:
     return result
 
 
+def get_bot_name() -> str:
+    """Best-effort integration display name, for actionable error messages."""
+    try:
+        data = _request("GET", "/users/me")
+        if isinstance(data, dict) and data.get("name"):
+            return str(data["name"])
+    except Exception:
+        pass
+    return "your integration"
+
+
 def update_database(database_id: str, properties: dict[str, Any]) -> dict[str, Any]:
     result = _request("PATCH", f"/databases/{database_id}", {"properties": properties})
     assert isinstance(result, dict)

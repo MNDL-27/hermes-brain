@@ -170,9 +170,16 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
                 _repair_database_schema(db, _PROPS[key], key)
                 continue
             except Exception:
-                logger.info("Cached database '%s' missing — recreating", key)
+                logger.info("Cached database '%s' missing or unreachable — resolving live ID", key)
+                cached.pop(cache_key, None)
 
-        db_id = _find_or_create_database(cached["parent_page_id"], display_name, _PROPS[key])
+        db_id = _find_existing_database(cached["parent_page_id"], display_name)
+        if not db_id:
+            raise RuntimeError(
+                f"Cannot find existing '{display_name}' database. "
+                "No data was changed. Open that database in Notion, choose "
+                "••• → Connections, add your integration, then rerun the installer."
+            )
         cached[cache_key] = db_id
         _save_cache(cache_path, cached)
 
@@ -355,7 +362,15 @@ def health_report(hermes_home: str | Path) -> str:
             url = db.get("url", "")
             lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
         except Exception as exc:
-            lines.append(f"  {key:<10}  ERROR: {S.redact_secrets(str(exc))}")
+            msg = S.redact_secrets(str(exc))
+            if "404" in msg and "shared with your integration" in msg:
+                bot = store.get_bot_name()
+                lines.append(
+                    f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
+                    f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
+                )
+            else:
+                lines.append(f"  {key:<10}  ERROR: {msg}")
     return "\n".join(lines)
 
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
@@ -440,11 +455,14 @@ def _workspace_root_or_fail() -> str:
         "notion_brain integration to a page first so search can see it."
     )
 
-def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, Any]) -> str:
-    # Deterministic first: scan the parent page's children for a
-    # child_database block with a matching title. Notion's /search index
-    # misses databases (indexing delay / relevance ranking), which made
-    # re-bootstrap create duplicates ("Projects 1", "Projects 2").
+def _find_existing_database(parent_page_id: str, title: str) -> str:
+    """Locate an existing database WITHOUT creating one.
+
+    Resolution order:
+      1. Children of the parent page (deterministic, no search index).
+      2. Workspace /search by title (case-insensitive exact match).
+    Returns "" when nothing is found.
+    """
     try:
         for block in store.get_block_children(parent_page_id, page_size=100):
             if block.get("type") == "child_database":
@@ -454,9 +472,23 @@ def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, A
     except Exception as exc:
         logger.debug("Child-block scan for '%s' failed: %s", title, S.redact_secrets(str(exc)))
 
-    existing = store.search_page_by_title(title, object_type="database")
-    if existing:
-        return existing["id"]
+    try:
+        existing = store.search_page_by_title(title, object_type="database")
+        if existing:
+            return existing["id"]
+    except Exception as exc:
+        logger.debug("Search for database '%s' failed: %s", title, S.redact_secrets(str(exc)))
+    return ""
+
+
+def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, Any]) -> str:
+    # Deterministic first: scan the parent page's children for a
+    # child_database block with a matching title. Notion's /search index
+    # misses databases (indexing delay / relevance ranking), which made
+    # re-bootstrap create duplicates ("Projects 1", "Projects 2").
+    db_id = _find_existing_database(parent_page_id, title)
+    if db_id:
+        return db_id
     db = store.create_database(parent_page_id, title, props)
     logger.info("Created database '%s': %s", title, db["id"])
     return db["id"]
