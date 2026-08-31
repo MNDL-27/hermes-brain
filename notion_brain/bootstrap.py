@@ -136,7 +136,8 @@ def _validate_status_options() -> None:
 _validate_status_options()
 
 def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
-    cache_path = Path(hermes_home) / S.CACHE_FILE
+    home_expanded = Path(os.path.expanduser(str(hermes_home)))
+    cache_path = home_expanded / S.CACHE_FILE
     cached = _load_cache(cache_path)
     try:
         cached_version = int(cached.get("schema_version") or 0)
