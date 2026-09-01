@@ -472,13 +472,20 @@ class TestStoreHelpers:
         assert len(prop["rich_text"][0]["text"]["content"]) == 2000
 
     def test_api_key_env(self):
-        with patch.dict(os.environ, {}, clear=True):
-            from notion_brain.store import get_api_key
-            assert get_api_key() is None
+        # get_api_key falls back to $HERMES_HOME/.env — patch the file loader
+        # so the test is isolated from the host's real ~/.hermes/.env.
+        from unittest.mock import patch as mock_patch
+
+        from notion_brain.store import get_api_key
+
+        with mock_patch("notion_brain.store._load_env_file"):
+            with patch.dict(os.environ, {}, clear=True):
+                assert get_api_key() is None
         with patch.dict(os.environ, {"NOTION_API_KEY": "test-key-123"}):
             from importlib import reload
 
             import notion_brain.store as store_mod
+
             reload(store_mod)
             assert store_mod.get_api_key() == "test-key-123"
 

@@ -49,6 +49,17 @@ def _message_content_text(content: Any) -> str:
     return str(content) if content else ""
 
 
+def _coerce_str_list(value: Any) -> list[str]:
+    """Coerce LLM tool args to list[str] — LLMs sometimes send a bare string."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if v is not None and str(v).strip()]
+    return [str(value)]
+
+
 class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
@@ -471,13 +482,13 @@ class NotionBrainProvider:
         if self._hermes_home:
             disk_text = bootstrap.read_memory_from_disk(self._hermes_home)
 
-        # Build a Notion rich_text "contains" filter so the query is actually
-        # applied server-side instead of being silently dropped.
+        # Title properties are Notion type "title", not "rich_text".
+        # Using rich_text here never matches (400 or silent 0 rows).
         query_filter: dict[str, Any] | None = None
         if query:
             query_filter = {
                 "property": "title",
-                "rich_text": {"contains": query},
+                "title": {"contains": query},
             }
 
         if database:
@@ -535,8 +546,8 @@ class NotionBrainProvider:
         domain = args.get("domain", "memory")
         kind = args.get("kind", "note")
         status = args.get("status", "active")
-        tags = args.get("tags", [])
-        entities = args.get("entities", [])
+        tags = _coerce_str_list(args.get("tags", []))
+        entities = _coerce_str_list(args.get("entities", []))
 
         if not title:
             return "Error: title is required"
@@ -577,7 +588,7 @@ class NotionBrainProvider:
                 content=S.redact_secrets(args.get("content", "")),
                 kind="task",
                 status=S.redact_secrets(args.get("status", "active")),
-                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
+                tags=[S.redact_secrets(t) for t in _coerce_str_list(args.get("tags", []))],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -608,6 +619,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "tasks"):
+                return err
 
             properties: dict[str, Any] = {}
             if "title" in args:
@@ -628,6 +641,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required"
+            if err := self._check_page_in_db(page_id, "tasks"):
+                return err
 
             status_payload, status_err = self._validated_status("done", "tasks")
             if status_err:
@@ -671,6 +686,27 @@ class NotionBrainProvider:
         valid = sorted({opt.get("name", "") for opt in options if isinstance(opt, dict)})
         return {}, f"Error: status '{status}' is not valid for {db_key}. Valid: {valid}"
 
+    def _check_page_in_db(self, page_id: str, db_key: str) -> str | None:
+        """Return an error string if page_id is not in the expected DB; else None.
+
+        Skips the check when the local cache has no db_id (not bootstrapped)
+        so the tool remains usable in degraded mode. Fetches the live page
+        and compares parent.database_id — prevents cross-database writes via
+        a guessed or leaked page_id.
+        """
+        db_id = self._db_ids.get(db_key)
+        if not db_id:
+            return None
+        try:
+            page = store.get_page(page_id)
+        except Exception as exc:
+            logger.debug("Could not verify page ownership for %s: %s", page_id, S.redact_secrets(str(exc)))
+            return None
+        actual = page.get("parent", {}).get("database_id")
+        if actual and actual != db_id:
+            return f"Error: page {page_id} does not belong to {db_key} database"
+        return None
+
     def _tool_content(self, args: dict[str, Any]) -> str:
         """Manage social content."""
         action = args.get("action", "list")
@@ -687,7 +723,7 @@ class NotionBrainProvider:
                 content=S.redact_secrets(body),
                 kind="draft",
                 status=S.redact_secrets(args.get("status", "draft")),
-                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
+                tags=[S.redact_secrets(t) for t in _coerce_str_list(args.get("tags", []))],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -701,6 +737,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "content"):
+                return err
 
             updates: dict[str, Any] = {}
 
@@ -725,6 +763,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "content"):
+                return err
 
             try:
                 # Attempt to complete the status field change
@@ -742,6 +782,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "content"):
+                return err
 
             try:
                 # Archive/cleanup status field (assuming 'archived' is a valid status option)
@@ -790,7 +832,7 @@ class NotionBrainProvider:
                 content=S.redact_secrets(content),
                 kind="reference",
                 status=S.redact_secrets(args.get("status", "active")),
-                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
+                tags=[S.redact_secrets(t) for t in _coerce_str_list(args.get("tags", []))],
                 source_session_id=self._session_id,
             ).normalized()
 

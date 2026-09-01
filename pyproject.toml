@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-brain"
-version = "1.0.2"
+version = "1.0.3"
 description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
 readme = "README.md"
 license = { text = "MIT" }
