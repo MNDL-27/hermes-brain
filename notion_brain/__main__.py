@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         report = bootstrap.health_report(args.home)
         print(report)
         # Exit 1 when anything failed — installers and scripts gate on this.
-        return 1 if ("ERROR" in report or "MISSING" in report) else 0
+        return 1 if ("ERROR" in report or "MISSING" in report or "NOT SHARED" in report) else 0
 
     if args.cmd == "wipe":
         _self_heal(args.home)
