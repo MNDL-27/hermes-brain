@@ -319,7 +319,7 @@ def number_property(value: float | None) -> dict[str, Any]:
 
 
 def status_property(name: str) -> dict[str, Any]:
-    return {"status": {"name": name}}
+    return {"status": {"name": redact_secrets(name)}}
 
 
 def _page_title(page: dict[str, Any]) -> str | None:

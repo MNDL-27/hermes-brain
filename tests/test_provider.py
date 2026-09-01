@@ -234,7 +234,7 @@ class TestToolDispatch:
                 "title": {"title": {}},
                 "Project": {"rich_text": {}},
                 "Tags": {"multi_select": {}},
-                "Status": {"status": {}},
+                "Status": {"status": {"options": [{"name": f"done-{redacted}"}]}},
                 "Domain": {"select": {}},
                 "Confidence": {"select": {}},
                 "Kind": {"select": {}},
@@ -307,19 +307,24 @@ class TestToolDispatch:
                 assert f"tag-{secret}" not in tag_names
                 assert f"tag-{redacted}" in tag_names
 
-            # 4. Test notion_brain_task update action redacts title
-            with patch("notion_brain.store.update_page") as mock_update:
-                mock_update.return_value = {"id": "task-page-secret"}
-                provider.handle_tool_call("notion_brain_task", {
-                    "action": "update",
-                    "page_id": "task-page-secret",
-                    "title": f"New title {secret}",
-                })
-                assert mock_update.call_count == 1
-                args, kwargs = mock_update.call_args
-                properties = args[1]
-                assert secret not in properties["title"]["title"][0]["text"]["content"]
-                assert redacted in properties["title"]["title"][0]["text"]["content"]
+            # 4. Test notion_brain_task update action redacts title and status
+            # When the schema fetch fails, it falls back to a plain status_property
+            with patch("notion_brain.store.get_database", side_effect=RuntimeError("schema fetch error")):
+                with patch("notion_brain.store.update_page") as mock_update:
+                    mock_update.return_value = {"id": "task-page-secret"}
+                    provider.handle_tool_call("notion_brain_task", {
+                        "action": "update",
+                        "page_id": "task-page-secret",
+                        "title": f"New title {secret}",
+                        "status": f"done-{secret}",
+                    })
+                    assert mock_update.call_count == 1
+                    args, kwargs = mock_update.call_args
+                    properties = args[1]
+                    assert secret not in properties["title"]["title"][0]["text"]["content"]
+                    assert redacted in properties["title"]["title"][0]["text"]["content"]
+                    assert secret not in properties["Status"]["status"]["name"]
+                    assert redacted in properties["Status"]["status"]["name"]
 
 
 # ---------------------------------------------------------------------------
