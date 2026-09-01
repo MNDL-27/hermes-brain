@@ -122,9 +122,13 @@ def extract_with_llm(
 
     Returns list of BrainEntry on success, or None to fall back to heuristics.
     """
-    buffer = f"User: {user_content}\nAssistant: {assistant_content}".strip()
-    if not buffer:
+    # Privacy: scrub secrets and cap size before exfiltrating to an LLM
+    # (even localhost Ollama). Without this, Notion tokens / private keys
+    # pasted in a turn are POSTed to OPENAI_BASE_URL verbatim.
+    raw_buffer = f"User: {user_content}\nAssistant: {assistant_content}".strip()
+    if not raw_buffer:
         return []
+    buffer = redact_secrets(compact(raw_buffer, 4000))
 
     url = (base_url or os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or DEFAULT_LLM_URL).rstrip("/")
     endpoint = f"{url}/chat/completions"
@@ -135,7 +139,7 @@ def extract_with_llm(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {key}",
     }
-    payload = {
+    payload: dict[str, Any] = {
         "model": model_name,
         "messages": [
             {"role": "system", "content": EXTRACTION_PROMPT},

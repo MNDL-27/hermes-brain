@@ -75,7 +75,17 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
             if resp.ok:
                 return resp.json()
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < _MAX_RETRIES:
-                time.sleep(_RETRY_DELAY_S * attempt)
+                # Honor Retry-After on 429 so we do not burn retries with fixed 1s sleeps.
+                sleep_for = _RETRY_DELAY_S * attempt
+                if resp.status_code == 429:
+                    try:
+                        retry_after = resp.headers.get("Retry-After")  # type: ignore[union-attr]
+                        if retry_after is not None:
+                            # Retry-After is seconds (or HTTP-date — we only handle seconds)
+                            sleep_for = min(max(float(retry_after), sleep_for), 60.0)
+                    except Exception:
+                        pass
+                time.sleep(sleep_for)
                 continue
             # Non-retryable error or retries exhausted: parse body safely
             try:

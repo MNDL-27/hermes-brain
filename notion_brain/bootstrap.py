@@ -405,7 +405,19 @@ def _load_cache(path: Path) -> dict[str, str]:
 def _save_cache(path: Path, data: dict[str, str]) -> None:
     try:
         os.makedirs(path.parent, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2))
+        # Atomic write + 600 perms so a crash mid-write does not truncate the cache
+        # and other local users cannot read workspace IDs.
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        tmp.replace(path)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
     except Exception as exc:
         logger.warning("Failed to write cache: %s", S.redact_secrets(str(exc)))
 

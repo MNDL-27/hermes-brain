@@ -501,7 +501,7 @@ class TestRoutingAndLLMExtraction:
 
     def test_llm_extractor_integration(self, monkeypatch):
         from unittest.mock import patch
-        from notion_brain.extract import extract_with_llm
+
 
         fake_resp = [
             {

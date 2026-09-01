@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import os
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 from .extract import classify_turn as classify_text
 from .provider import NotionBrainProvider, register

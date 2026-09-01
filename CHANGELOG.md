@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [v1.0.3] — 2026-09-01
+
+### Fixed (audit wave 1 — 9 findings)
+- `provider` title filter `rich_text` → `title` — database-filtered search was silently returning 0 rows
+- `extract` LLM buffer now `redact_secrets(compact(...,4000))` before POST — prevents secret exfiltration
+- `scripts/install.sh` `Bearer ***` → `Bearer $token` — token validation was dead code
+- Ruff/mypy green: removed 3 unused imports/vars, fixed `extract` payload typing, fixed `tests/test_coverage_gaps` append misuse
+- `tests/test_provider.test_api_key_env` isolation via `patch(_load_env_file)` — was flaky with host `~/.hermes/.env`
+- `provider` tags/entities now `_coerce_str_list` — bare-string from LLM no longer explodes into chars
+- `bootstrap` cache write atomic (`tmp → replace`) + `chmod 600` — was truncatable `644`
+- `store` 429 now honors `Retry-After` (capped 60s) — was fixed 1s backoff
+- `provider` page-ownership guard on `task update/complete` + `content update/publish/archive` — prevents cross-DB writes via guessed page_id
+
+### Changed
+- Audit deliverable `CODEBASE-AUDIT-REPORT.md` — full 2026-09-01 deep audit (P1×2, P2×6, P3×1)
+
 ## [v1.0.2] — 2026-08-15
 
 ### Added

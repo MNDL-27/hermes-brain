@@ -573,7 +573,12 @@ def test_delete_page_and_wipe_database_rows(monkeypatch: pytest.MonkeyPatch, tmp
         lambda db_id, page_size=100: [{"id": f"page-{db_id}-1"}, {"id": f"page-{db_id}-2"}],
     )
     deleted_pages: list[str] = []
-    monkeypatch.setattr(store, "delete_page", lambda pid: deleted_pages.append(pid) or {"id": pid, "archived": True})
+
+    def _fake_delete(pid: str) -> dict:  # type: ignore[no-untyped-def]
+        deleted_pages.append(pid)
+        return {"id": pid, "archived": True}
+
+    monkeypatch.setattr(store, "delete_page", _fake_delete)
 
     res = bootstrap.wipe_database_rows(tmp_path, databases={"entities", "tasks"})
     assert res == {"entities": 2, "tasks": 2}
