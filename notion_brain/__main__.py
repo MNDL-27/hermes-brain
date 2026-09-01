@@ -122,7 +122,6 @@ def _parse_markdown(content: str) -> list[dict]:
     Falls back to one entry per paragraph when no bullets exist.
     Uses ``extract.classify_text`` for kind/tags heuristics.
     """
-    from . import extract
 
     entries: list[dict] = []
     domain = "memory"
@@ -196,7 +195,6 @@ def _cmd_import(args) -> int:
         return 1
 
     print(f"Found {len(files)} file(s):")
-    total = 0
     plan: list[dict] = []
     for f in files:
         content = f.read_text(encoding="utf-8", errors="replace")
