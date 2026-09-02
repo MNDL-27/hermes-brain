@@ -140,6 +140,7 @@ def _parse_markdown(content: str) -> list[dict]:
     Falls back to one entry per paragraph when no bullets exist.
     Uses ``extract.classify_text`` for kind/tags heuristics.
     """
+    from . import extract
 
     entries: list[dict] = []
     domain = "memory"
