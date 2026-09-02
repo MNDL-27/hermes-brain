@@ -135,7 +135,7 @@ def extract_with_llm(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {key}",
     }
-    payload: dict[str, Any] = {
+    payload = {
         "model": model_name,
         "messages": [
             {"role": "system", "content": EXTRACTION_PROMPT},
