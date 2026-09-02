@@ -278,7 +278,7 @@ class NotionBrainProvider:
         handler = handlers.get(tool_name)
         if not handler:
             return json.dumps({
-                "result": f"Unknown tool: {tool_name}",
+                "result": S.redact_secrets(f"Unknown tool: {tool_name}"),
                 "error": True,
             })
 
@@ -380,11 +380,11 @@ class NotionBrainProvider:
                 logger.debug(
                     "Stored entry in %s: %s", target_db_id, entry.title
                 )
-        except Exception as exc:
+        except Exception:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
-            raise RuntimeError("Failed to save entry to Notion") from exc
+            raise RuntimeError("Failed to save entry to Notion") from None
 
     def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
@@ -462,7 +462,7 @@ class NotionBrainProvider:
 
     def _tool_search(self, args: dict[str, Any]) -> str | tuple[str, dict[str, Any]]:
         """Search across brain databases, honoring the query when provided."""
-        query = (args.get("query") or "").strip()
+        query = S.redact_secrets((args.get("query") or "").strip())
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
 
@@ -636,7 +636,7 @@ class NotionBrainProvider:
             store.update_page(page_id, properties)
             return "Task completed."
 
-        return f"Unknown task action: {action}"
+        return S.redact_secrets(f"Unknown task action: {action}")
 
     def _validated_status(
         self, status: str, db_key: str
@@ -772,7 +772,7 @@ class NotionBrainProvider:
 
             return "\n".join(lines)
 
-        return f"Unknown content action: {action}"
+        return S.redact_secrets(f"Unknown content action: {action}")
 
     def _tool_research(self, args: dict[str, Any]) -> str:
         """Manage research findings."""
@@ -816,7 +816,7 @@ class NotionBrainProvider:
 
             return "\n".join(lines)
 
-        return f"Unknown research action: {action}"
+        return S.redact_secrets(f"Unknown research action: {action}")
 
 
 # ---------------------------------------------------------------------------
