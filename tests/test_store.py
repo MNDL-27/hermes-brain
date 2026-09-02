@@ -255,3 +255,8 @@ class TestSecretRedactionCoverage:
         prop = multi_select_property(["secret: ghp_12345678901234567890"])
         assert prop == {"multi_select": [{"name": "[REDACTED_SECRET]"}]}
 
+    def test_status_property_redacts_secrets(self):
+        from notion_brain.store import status_property
+        prop = status_property("fake ghp_12345678901234567890")
+        assert prop == {"status": {"name": "fake [REDACTED_SECRET]"}}
+
