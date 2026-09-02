@@ -380,7 +380,7 @@ class NotionBrainProvider:
                 logger.debug(
                     "Stored entry in %s: %s", target_db_id, entry.title
                 )
-        except Exception:
+        except Exception as exc:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
