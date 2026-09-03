@@ -366,6 +366,31 @@ class TestSchema:
         result = redact_secrets(text)
         assert "mysecret123" not in result
 
+    def test_redact_secrets_anthropic_pattern(self):
+        text = "key=sk-ant-api03-abcdefghijklmnop1234567890"
+        result = redact_secrets(text)
+        assert "sk-ant-" not in result
+        assert "REDACTED_SECRET" in result
+
+    def test_redact_secrets_project_pattern(self):
+        text = "key=sk-proj-abcdefghijklmnop1234567890"
+        result = redact_secrets(text)
+        assert "sk-proj-" not in result
+        assert "REDACTED_SECRET" in result
+
+    def test_redact_secrets_google_pattern(self):
+        # AIza keys are 39 characters total, so AIza + 35 characters
+        text = "key=AIzaSyA-bCdEfGhIjKlMnOpQrStUvWxYz123456"
+        result = redact_secrets(text)
+        assert "AIzaSyA-" not in result
+        assert "REDACTED_SECRET" in result
+
+    def test_redact_secrets_bearer_pattern(self):
+        text = "Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234567890"
+        result = redact_secrets(text)
+        assert "abcdefghijklmnopqrstuvwxyz" not in result
+        assert "REDACTED_SECRET" in result
+
     def test_compact_truncation(self):
         long = "word " * 200
         result = compact(long, limit=100)
