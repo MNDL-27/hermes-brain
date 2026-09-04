@@ -391,11 +391,11 @@ class NotionBrainProvider:
                 logger.debug(
                     "Stored entry in %s: %s", target_db_id, entry.title
                 )
-        except Exception as exc:
+        except Exception:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
-            raise RuntimeError("Failed to save entry to Notion") from exc
+            raise RuntimeError("Failed to save entry to Notion") from None
 
     def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
