@@ -27,6 +27,9 @@ hermes-brain = "notion_brain.__main__:main"
 # framework's distribution name is not recorded in this repo; pin it once the
 # upstream package name is known. See README "Prerequisites".
 
+[project.entry-points."hermes_agent.memory_providers"]
+notion_brain = "notion_brain"
+
 [project.optional-dependencies]
 dev = [
     "build==1.5.0",

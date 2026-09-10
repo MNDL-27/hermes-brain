@@ -108,23 +108,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_update(check_only: bool = False) -> int:
-    """Pull latest changes from git and reinstall the package."""
+    """Check GitHub for a newer release tag and update to it."""
     import subprocess
 
-    from .bootstrap import _check_for_update
+    from .bootstrap import _check_for_update, _find_latest_tag
 
-    # Find the repo root: check parent of notion_brain package
-    pkg_dir = Path(__file__).resolve().parent.parent
-    git_dir = pkg_dir / ".git"
-
-    # Fallback to ~/.hermes-brain (standard installer directory)
-    if not git_dir.is_dir():
-        default_dir = Path.home() / ".hermes-brain"
-        if (default_dir / ".git").is_dir():
-            pkg_dir = default_dir
-            git_dir = default_dir / ".git"
-
-    if not git_dir.is_dir():
+    pkg_dir = _repo_dir()
+    if not (pkg_dir / ".git").is_dir():
         print(f"error: not a git repository ({pkg_dir})", file=sys.stderr)
         print("Install via git clone to use self-update, or re-run the installer:", file=sys.stderr)
         print("  curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash", file=sys.stderr)
@@ -138,7 +128,37 @@ def _cmd_update(check_only: bool = False) -> int:
         print("already up to date")
         return 0
 
-    print(f"Updating hermes-brain in {pkg_dir}…")
+    # Check for a newer release tag on GitHub
+    latest = _find_latest_tag()
+    if not latest:
+        print("Could not fetch release info from GitHub. Falling back to git pull…")
+        return _git_pull_and_install(pkg_dir)
+
+    from . import __version__ as current_ver
+    if latest == current_ver:
+        print(f"Already on latest release ({current_ver}).")
+        return 0
+
+    print(f"Updating {current_ver} → {latest}…")
+    return _checkout_tag_and_install(pkg_dir, latest)
+
+
+def _repo_dir() -> Path:
+    """Find the hermes-brain git repo directory."""
+    pkg_dir = Path(__file__).resolve().parent.parent
+    if (pkg_dir / ".git").is_dir():
+        return pkg_dir
+    default = Path.home() / ".hermes-brain"
+    if (default / ".git").is_dir():
+        return default
+    return pkg_dir
+
+
+def _git_pull_and_install(pkg_dir: Path) -> int:
+    """Fallback: pull latest from current branch and reinstall."""
+    import subprocess
+
+    print(f"Pulling latest in {pkg_dir}…")
     try:
         pull = subprocess.run(["git", "pull", "--rebase"], cwd=pkg_dir, capture_output=True, text=True)
         if pull.returncode != 0:
@@ -148,25 +168,37 @@ def _cmd_update(check_only: bool = False) -> int:
     except Exception as exc:
         print(f"git error: {exc}", file=sys.stderr)
         return 1
+    return _reinstall(pkg_dir)
+
+
+def _checkout_tag_and_install(pkg_dir: Path, tag: str) -> int:
+    """Fetch and checkout a specific release tag, then reinstall."""
+    import subprocess
+
+    try:
+        subprocess.run(["git", "fetch", "--tags"], cwd=pkg_dir, capture_output=True, text=True, check=True)
+        subprocess.run(["git", "checkout", tag], cwd=pkg_dir, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as exc:
+        print(f"git checkout {tag} failed:\n{exc.stderr}", file=sys.stderr)
+        return 1
+    print(f"Checked out {tag}")
+    return _reinstall(pkg_dir)
+
+
+def _reinstall(pkg_dir: Path) -> int:
+    """Reinstall the Python package from the repo directory."""
+    import subprocess
 
     print("Reinstalling Python package…")
-    pip_cmds = [
+    for cmd in [
         [sys.executable, "-m", "pip", "install", "--user", "-e", str(pkg_dir)],
         [sys.executable, "-m", "pip", "install", "--user", "--break-system-packages", "-e", str(pkg_dir)],
-    ]
-    reinstalled = False
-    for cmd in pip_cmds:
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode == 0:
-            reinstalled = True
-            break
-
-    if not reinstalled:
-        print("warning: pip reinstall failed; code was pulled, but package metadata may be old.", file=sys.stderr)
-        return 1
-
-    print("Update complete! Check status with: hermes-brain health")
-    return 0
+    ]:
+        if subprocess.run(cmd, capture_output=True, text=True).returncode == 0:
+            print("Update complete! Run: hermes-brain health")
+            return 0
+    print("warning: pip reinstall failed; code was updated, but package metadata may be old.", file=sys.stderr)
+    return 1
 
 
 # ---------------------------------------------------------------------------
