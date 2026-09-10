@@ -126,6 +126,33 @@ def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any
     return None
 
 
+def search_all_databases() -> list[dict[str, Any]]:
+    """List every database the integration can access (paginated, no query filter).
+
+    Falls back here when /search with a query string misses databases that
+    are clearly shared — Notion's index is unreliable for database objects.
+    """
+    results: list[dict[str, Any]] = []
+    start_cursor: str | None = None
+    while True:
+        body: dict[str, Any] = {
+            "filter": {"value": "database", "property": "object"},
+            "page_size": 100,
+        }
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+        data = _request("POST", "/search", body)
+        if not isinstance(data, dict):
+            break
+        results.extend(data.get("results") or [])
+        if not data.get("has_more"):
+            break
+        start_cursor = data.get("next_cursor")
+        if not start_cursor:
+            break
+    return results
+
+
 def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
     """Search Notion and return results with extracted metadata + body text."""
     body: dict[str, Any] = {"query": query, "page_size": min(page_size, 100)}
@@ -345,6 +372,16 @@ def status_property(name: str) -> dict[str, Any]:
 
 def _page_title(page: dict[str, Any]) -> str | None:
     try:
+        # Notion database objects store title at the top level as a rich text array
+        if page.get("object") == "database":
+            raw = page.get("title")
+            if isinstance(raw, list):
+                text = "".join(
+                    (t.get("plain_text") or t.get("text", {}).get("content", ""))
+                    for t in raw if isinstance(t, dict)
+                ).strip()
+                if text:
+                    return text
         props = page.get("properties") or {}
         for val in props.values():
             if isinstance(val, dict) and val.get("type") == "title":

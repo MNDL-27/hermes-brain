@@ -347,6 +347,7 @@ def health_report(hermes_home: str | Path) -> str:
         lines.append(f"parent: {title}  url={parent.get('url','')}")
     except Exception as exc:
         lines.append(f"parent: ERROR fetching {parent_id}: {S.redact_secrets(str(exc))}")
+    rebinding_happened = False
     for key in S.DATABASES:
         db_id = cached.get(f"db_{key}")
         if not db_id:
@@ -354,23 +355,48 @@ def health_report(hermes_home: str | Path) -> str:
             continue
         try:
             db = store.get_database(db_id)
-            match = _database_schema_matches(db, _PROPS[key])
-            schema = "schema=ok" if match else "schema=MISMATCH"
-            entries = store.query_database(db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}])
-            count = len(entries)
-            last = entries[0].get("created_time", "")[:19] if entries else "(empty)"
-            url = db.get("url", "")
-            lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
-        except Exception as exc:
-            msg = S.redact_secrets(str(exc))
-            if "404" in msg and "shared with your integration" in msg:
+        except Exception:
+            # Stale cache ID — attempt live recovery before reporting failure
+            display_name = S.DATABASES[key]
+            new_id = _find_existing_database(parent_id, display_name)
+            if new_id:
+                cached[f"db_{key}"] = new_id
+                rebinding_happened = True
+                db_id = new_id
+                try:
+                    db = store.get_database(db_id)
+                except Exception as exc:
+                    msg = S.redact_secrets(str(exc))
+                    if "404" in msg and "shared with your integration" in msg:
+                        bot = store.get_bot_name()
+                        lines.append(
+                            f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
+                            f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
+                        )
+                    else:
+                        lines.append(f"  {key:<10}  ERROR: {msg}")
+                    continue
+            else:
                 bot = store.get_bot_name()
                 lines.append(
                     f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
                     f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
                 )
-            else:
-                lines.append(f"  {key:<10}  ERROR: {msg}")
+                continue
+        match = _database_schema_matches(db, _PROPS[key])
+        schema = "schema=ok" if match else "schema=MISMATCH"
+        try:
+            entries = store.query_database(db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}])
+        except Exception:
+            entries = []
+        count = len(entries)
+        last = entries[0].get("created_time", "")[:19] if entries else "(empty)"
+        url = db.get("url", "")
+        lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
+
+    if rebinding_happened:
+        _save_cache(Path(hermes_home) / S.CACHE_FILE, cached)
+
     return "\n".join(lines)
 
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
@@ -473,23 +499,39 @@ def _find_existing_database(parent_page_id: str, title: str) -> str:
     Resolution order:
       1. Children of the parent page (deterministic, no search index).
       2. Workspace /search by title (case-insensitive exact match).
+      3. Enumerate ALL databases the integration can access, match by title
+         (catches cases where the query search misses shared databases).
     Returns "" when nothing is found.
     """
+    want = title.strip().lower()
+
+    # Method 1: child blocks of the parent page
     try:
         for block in store.get_block_children(parent_page_id, page_size=100):
             if block.get("type") == "child_database":
                 db_title = ((block.get("child_database") or {}).get("title") or "").strip()
-                if db_title.lower() == title.strip().lower():
+                if db_title.lower() == want:
                     return block["id"]
     except Exception as exc:
         logger.debug("Child-block scan for '%s' failed: %s", title, S.redact_secrets(str(exc)))
 
+    # Method 2: /search with query string
     try:
         existing = store.search_page_by_title(title, object_type="database")
         if existing:
             return existing["id"]
     except Exception as exc:
         logger.debug("Search for database '%s' failed: %s", title, S.redact_secrets(str(exc)))
+
+    # Method 3: enumerate every database the integration can see (no query filter)
+    try:
+        for db in store.search_all_databases():
+            db_title = store._page_title(db) or ""
+            if db_title.strip().lower() == want:
+                return db["id"]
+    except Exception as exc:
+        logger.debug("Full database enumeration for '%s' failed: %s", title, S.redact_secrets(str(exc)))
+
     return ""
 
 
