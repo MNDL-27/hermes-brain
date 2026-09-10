@@ -337,8 +337,8 @@ def wipe_database_rows(
     return deleted_counts
 
 
-def _check_for_update() -> str | None:
-    """Check GitHub for a newer hermes-brain release. Non-blocking, 2s timeout."""
+def _find_latest_tag() -> str | None:
+    """Fetch the latest release tag name from GitHub. Returns e.g. '1.0.4' or None."""
     try:
         from . import __version__ as current_ver
     except Exception:
@@ -351,20 +351,31 @@ def _check_for_update() -> str | None:
                 "Accept": "application/vnd.github+json",
             },
         )
-        with _urllib_request.urlopen(req, timeout=2.0) as resp:
+        with _urllib_request.urlopen(req, timeout=3.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if isinstance(data, list) and data:
-                latest_ver = str(data[0].get("name", "")).lstrip("v")
-                if latest_ver and latest_ver != current_ver:
-                    def _tuple(v: str) -> tuple[int, ...]:
-                        return tuple(int(x) for x in _re.findall(r"\d+", v))
-                    if _tuple(latest_ver) > _tuple(current_ver):
-                        return (
-                            f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
-                            f"Run: hermes-brain update"
-                        )
+                raw_name = str(data[0].get("name", "")).strip()
+                return raw_name.lstrip("v")
     except Exception:
         pass
+    return None
+
+
+def _check_for_update() -> str | None:
+    """Check GitHub for a newer hermes-brain release. Non-blocking, 2s timeout."""
+    try:
+        from . import __version__ as current_ver
+    except Exception:
+        current_ver = "1.0.3"
+    latest_ver = _find_latest_tag()
+    if latest_ver and latest_ver != current_ver:
+        def _tuple(v: str) -> tuple[int, ...]:
+            return tuple(int(x) for x in _re.findall(r"\d+", v))
+        if _tuple(latest_ver) > _tuple(current_ver):
+            return (
+                f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
+                f"Run: hermes-brain update"
+            )
     return None
 
 
