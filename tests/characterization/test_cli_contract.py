@@ -41,7 +41,7 @@ def test_python_module_help_is_callable() -> None:
     assert completed.returncode == 0, completed.stderr
     assert "usage: notion_brain" in completed.stdout
     assert "--home" in completed.stdout
-    for command in ("health", "url", "reset"):
+    for command in ("health", "url", "reset", "update"):
         assert command in completed.stdout
 
 
@@ -170,4 +170,23 @@ def test_wipe_command_wipes_noisy_rows(
         "databases": {"entities", "tasks", "projects"},
         "dry_run": False,
     }
+
+
+def test_update_command_runs_git_pull_and_pip(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    from unittest.mock import MagicMock
+
+    def mock_run(cmd, *args, **kwargs):
+        res = MagicMock()
+        res.returncode = 0
+        res.stdout = "Already up to date."
+        res.stderr = ""
+        return res
+
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    exit_code = cli.main(["update"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Update complete!" in captured.out
+
 

@@ -49,6 +49,11 @@ def main(argv: list[str] | None = None) -> int:
     im.add_argument("--files", help="Comma-separated markdown files to import (default: auto-discover)")
     im.add_argument("--dry-run", action="store_true", help="Show what would be imported without writing to Notion")
 
+    up = sub.add_parser("update", help="Pull latest from GitHub and reinstall.")
+    up.add_argument("--check", action="store_true", help="Only check for updates, don't install")
+
+    sub.add_parser("update", help="Pull latest from GitHub and reinstall the package.")
+
     args = parser.parse_args(argv)
 
     if not bootstrap.store.get_api_key():
@@ -97,8 +102,73 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "import":
         return _cmd_import(args)
 
+    if args.cmd == "update":
+        return _cmd_update(check_only=getattr(args, "check", False))
+
     parser.print_help()
     return 1
+
+
+def _cmd_update(check_only: bool = False) -> int:
+    """Pull latest changes from git and reinstall the package."""
+    import subprocess
+
+    from .bootstrap import _check_for_update
+
+    # Find the repo root: check parent of notion_brain package
+    pkg_dir = Path(__file__).resolve().parent.parent
+    git_dir = pkg_dir / ".git"
+
+    # Fallback to ~/.hermes-brain (standard installer directory)
+    if not git_dir.is_dir():
+        default_dir = Path.home() / ".hermes-brain"
+        if (default_dir / ".git").is_dir():
+            pkg_dir = default_dir
+            git_dir = default_dir / ".git"
+
+    if not git_dir.is_dir():
+        print(f"error: not a git repository ({pkg_dir})", file=sys.stderr)
+        print("Install via git clone to use self-update, or re-run the installer:", file=sys.stderr)
+        print("  curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash", file=sys.stderr)
+        return 1
+
+    if check_only:
+        msg = _check_for_update()
+        if msg:
+            print(msg)
+            return 2
+        print("already up to date")
+        return 0
+
+    print(f"Updating hermes-brain in {pkg_dir}…")
+    try:
+        pull = subprocess.run(["git", "pull", "--rebase"], cwd=pkg_dir, capture_output=True, text=True)
+        if pull.returncode != 0:
+            print(f"git pull failed:\n{pull.stderr}", file=sys.stderr)
+            return pull.returncode
+        print(pull.stdout.strip())
+    except Exception as exc:
+        print(f"git error: {exc}", file=sys.stderr)
+        return 1
+
+    print("Reinstalling Python package…")
+    pip_cmds = [
+        [sys.executable, "-m", "pip", "install", "--user", "-e", str(pkg_dir)],
+        [sys.executable, "-m", "pip", "install", "--user", "--break-system-packages", "-e", str(pkg_dir)],
+    ]
+    reinstalled = False
+    for cmd in pip_cmds:
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0:
+            reinstalled = True
+            break
+
+    if not reinstalled:
+        print("warning: pip reinstall failed; code was pulled, but package metadata may be old.", file=sys.stderr)
+        return 1
+
+    print("Update complete! Check status with: hermes-brain health")
+    return 0
 
 
 # ---------------------------------------------------------------------------
