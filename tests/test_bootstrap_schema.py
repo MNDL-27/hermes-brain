@@ -54,7 +54,7 @@ def test_check_for_update_detects_newer_version(monkeypatch):
     import io
     from unittest.mock import MagicMock
 
-    fake_payload = b'{"info": {"version": "9.9.9"}}'
+    fake_payload = b'[{"name": "v9.9.9"}]'
     fake_resp = MagicMock()
     fake_resp.read.return_value = fake_payload
     fake_resp.__enter__.return_value = fake_resp
@@ -64,12 +64,13 @@ def test_check_for_update_detects_newer_version(monkeypatch):
     assert msg is not None
     assert "UPDATE AVAILABLE" in msg
     assert "9.9.9" in msg
+    assert "git pull" in msg
 
 
 def test_check_for_update_handles_same_or_older_version(monkeypatch):
     from unittest.mock import MagicMock
 
-    fake_payload = b'{"info": {"version": "1.0.0"}}'
+    fake_payload = b'[{"name": "v1.0.0"}]'
     fake_resp = MagicMock()
     fake_resp.read.return_value = fake_payload
     fake_resp.__enter__.return_value = fake_resp
