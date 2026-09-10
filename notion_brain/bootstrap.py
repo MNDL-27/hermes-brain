@@ -12,6 +12,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+import re as _re
+import urllib.request as _urllib_request
+
 from . import schema as S
 from . import store
 
@@ -334,11 +337,50 @@ def wipe_database_rows(
     return deleted_counts
 
 
+def _check_for_update() -> str | None:
+    """Check PyPI for a newer hermes-brain release. Non-blocking, 2s timeout."""
+    try:
+        from . import __version__ as current_ver
+    except Exception:
+        current_ver = "1.0.3"
+    try:
+        req = _urllib_request.Request(
+            "https://pypi.org/pypi/hermes-brain/json",
+            headers={"User-Agent": f"hermes-brain/{current_ver}"},
+        )
+        with _urllib_request.urlopen(req, timeout=2.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            latest_ver = data.get("info", {}).get("version", "")
+            if latest_ver and latest_ver != current_ver:
+                # Compare tuple of ints if possible
+                def _tuple(v: str) -> tuple[int, ...]:
+                    return tuple(int(x) for x in _re.findall(r"\d+", v))
+                if _tuple(latest_ver) > _tuple(current_ver):
+                    return (
+                        f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
+                        f"Run: pip install --upgrade hermes-brain"
+                    )
+    except Exception:
+        pass
+    return None
+
+
 def health_report(hermes_home: str | Path) -> str:
     """One-line-per-DB summary: schema match, entry count, last entry, latest sync."""
     cached = _load_cache(Path(hermes_home) / S.CACHE_FILE)
     parent_id = cached.get("parent_page_id", "")
     lines: list[str] = []
+
+    try:
+        from . import __version__ as cur
+    except Exception:
+        cur = "1.0.3"
+    upd = _check_for_update()
+    if upd:
+        lines.append(upd)
+    else:
+        lines.append(f"version: {cur} (latest)")
+
     if not parent_id:
         return "error: no parent page cached; run `python -m notion_brain reset`"
     try:
