@@ -361,7 +361,7 @@ def _check_for_update() -> str | None:
                     if _tuple(latest_ver) > _tuple(current_ver):
                         return (
                             f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
-                            f"Run: git pull in ~/.hermes-brain && pip install -e ."
+                            f"Run: hermes-brain update"
                         )
     except Exception:
         pass

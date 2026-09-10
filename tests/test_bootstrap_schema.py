@@ -64,7 +64,7 @@ def test_check_for_update_detects_newer_version(monkeypatch):
     assert msg is not None
     assert "UPDATE AVAILABLE" in msg
     assert "9.9.9" in msg
-    assert "git pull" in msg
+    assert "hermes-brain update" in msg
 
 
 def test_check_for_update_handles_same_or_older_version(monkeypatch):
