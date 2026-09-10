@@ -338,28 +338,31 @@ def wipe_database_rows(
 
 
 def _check_for_update() -> str | None:
-    """Check PyPI for a newer hermes-brain release. Non-blocking, 2s timeout."""
+    """Check GitHub for a newer hermes-brain release. Non-blocking, 2s timeout."""
     try:
         from . import __version__ as current_ver
     except Exception:
         current_ver = "1.0.3"
     try:
         req = _urllib_request.Request(
-            "https://pypi.org/pypi/hermes-brain/json",
-            headers={"User-Agent": f"hermes-brain/{current_ver}"},
+            "https://api.github.com/repos/MNDL-27/hermes-brain/tags?per_page=1",
+            headers={
+                "User-Agent": f"hermes-brain/{current_ver}",
+                "Accept": "application/vnd.github+json",
+            },
         )
         with _urllib_request.urlopen(req, timeout=2.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            latest_ver = data.get("info", {}).get("version", "")
-            if latest_ver and latest_ver != current_ver:
-                # Compare tuple of ints if possible
-                def _tuple(v: str) -> tuple[int, ...]:
-                    return tuple(int(x) for x in _re.findall(r"\d+", v))
-                if _tuple(latest_ver) > _tuple(current_ver):
-                    return (
-                        f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
-                        f"Run: pip install --upgrade hermes-brain"
-                    )
+            if isinstance(data, list) and data:
+                latest_ver = str(data[0].get("name", "")).lstrip("v")
+                if latest_ver and latest_ver != current_ver:
+                    def _tuple(v: str) -> tuple[int, ...]:
+                        return tuple(int(x) for x in _re.findall(r"\d+", v))
+                    if _tuple(latest_ver) > _tuple(current_ver):
+                        return (
+                            f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
+                            f"Run: git pull in ~/.hermes-brain && pip install -e ."
+                        )
     except Exception:
         pass
     return None
