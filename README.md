@@ -31,9 +31,15 @@
 
 ## First 5 Minutes
 
-Get your first memory into Notion in under 5 minutes. One command after install.
+Get your first memory into Notion in under 5 minutes.
 
-### 1. Install
+### 1. Install (one-line)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash
+```
+
+*Or install manually:*
 
 ```bash
 git clone https://github.com/MNDL-27/hermes-brain.git
