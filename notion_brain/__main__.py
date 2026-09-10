@@ -52,9 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     up = sub.add_parser("update", help="Pull latest from GitHub and reinstall.")
     up.add_argument("--check", action="store_true", help="Only check for updates, don't install")
 
-    sub.add_parser("update", help="Pull latest from GitHub and reinstall the package.")
-
     args = parser.parse_args(argv)
+
+    if args.cmd == "update":
+        return _cmd_update(check_only=getattr(args, "check", False))
 
     if not bootstrap.store.get_api_key():
         print("error: NOTION_API_KEY is not set", file=sys.stderr)
@@ -101,9 +102,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "import":
         return _cmd_import(args)
-
-    if args.cmd == "update":
-        return _cmd_update(check_only=getattr(args, "check", False))
 
     parser.print_help()
     return 1
