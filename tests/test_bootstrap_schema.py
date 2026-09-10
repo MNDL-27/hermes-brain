@@ -49,3 +49,40 @@ def test_database_schema_mismatch_detects_wrong_type():
     db["properties"]["Status"] = {"type": "select", "select": {}}
     assert not bootstrap._database_schema_matches(db, bootstrap._PROPS["memory"])
 
+
+def test_check_for_update_detects_newer_version(monkeypatch):
+    import io
+    from unittest.mock import MagicMock
+
+    fake_payload = b'{"info": {"version": "9.9.9"}}'
+    fake_resp = MagicMock()
+    fake_resp.read.return_value = fake_payload
+    fake_resp.__enter__.return_value = fake_resp
+
+    monkeypatch.setattr(bootstrap._urllib_request, "urlopen", lambda req, timeout=2.0: fake_resp)
+    msg = bootstrap._check_for_update()
+    assert msg is not None
+    assert "UPDATE AVAILABLE" in msg
+    assert "9.9.9" in msg
+
+
+def test_check_for_update_handles_same_or_older_version(monkeypatch):
+    from unittest.mock import MagicMock
+
+    fake_payload = b'{"info": {"version": "1.0.0"}}'
+    fake_resp = MagicMock()
+    fake_resp.read.return_value = fake_payload
+    fake_resp.__enter__.return_value = fake_resp
+
+    monkeypatch.setattr(bootstrap._urllib_request, "urlopen", lambda req, timeout=2.0: fake_resp)
+    msg = bootstrap._check_for_update()
+    assert msg is None
+
+
+def test_check_for_update_handles_network_failure(monkeypatch):
+    def _fail(*args, **kwargs):
+        raise OSError("network down")
+
+    monkeypatch.setattr(bootstrap._urllib_request, "urlopen", _fail)
+    assert bootstrap._check_for_update() is None
+
