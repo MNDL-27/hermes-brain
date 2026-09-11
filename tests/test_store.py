@@ -17,6 +17,7 @@ from notion_brain.store import (
     rich_text_property,
     search_page_by_title,
     select_property,
+    status_property,
 )
 
 # ---------------------------------------------------------------------------
@@ -254,4 +255,8 @@ class TestSecretRedactionCoverage:
     def test_multi_select_property_redacts_secrets(self):
         prop = multi_select_property(["secret: ghp_12345678901234567890"])
         assert prop == {"multi_select": [{"name": "[REDACTED_SECRET]"}]}
+
+    def test_status_property_redacts_secrets(self):
+        prop = status_property("status ntn_12345678901234567890")
+        assert prop == {"status": {"name": "status [REDACTED_SECRET]"}}
 

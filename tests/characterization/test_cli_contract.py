@@ -173,8 +173,8 @@ def test_wipe_command_wipes_noisy_rows(
 
 
 def test_update_command_checks_tag_then_installs(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    from unittest.mock import MagicMock
     import subprocess
+    from unittest.mock import MagicMock
 
     fake_dir = Path("/fake")
     # _find_latest_tag lives on bootstrap, _repo_dir lives on __main__

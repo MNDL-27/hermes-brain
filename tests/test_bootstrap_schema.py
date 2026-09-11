@@ -51,7 +51,6 @@ def test_database_schema_mismatch_detects_wrong_type():
 
 
 def test_check_for_update_detects_newer_version(monkeypatch):
-    import io
     from unittest.mock import MagicMock
 
     fake_payload = b'[{"name": "v9.9.9"}]'

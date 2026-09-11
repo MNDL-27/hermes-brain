@@ -9,11 +9,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from pathlib import Path
-from typing import Any
-
 import re as _re
 import urllib.request as _urllib_request
+from pathlib import Path
+from typing import Any
 
 from . import schema as S
 from . import store
