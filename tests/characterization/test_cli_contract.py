@@ -41,7 +41,7 @@ def test_python_module_help_is_callable() -> None:
     assert completed.returncode == 0, completed.stderr
     assert "usage: notion_brain" in completed.stdout
     assert "--home" in completed.stdout
-    for command in ("health", "url", "reset"):
+    for command in ("health", "url", "reset", "update"):
         assert command in completed.stdout
 
 
@@ -171,3 +171,52 @@ def test_wipe_command_wipes_noisy_rows(
         "dry_run": False,
     }
 
+
+def test_update_command_checks_tag_then_installs(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    from unittest.mock import MagicMock
+    import subprocess
+
+    fake_dir = Path("/fake")
+    # _find_latest_tag lives on bootstrap, _repo_dir lives on __main__
+    monkeypatch.setattr(cli.bootstrap, "_find_latest_tag", lambda: "9.9.9")
+    monkeypatch.setattr(cli, "_repo_dir", lambda: fake_dir)
+    monkeypatch.setattr(Path, "is_dir", lambda self: self == fake_dir / ".git" or self == fake_dir)
+
+    def mock_run(cmd, *args, **kwargs):
+        res = MagicMock()
+        res.returncode = 0
+        res.stdout = ""
+        res.stderr = ""
+        return res
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    exit_code = cli.main(["update"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "9.9.9" in captured.out
+
+
+def test_update_check_only_shows_available_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    fake_dir = Path("/fake")
+    monkeypatch.setattr(cli.bootstrap, "_find_latest_tag", lambda: "9.9.9")
+    monkeypatch.setattr(cli, "_repo_dir", lambda: fake_dir)
+    monkeypatch.setattr(Path, "is_dir", lambda self: self == fake_dir / ".git" or self == fake_dir)
+
+    exit_code = cli.main(["update", "--check"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "UPDATE AVAILABLE" in captured.out
+    assert "9.9.9" in captured.out
+
+
+def test_update_check_only_says_up_to_date(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    from notion_brain import __version__
+    fake_dir = Path("/fake")
+    monkeypatch.setattr(cli.bootstrap, "_find_latest_tag", lambda: __version__)
+    monkeypatch.setattr(cli, "_repo_dir", lambda: fake_dir)
+    monkeypatch.setattr(Path, "is_dir", lambda self: self == fake_dir / ".git" or self == fake_dir)
+
+    exit_code = cli.main(["update", "--check"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "up to date" in captured.out

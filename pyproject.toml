@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-brain"
-version = "1.0.2"
+version = "1.0.3"
 description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
 readme = "README.md"
 license = { text = "MIT" }
@@ -26,6 +26,9 @@ hermes-brain = "notion_brain.__main__:main"
 # behind guards in notion_brain/__init__.py and is NOT declared here. The
 # framework's distribution name is not recorded in this repo; pin it once the
 # upstream package name is known. See README "Prerequisites".
+
+[project.entry-points."hermes_agent.memory_providers"]
+notion_brain = "notion_brain"
 
 [project.optional-dependencies]
 dev = [

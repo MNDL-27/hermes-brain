@@ -34,9 +34,7 @@ from notion_brain.schema import (
     redact_secrets,
 )
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 def _trivial_asst(text: str = "ok") -> str:
     return text
@@ -46,9 +44,7 @@ def _user(text: str) -> str:
     return text
 
 
-# ---------------------------------------------------------------------------
 # Trivial responses are excluded
-# ---------------------------------------------------------------------------
 
 class TestTrivialExclusions:
     def test_ok_response_excluded(self):
@@ -69,9 +65,7 @@ class TestTrivialExclusions:
             assert entries == [], f"Failed for: {resp}"
 
 
-# ---------------------------------------------------------------------------
 # Task detection
-# ---------------------------------------------------------------------------
 
 class TestTaskDetection:
     def test_reminder_triggers_task(self):
@@ -109,9 +103,7 @@ class TestTaskDetection:
         assert "task" not in kinds
 
 
-# ---------------------------------------------------------------------------
 # Project / Decision detection
-# ---------------------------------------------------------------------------
 
 class TestProjectDetection:
     def test_decision_triggers_project(self):
@@ -139,9 +131,7 @@ class TestProjectDetection:
         assert "decision" in kinds
 
 
-# ---------------------------------------------------------------------------
 # Research detection
-# ---------------------------------------------------------------------------
 
 class TestResearchDetection:
     def test_source_triggers_research(self):
@@ -161,9 +151,7 @@ class TestResearchDetection:
         assert "research" in domains
 
 
-# ---------------------------------------------------------------------------
 # Social content detection
-# ---------------------------------------------------------------------------
 
 class TestContentDetection:
     def test_tweet_triggers_content(self):
@@ -193,9 +181,7 @@ class TestContentDetection:
         assert "twitter" in content[0].tags or "linkedin" not in content[0].tags
 
 
-# ---------------------------------------------------------------------------
 # Career detection
-# ---------------------------------------------------------------------------
 
 class TestCareerDetection:
     def test_interview_triggers_career(self):
@@ -215,9 +201,7 @@ class TestCareerDetection:
         assert "career" in domains
 
 
-# ---------------------------------------------------------------------------
 # Preference detection
-# ---------------------------------------------------------------------------
 
 class TestPreferenceDetection:
     def test_preference_triggered(self):
@@ -246,9 +230,7 @@ class TestPreferenceDetection:
         assert "entities" in domains
 
 
-# ---------------------------------------------------------------------------
 # No duplicate domains per turn
-# ---------------------------------------------------------------------------
 
 class TestDeduplication:
     def test_same_turn_no_domain_dupes(self):
@@ -260,9 +242,7 @@ class TestDeduplication:
         assert domains.count("daily_work") <= 1
 
 
-# ---------------------------------------------------------------------------
 # Sentence boundary helpers
-# ---------------------------------------------------------------------------
 
 class TestSentenceBoundaries:
     def test_rev_boundary_finds_period(self):
@@ -278,9 +258,7 @@ class TestSentenceBoundaries:
         assert end > pos
 
 
-# ---------------------------------------------------------------------------
 # Schema functions
-# ---------------------------------------------------------------------------
 
 
 class TestSchema:
@@ -423,9 +401,7 @@ class TestDatabaseMapping:
         assert normalize_domain("preferences") != "entities"
 
 
-# ---------------------------------------------------------------------------
 # Internal extract helpers
-# ---------------------------------------------------------------------------
 
 class TestBriefTitle:
     def test_truncates_to_80(self):
@@ -468,9 +444,7 @@ class TestExtractSentence:
         assert "PostgreSQL" in result
 
 
-# ---------------------------------------------------------------------------
 # Routing Rules and LLM Extractor Tests
-# ---------------------------------------------------------------------------
 
 class TestRoutingAndLLMExtraction:
     def test_git_commands_never_route_to_content(self):
@@ -501,7 +475,7 @@ class TestRoutingAndLLMExtraction:
 
     def test_llm_extractor_integration(self, monkeypatch):
         from unittest.mock import patch
-        from notion_brain.extract import extract_with_llm
+
 
         fake_resp = [
             {
@@ -537,4 +511,3 @@ class TestRoutingAndLLMExtraction:
             assert entries[1].domain == "projects"
             assert entries[2].domain == "daily_work"
             assert entries[2].kind == "task"
-

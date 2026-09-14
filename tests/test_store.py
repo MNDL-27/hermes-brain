@@ -19,9 +19,7 @@ from notion_brain.store import (
     select_property,
 )
 
-# ---------------------------------------------------------------------------
 # Property helpers
-# ---------------------------------------------------------------------------
 
 class TestDateProperty:
     def test_with_date(self):
@@ -62,9 +60,7 @@ class TestRichTextTruncation:
         assert rt == [{"type": "text", "text": {"content": "abc"}}]
 
 
-# ---------------------------------------------------------------------------
 # _page_title — extract title from raw Notion page
-# ---------------------------------------------------------------------------
 
 def _page(props):
     return {"properties": props}
@@ -95,9 +91,7 @@ class TestPageTitle:
         assert _page_title(page) is None
 
 
-# ---------------------------------------------------------------------------
 # _flatten_result — pull usable props out of Notion result
-# ---------------------------------------------------------------------------
 
 def _result(props):
     return {
@@ -184,9 +178,7 @@ class TestFlattenResult:
         assert flat["properties"] == {}
 
 
-# ---------------------------------------------------------------------------
 # search_page_by_title — exact case-insensitive match filtering
-# ---------------------------------------------------------------------------
 
 class TestSearchPageByTitle:
     def _resp(self, results):
@@ -238,9 +230,7 @@ class TestSearchPageByTitle:
         assert search_page_by_title("Hermes Brain") is None
 
 
-# ---------------------------------------------------------------------------
 # Defensive Secret Redaction Coverage on Properties
-# ---------------------------------------------------------------------------
 
 class TestSecretRedactionCoverage:
     def test_rich_text_redacts_secrets(self):
@@ -254,4 +244,3 @@ class TestSecretRedactionCoverage:
     def test_multi_select_property_redacts_secrets(self):
         prop = multi_select_property(["secret: ghp_12345678901234567890"])
         assert prop == {"multi_select": [{"name": "[REDACTED_SECRET]"}]}
-

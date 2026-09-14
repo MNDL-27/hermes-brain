@@ -49,7 +49,18 @@ def main(argv: list[str] | None = None) -> int:
     im.add_argument("--files", help="Comma-separated markdown files to import (default: auto-discover)")
     im.add_argument("--dry-run", action="store_true", help="Show what would be imported without writing to Notion")
 
+    stp = sub.add_parser("setup", help="Interactive or automated onboarding wizard to configure standard and custom databases.")
+    stp.add_argument("--standard-dbs", help="Comma-separated list of standard DBs to create (default: all)")
+    stp.add_argument("--custom-json", help="JSON string or file path defining custom databases")
+    stp.add_argument("--non-interactive", action="store_true", help="Run without interactive prompts")
+
+    up = sub.add_parser("update", help="Pull latest from GitHub and reinstall.")
+    up.add_argument("--check", action="store_true", help="Only check for updates, don't install")
+
     args = parser.parse_args(argv)
+
+    if args.cmd == "update":
+        return _cmd_update(check_only=getattr(args, "check", False))
 
     if not bootstrap.store.get_api_key():
         print("error: NOTION_API_KEY is not set", file=sys.stderr)
@@ -83,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         report = bootstrap.health_report(args.home)
         print(report)
         # Exit 1 when anything failed — installers and scripts gate on this.
-        return 1 if ("ERROR" in report or "MISSING" in report) else 0
+        return 1 if ("ERROR" in report or "MISSING" in report or "NOT SHARED" in report) else 0
 
     if args.cmd == "wipe":
         _self_heal(args.home)
@@ -97,13 +108,123 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "import":
         return _cmd_import(args)
 
+    if args.cmd == "setup":
+        answers: dict[str, Any] = {}
+        if getattr(args, "standard_dbs", None):
+            answers["standard_dbs"] = [x.strip() for x in args.standard_dbs.split(",") if x.strip()]
+        if getattr(args, "custom_json", None):
+            raw_c = args.custom_json.strip()
+            if os.path.isfile(raw_c):
+                answers["custom_dbs"] = json.loads(Path(raw_c).read_text(encoding="utf-8"))
+            else:
+                answers["custom_dbs"] = json.loads(raw_c)
+        elif getattr(args, "non_interactive", False):
+            answers["custom_dbs"] = []
+
+        res = bootstrap.interactive_setup(args.home, answers=answers or None)
+        print(f"✓ Setup complete: parent page '{res['parent_page_id']}'")
+        print(f"  Created {res.get('standard_count', 0)} standard DB(s) and {res.get('custom_count', 0)} custom DB(s)")
+        return 0
+
     parser.print_help()
     return 1
 
 
-# ---------------------------------------------------------------------------
+def _cmd_update(check_only: bool = False) -> int:
+    """Check GitHub for a newer release tag and update to it."""
+    import subprocess
+
+    from .bootstrap import _check_for_update, _find_latest_tag
+
+    pkg_dir = _repo_dir()
+    if not (pkg_dir / ".git").is_dir():
+        print(f"error: not a git repository ({pkg_dir})", file=sys.stderr)
+        print("Install via git clone to use self-update, or re-run the installer:", file=sys.stderr)
+        print("  curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash", file=sys.stderr)
+        return 1
+
+    if check_only:
+        msg = _check_for_update()
+        if msg:
+            print(msg)
+            return 2
+        print("already up to date")
+        return 0
+
+    # Check for a newer release tag on GitHub
+    latest = _find_latest_tag()
+    if not latest:
+        print("Could not fetch release info from GitHub. Falling back to git pull…")
+        return _git_pull_and_install(pkg_dir)
+
+    from . import __version__ as current_ver
+    if latest == current_ver:
+        print(f"Already on latest release ({current_ver}).")
+        return 0
+
+    print(f"Updating {current_ver} → {latest}…")
+    return _checkout_tag_and_install(pkg_dir, latest)
+
+
+def _repo_dir() -> Path:
+    """Find the hermes-brain git repo directory."""
+    pkg_dir = Path(__file__).resolve().parent.parent
+    if (pkg_dir / ".git").is_dir():
+        return pkg_dir
+    default = Path.home() / ".hermes-brain"
+    if (default / ".git").is_dir():
+        return default
+    return pkg_dir
+
+
+def _git_pull_and_install(pkg_dir: Path) -> int:
+    """Fallback: pull latest from current branch and reinstall."""
+    import subprocess
+
+    print(f"Pulling latest in {pkg_dir}…")
+    try:
+        pull = subprocess.run(["git", "pull", "--rebase"], cwd=pkg_dir, capture_output=True, text=True)
+        if pull.returncode != 0:
+            print(f"git pull failed:\n{pull.stderr}", file=sys.stderr)
+            return pull.returncode
+        print(pull.stdout.strip())
+    except Exception as exc:
+        print(f"git error: {exc}", file=sys.stderr)
+        return 1
+    return _reinstall(pkg_dir)
+
+
+def _checkout_tag_and_install(pkg_dir: Path, tag: str) -> int:
+    """Fetch and checkout a specific release tag, then reinstall."""
+    import subprocess
+
+    try:
+        subprocess.run(["git", "fetch", "--tags"], cwd=pkg_dir, capture_output=True, text=True, check=True)
+        subprocess.run(["git", "checkout", tag], cwd=pkg_dir, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as exc:
+        print(f"git checkout {tag} failed:\n{exc.stderr}", file=sys.stderr)
+        return 1
+    print(f"Checked out {tag}")
+    return _reinstall(pkg_dir)
+
+
+def _reinstall(pkg_dir: Path) -> int:
+    """Reinstall the Python package from the repo directory."""
+    import subprocess
+
+    print("Reinstalling Python package…")
+    for cmd in [
+        [sys.executable, "-m", "pip", "install", "--user", "-e", str(pkg_dir)],
+        [sys.executable, "-m", "pip", "install", "--user", "--break-system-packages", "-e", str(pkg_dir)],
+    ]:
+        if subprocess.run(cmd, capture_output=True, text=True).returncode == 0:
+            print("Update complete! Run: hermes-brain health")
+            return 0
+    print("warning: pip reinstall failed; code was updated, but package metadata may be old.", file=sys.stderr)
+    return 1
+
+
 # import subcommand
-# ---------------------------------------------------------------------------
 
 # Heading → domain mapping (headings we recognize; anything else stays "memory").
 _HEADING_DOMAIN: dict[str, str] = {
@@ -140,7 +261,6 @@ def _parse_markdown(content: str) -> list[dict]:
     Falls back to one entry per paragraph when no bullets exist.
     Uses ``extract.classify_text`` for kind/tags heuristics.
     """
-    from . import extract
 
     entries: list[dict] = []
     domain = "memory"
@@ -214,7 +334,6 @@ def _cmd_import(args) -> int:
         return 1
 
     print(f"Found {len(files)} file(s):")
-    total = 0
     plan: list[dict] = []
     for f in files:
         content = f.read_text(encoding="utf-8", errors="replace")

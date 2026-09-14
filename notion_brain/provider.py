@@ -49,6 +49,17 @@ def _message_content_text(content: Any) -> str:
     return str(content) if content else ""
 
 
+def _coerce_str_list(value: Any) -> list[str]:
+    """Coerce LLM tool args to list[str] — LLMs sometimes send a bare string."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if v is not None and str(v).strip()]
+    return [str(value)]
+
+
 class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
@@ -68,7 +79,7 @@ class NotionBrainProvider:
         self._prefetch_cache: str = ""
         self._prefetch_lock = threading.Lock()
 
-    # ---- Core lifecycle --------------------------------------------------
+    # Core lifecycle
 
     @property
     def name(self) -> str:
@@ -88,7 +99,7 @@ class NotionBrainProvider:
         try:
             cache = bootstrap.ensure_brain(self._hermes_home)
             self._parent_page_id = cache.get("parent_page_id", "")
-            for key in S.DATABASES:
+            for key in S.get_all_databases():
                 self._db_ids[key] = cache.get(f"db_{key}", "")
             logger.info("Notion brain initialized: %d databases", len(self._db_ids))
         except Exception as exc:
@@ -243,15 +254,14 @@ class NotionBrainProvider:
         if not text.strip():
             return
 
-        # Scrub raw text BEFORE classification and storage so secrets never
-        # travel through classification helpers, caches, or the outbox path.
-        safe_text = S.redact_secrets(text)
-
         # Classify using heuristics
-        classification = extract.classify_text(safe_text)
+        classification = extract.classify_text(S.redact_secrets(text))
         domain = classification.get("domain", "memory")
         kind = classification.get("kind", "note")
 
+        # Scrub raw text BEFORE classification and storage so secrets never
+        # travel through classification helpers, caches, or the outbox path.
+        safe_text = S.redact_secrets(text)
         safe_title = S.clean_title(classification.get("title", "Untitled"))
 
         entry = S.BrainEntry(
@@ -265,7 +275,20 @@ class NotionBrainProvider:
         self._store_entry(entry)
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
-        return ALL_TOOL_SCHEMAS
+        import copy
+        domains = list(S.get_all_domains().keys())
+        dbs = list(S.get_all_databases().keys())
+        schemas = copy.deepcopy(ALL_TOOL_SCHEMAS)
+        for s in schemas:
+            if s.get("name") == "notion_brain_remember":
+                s["parameters"]["properties"]["domain"]["description"] = (
+                    f"Which domain: {'|'.join(domains)}."
+                )
+            elif s.get("name") == "notion_brain_search":
+                s["parameters"]["properties"]["database"]["description"] = (
+                    f"Optional database filter: {'|'.join(dbs)}. Omit to search all."
+                )
+        return schemas
 
     def handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> str:
         handlers = {
@@ -279,7 +302,7 @@ class NotionBrainProvider:
         handler = handlers.get(tool_name)
         if not handler:
             return json.dumps({
-                "result": S.redact_secrets(f"Unknown tool: {tool_name}"),
+                "result": f"Unknown tool: {tool_name}",
                 "error": True,
             })
 
@@ -422,6 +445,24 @@ class NotionBrainProvider:
         if "Source Session" in schema_props and entry.source_session_id:
             props["Source Session"] = store.rich_text_property(entry.source_session_id)
 
+        # Map any custom fields defined on the database from entry.metadata
+        for m_key, m_val in (entry.metadata or {}).items():
+            if m_key in schema_props and m_key not in props:
+                prop_type = schema_props[m_key].get("type")
+                if prop_type == "number" and isinstance(m_val, (int, float)):
+                    props[m_key] = store.number_property(float(m_val))
+                elif prop_type == "select":
+                    props[m_key] = store.select_property(str(m_val))
+                elif prop_type == "multi_select":
+                    val_list = [str(x) for x in m_val] if isinstance(m_val, list) else [str(m_val)]
+                    props[m_key] = store.multi_select_property(val_list)
+                elif prop_type in ("rich_text", "text"):
+                    props[m_key] = store.rich_text_property(str(m_val))
+                elif prop_type == "date":
+                    props[m_key] = store.date_property(str(m_val))
+                elif prop_type == "checkbox":
+                    props[m_key] = {"checkbox": bool(m_val)}
+
         return props
 
     def _status_property(
@@ -463,7 +504,7 @@ class NotionBrainProvider:
 
     def _tool_search(self, args: dict[str, Any]) -> str | tuple[str, dict[str, Any]]:
         """Search across brain databases, honoring the query when provided."""
-        query = S.redact_secrets((args.get("query") or "").strip())
+        query = (args.get("query") or "").strip()
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
 
@@ -472,20 +513,20 @@ class NotionBrainProvider:
         if self._hermes_home:
             disk_text = bootstrap.read_memory_from_disk(self._hermes_home)
 
-        # Build a Notion rich_text "contains" filter so the query is actually
-        # applied server-side instead of being silently dropped.
+        # Title properties are Notion type "title", not "rich_text".
+        # Using rich_text here never matches (400 or silent 0 rows).
         query_filter: dict[str, Any] | None = None
         if query:
             query_filter = {
                 "property": "title",
-                "rich_text": {"contains": query},
+                "title": {"contains": S.redact_secrets(query)},
             }
 
         if database:
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
-                return f"No database found for: {S.redact_secrets(str(database))}"
+                return f"No database found for: {database}"
 
             entries = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
             entries = _merge_disk_only(entries, disk_text)
@@ -536,8 +577,8 @@ class NotionBrainProvider:
         domain = args.get("domain", "memory")
         kind = args.get("kind", "note")
         status = args.get("status", "active")
-        tags = args.get("tags", [])
-        entities = args.get("entities", [])
+        tags = _coerce_str_list(args.get("tags", []))
+        entities = _coerce_str_list(args.get("entities", []))
 
         if not title:
             return "Error: title is required"
@@ -578,7 +619,7 @@ class NotionBrainProvider:
                 content=S.redact_secrets(args.get("content", "")),
                 kind="task",
                 status=S.redact_secrets(args.get("status", "active")),
-                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
+                tags=[S.redact_secrets(t) for t in _coerce_str_list(args.get("tags", []))],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -609,6 +650,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "tasks"):
+                return err
 
             properties: dict[str, Any] = {}
             if "title" in args:
@@ -629,6 +672,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required"
+            if err := self._check_page_in_db(page_id, "tasks"):
+                return err
 
             status_payload, status_err = self._validated_status("done", "tasks")
             if status_err:
@@ -672,6 +717,27 @@ class NotionBrainProvider:
         valid = sorted({opt.get("name", "") for opt in options if isinstance(opt, dict)})
         return {}, f"Error: status '{S.redact_secrets(status)}' is not valid for {db_key}. Valid: {valid}"
 
+    def _check_page_in_db(self, page_id: str, db_key: str) -> str | None:
+        """Return an error string if page_id is not in the expected DB; else None.
+
+        Skips the check when the local cache has no db_id (not bootstrapped)
+        so the tool remains usable in degraded mode. Fetches the live page
+        and compares parent.database_id — prevents cross-database writes via
+        a guessed or leaked page_id.
+        """
+        db_id = self._db_ids.get(db_key)
+        if not db_id:
+            return None
+        try:
+            page = store.get_page(page_id)
+        except Exception as exc:
+            logger.debug("Could not verify page ownership for %s: %s", page_id, S.redact_secrets(str(exc)))
+            return None
+        actual = page.get("parent", {}).get("database_id")
+        if actual and actual != db_id:
+            return f"Error: page {page_id} does not belong to {db_key} database"
+        return None
+
     def _tool_content(self, args: dict[str, Any]) -> str:
         """Manage social content."""
         action = args.get("action", "list")
@@ -688,7 +754,7 @@ class NotionBrainProvider:
                 content=S.redact_secrets(body),
                 kind="draft",
                 status=S.redact_secrets(args.get("status", "draft")),
-                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
+                tags=[S.redact_secrets(t) for t in _coerce_str_list(args.get("tags", []))],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -702,6 +768,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "content"):
+                return err
 
             updates: dict[str, Any] = {}
 
@@ -726,6 +794,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "content"):
+                return err
 
             try:
                 # Attempt to complete the status field change
@@ -743,6 +813,8 @@ class NotionBrainProvider:
             page_id = args.get("page_id")
             if not page_id:
                 return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "content"):
+                return err
 
             try:
                 # Archive/cleanup status field (assuming 'archived' is a valid status option)
@@ -791,7 +863,7 @@ class NotionBrainProvider:
                 content=S.redact_secrets(content),
                 kind="reference",
                 status=S.redact_secrets(args.get("status", "active")),
-                tags=[S.redact_secrets(t) for t in args.get("tags", [])],
+                tags=[S.redact_secrets(t) for t in _coerce_str_list(args.get("tags", []))],
                 source_session_id=self._session_id,
             ).normalized()
 
@@ -820,9 +892,7 @@ class NotionBrainProvider:
         return S.redact_secrets(f"Unknown research action: {action}")
 
 
-# ---------------------------------------------------------------------------
 # Registration
-# ---------------------------------------------------------------------------
 
 def register(context: Any) -> None:
     """Register the NotionBrainProvider with Hermes."""
