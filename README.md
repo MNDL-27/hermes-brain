@@ -31,9 +31,15 @@
 
 ## First 5 Minutes
 
-Get your first memory into Notion in under 5 minutes. One command after install.
+Get your first memory into Notion in under 5 minutes.
 
-### 1. Install
+### 1. Install (one-line)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash
+```
+
+*Or install manually:*
 
 ```bash
 git clone https://github.com/MNDL-27/hermes-brain.git
@@ -283,10 +289,34 @@ print(cache["parent_page_id"])  # Notion page ID
 Or from the CLI (`hermes-brain` after install, `python -m notion_brain` from a checkout):
 
 ```bash
-hermes-brain health    # prints health report, auto-repairs schema mismatches
+hermes-brain health    # prints health report, auto-repairs schema mismatches, checks for updates
 hermes-brain url       # prints the Notion URL of the Hermes Brain page
 hermes-brain reset     # archive and recreate mismatched databases
+hermes-brain update    # pull latest from GitHub and reinstall
+hermes-brain update --check  # check for updates without installing
+hermes-brain wipe      # purge noisy rows from Entities, Tasks, Projects
+hermes-brain import    # import local memory files (MEMORY.md/USER.md) into Notion
 ```
+
+---
+
+## Updating
+
+`hermes-brain health` automatically checks GitHub for a newer release and prints a notice when one is available. To pull and apply the update:
+
+```bash
+hermes-brain update
+```
+
+This runs `git pull` in the repo directory and reinstalls the Python package. Requires a git clone install (the curl installer does this automatically).
+
+To check for updates without installing anything:
+
+```bash
+hermes-brain update --check
+```
+
+Exit code `2` means an update is available. Exit code `0` means already up to date.
 
 ---
 

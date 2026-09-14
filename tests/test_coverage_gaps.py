@@ -18,9 +18,7 @@ from notion_brain import NotionBrainProvider, bootstrap, store
 from notion_brain import schema as S
 from notion_brain.store import _block_text, _page_body_text, search_entries
 
-# ---------------------------------------------------------------------------
 # __init__.py top-level helpers
-# ---------------------------------------------------------------------------
 
 
 def test_ensure_brain_delegates_to_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -99,9 +97,7 @@ def test_search_entries_raises_on_error(monkeypatch: pytest.MonkeyPatch) -> None
         nb.search_entries("query")
 
 
-# ---------------------------------------------------------------------------
 # bootstrap.py disk helpers and URL command
-# ---------------------------------------------------------------------------
 
 
 def test_read_memory_from_disk_returns_content(tmp_path: Path) -> None:
@@ -188,9 +184,7 @@ def test_get_url_handles_database_fetch_error(monkeypatch: pytest.MonkeyPatch, t
     assert "Hermes Brain" in output  # parent still printed
 
 
-# ---------------------------------------------------------------------------
 # store.py search_entries and block text extraction
-# ---------------------------------------------------------------------------
 
 
 def test_search_entries_hydrates_body(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -255,9 +249,7 @@ def test_page_body_text_breaks_on_non_dict(monkeypatch: pytest.MonkeyPatch) -> N
     assert _page_body_text("page-1") == ""
 
 
-# ---------------------------------------------------------------------------
 # provider.py uncovered paths
-# ---------------------------------------------------------------------------
 
 
 def _provider_with_dbs(**db_ids: str) -> NotionBrainProvider:
@@ -573,7 +565,12 @@ def test_delete_page_and_wipe_database_rows(monkeypatch: pytest.MonkeyPatch, tmp
         lambda db_id, page_size=100: [{"id": f"page-{db_id}-1"}, {"id": f"page-{db_id}-2"}],
     )
     deleted_pages: list[str] = []
-    monkeypatch.setattr(store, "delete_page", lambda pid: deleted_pages.append(pid) or {"id": pid, "archived": True})
+
+    def _fake_delete(pid: str) -> dict:  # type: ignore[no-untyped-def]
+        deleted_pages.append(pid)
+        return {"id": pid, "archived": True}
+
+    monkeypatch.setattr(store, "delete_page", _fake_delete)
 
     res = bootstrap.wipe_database_rows(tmp_path, databases={"entities", "tasks"})
     assert res == {"entities": 2, "tasks": 2}

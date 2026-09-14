@@ -23,17 +23,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from notion_brain import ensure_brain, remember, search_entries
 
-# ---------------------------------------------------------------------------
 # 1. Bootstrap — one-time setup (creates "Hermes Brain" page + 7 databases)
-# ---------------------------------------------------------------------------
 print("1. Bootstrapping…")
 cache = ensure_brain(os.environ.get("HERMES_HOME", "~/.hermes"))
 print(f"   parent_page_id = {cache['parent_page_id']}")
 print(f"   databases: {len(cache)}")
 
-# ---------------------------------------------------------------------------
 # 2. Remember something explicit
-# ---------------------------------------------------------------------------
 print("\n2. Remembering a decision…")
 entry = remember(
     title="Tech stack decision: PostgreSQL over MongoDB",
@@ -46,17 +42,13 @@ entry = remember(
 )
 print(f"   stored page: {entry.get('page_id', 'pending…')}")
 
-# ---------------------------------------------------------------------------
 # 3. Search for what we just stored
-# ---------------------------------------------------------------------------
 print("\n3. Searching…")
 results = search_entries("PostgreSQL decision")
 for r in results:
     print(f"   • {r['title']}  [{r.get('confidence', 'n/a')}]")
 
-# ---------------------------------------------------------------------------
 # 4. Create a task
-# ---------------------------------------------------------------------------
 print("\n4. Creating a task…")
 task = remember(
     title="Set up DB migrations with Alembic",

@@ -12,6 +12,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+import re as _re
+import urllib.request as _urllib_request
+
 from . import schema as S
 from . import store
 
@@ -23,6 +26,47 @@ logger = logging.getLogger(__name__)
 _STATUS_OPTIONS = [{"name": "active", "color": "blue"},
                    {"name": "done", "color": "green"},
                    {"name": "needs_review", "color": "yellow"}]
+
+_NOTION_TYPE_MAP: dict[str, dict[str, Any]] = {
+    "number": {"number": {}},
+    "select": {"select": {}},
+    "multi_select": {"multi_select": {}},
+    "date": {"date": {}},
+    "rich_text": {"rich_text": {}},
+    "text": {"rich_text": {}},
+    "checkbox": {"checkbox": {}},
+    "url": {"url": {}},
+    "email": {"email": {}},
+}
+
+
+def build_custom_database_props(
+    domain_key: str,
+    custom_fields: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build a Notion database property schema inheriting standard audit fields."""
+    props: dict[str, Any] = {
+        "title": {"title": {}},
+        "Domain": {"select": {"options": [{"name": domain_key, "color": "green"}]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
+        "Tags": {"multi_select": {}},
+        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Source Session": {"rich_text": {}},
+        "Last Seen": {"date": {}},
+    }
+    for field_name, field_type in (custom_fields or {}).items():
+        clean_name = field_name.strip()
+        t = field_type.strip().lower()
+        props[clean_name] = _NOTION_TYPE_MAP.get(t, {"rich_text": {}})
+    return props
+
+
+def get_expected_props(key: str) -> dict[str, Any]:
+    """Return expected property schema for a standard or custom database."""
+    if key in _PROPS:
+        return _PROPS[key]
+    custom_meta = S.get_custom_metadata().get(key, {})
+    return build_custom_database_props(key, custom_meta.get("fields", {}))
 
 _PROPS: dict[str, dict[str, Any]] = {
     "tasks": {
@@ -161,13 +205,27 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
         cached["parent_page_id"] = parent
         _save_cache(cache_path, cached)
 
+    # Re-register any custom databases stored in cache
+    custom_dbs = cached.get("custom_databases")
+    if isinstance(custom_dbs, dict):
+        for c_key, c_info in custom_dbs.items():
+            if isinstance(c_info, dict):
+                S.register_custom_domain(
+                    c_key,
+                    c_info.get("title", c_key),
+                    db_key=c_info.get("database", c_key),
+                    description=c_info.get("description", ""),
+                    custom_fields=c_info.get("fields", {}),
+                )
+
     db_prefix = "db_"
-    for key, display_name in S.DATABASES.items():
+    for key, display_name in S.get_all_databases().items():
         cache_key = f"{db_prefix}{key}"
+        expected_props = get_expected_props(key)
         if cached.get(cache_key):
             try:
                 db = store.get_database(cached[cache_key])
-                _repair_database_schema(db, _PROPS[key], key)
+                _repair_database_schema(db, expected_props, key)
                 continue
             except Exception:
                 logger.info("Cached database '%s' missing or unreachable — resolving live ID", key)
@@ -175,16 +233,165 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
 
         db_id = _find_existing_database(cached["parent_page_id"], display_name)
         if not db_id:
-            raise RuntimeError(
-                f"Cannot find existing '{display_name}' database. "
-                "No data was changed. Open that database in Notion, choose "
-                "••• → Connections, add your integration, then rerun the installer."
-            )
+            if isinstance(custom_dbs, dict) and key in custom_dbs:
+                db_id = _find_or_create_database(cached["parent_page_id"], display_name, expected_props)
+            else:
+                raise RuntimeError(
+                    f"Cannot find existing '{display_name}' database. "
+                    "No data was changed. Open that database in Notion, choose "
+                    "••• → Connections, add your integration, then rerun the installer."
+                )
         cached[cache_key] = db_id
         _save_cache(cache_path, cached)
 
-    logger.info("Notion brain ready: %d database(s)", len(S.DATABASES))
+    logger.info("Notion brain ready: %d database(s)", len(S.get_all_databases()))
     return dict(cached)
+
+
+def interactive_setup(
+    hermes_home: str | Path,
+    *,
+    answers: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Interactive / automated onboarding wizard to select and create standard & custom databases."""
+    import sys
+
+    home_expanded = Path(os.path.expanduser(str(hermes_home)))
+    cache_path = home_expanded / S.CACHE_FILE
+    cached = _load_cache(cache_path)
+
+    # 1. Parent page
+    parent_id = cached.get("parent_page_id")
+    if parent_id:
+        try:
+            store.get_page(parent_id)
+        except Exception:
+            parent_id = _find_or_create_parent(S.DEFAULT_PARENT_PAGE)
+            cached["parent_page_id"] = parent_id
+    else:
+        parent_id = _find_or_create_parent(S.DEFAULT_PARENT_PAGE)
+        cached["parent_page_id"] = parent_id
+
+    _save_cache(cache_path, cached)
+
+    def _prompt(msg: str, default: str = "") -> str:
+        if answers and msg in answers:
+            return str(answers[msg])
+        if not sys.stdin.isatty():
+            return default
+        try:
+            val = input(f"{msg} [{default}]: ").strip()
+            return val or default
+        except (EOFError, KeyboardInterrupt):
+            return default
+
+    # 2. Select standard databases
+    standard_keys = list(S.DATABASES.keys())
+    if answers and "standard_dbs" in answers:
+        raw_std = answers["standard_dbs"]
+        if isinstance(raw_std, str):
+            selected_standard = [x.strip() for x in raw_std.split(",") if x.strip()]
+        else:
+            selected_standard = list(raw_std)
+    else:
+        print("\n╔══════════════════════════════════════════════════════════╗")
+        print("║          hermes-brain — Database Onboarding Setup        ║")
+        print("╚══════════════════════════════════════════════════════════╝")
+        print("\n[1/2] Standard Databases:")
+        for idx, k in enumerate(standard_keys, 1):
+            print(f"  [{idx}] {S.DATABASES[k]:<10} ({k})")
+        resp = _prompt("\nSelect databases to create (1-7, comma-separated, or 'all')", "all").lower()
+        if resp == "all" or not resp:
+            selected_standard = standard_keys
+        else:
+            selected_standard = []
+            for item in resp.split(","):
+                item = item.strip()
+                if item.isdigit() and 1 <= int(item) <= len(standard_keys):
+                    selected_standard.append(standard_keys[int(item) - 1])
+                elif item in standard_keys:
+                    selected_standard.append(item)
+            if not selected_standard:
+                selected_standard = standard_keys
+
+    created_dbs: dict[str, str] = {}
+    db_prefix = "db_"
+
+    for k in selected_standard:
+        title = S.DATABASES[k]
+        db_id = _find_or_create_database(parent_id, title, _PROPS[k])
+        cached[f"{db_prefix}{k}"] = db_id
+        created_dbs[k] = db_id
+
+    # 3. Custom databases
+    custom_dbs_spec: list[dict[str, Any]] = []
+    if answers and "custom_dbs" in answers:
+        custom_dbs_spec = answers["custom_dbs"]
+    else:
+        print("\n[2/2] Custom Databases:")
+        add_custom = _prompt("Would you like to add custom databases? (y/N)", "N").lower()
+        if add_custom.startswith("y"):
+            while True:
+                c_key = _prompt("  Database identifier / key (e.g. fitness, expenses)").strip().lower()
+                if not c_key:
+                    break
+                c_title = _prompt("  Display title in Notion", c_key.capitalize())
+                c_desc = _prompt("  What will you store in this database?", "")
+                c_fields_raw = _prompt("  Custom fields (format: Name:type, e.g. Reps:number, Exercise:select)", "")
+                fields: dict[str, str] = {}
+                if c_fields_raw:
+                    for f in c_fields_raw.split(","):
+                        f = f.strip()
+                        if ":" in f:
+                            fn, ft = f.split(":", 1)
+                            fields[fn.strip()] = ft.strip().lower()
+                        elif f:
+                            fields[f] = "rich_text"
+
+                custom_dbs_spec.append({
+                    "key": c_key,
+                    "title": c_title,
+                    "description": c_desc,
+                    "fields": fields,
+                })
+                more = _prompt("  Add another custom database? (y/N)", "N").lower()
+                if not more.startswith("y"):
+                    break
+
+    cached_custom = cached.setdefault("custom_databases", {})
+    if not isinstance(cached_custom, dict):
+        cached_custom = {}
+        cached["custom_databases"] = cached_custom
+
+    for spec in custom_dbs_spec:
+        k = spec["key"].strip().lower().replace("-", "_").replace(" ", "_")
+        title = spec.get("title", k.capitalize())
+        desc = spec.get("description", "")
+        fields = spec.get("fields", {})
+
+        props = build_custom_database_props(k, fields)
+        db_id = _find_or_create_database(parent_id, title, props)
+        cached[f"{db_prefix}{k}"] = db_id
+        created_dbs[k] = db_id
+
+        S.register_custom_domain(k, title, db_key=k, description=desc, custom_fields=fields)
+        cached_custom[k] = {
+            "title": title,
+            "database": k,
+            "description": desc,
+            "fields": fields,
+        }
+
+    cached["schema_version"] = str(SCHEMA_VERSION)
+    _save_cache(cache_path, cached)
+
+    return {
+        "parent_page_id": parent_id,
+        "created_databases": created_dbs,
+        "standard_count": len(selected_standard),
+        "custom_count": len(custom_dbs_spec),
+    }
+
 
 def reset_databases(
     hermes_home: str | Path,
@@ -334,11 +541,64 @@ def wipe_database_rows(
     return deleted_counts
 
 
+def _find_latest_tag() -> str | None:
+    """Fetch the latest release tag name from GitHub. Returns e.g. '1.0.4' or None."""
+    try:
+        from . import __version__ as current_ver
+    except Exception:
+        current_ver = "1.0.3"
+    try:
+        req = _urllib_request.Request(
+            "https://api.github.com/repos/MNDL-27/hermes-brain/tags?per_page=1",
+            headers={
+                "User-Agent": f"hermes-brain/{current_ver}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+        with _urllib_request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, list) and data:
+                raw_name = str(data[0].get("name", "")).strip()
+                return raw_name.lstrip("v")
+    except Exception:
+        pass
+    return None
+
+
+def _check_for_update() -> str | None:
+    """Check GitHub for a newer hermes-brain release. Non-blocking, 2s timeout."""
+    try:
+        from . import __version__ as current_ver
+    except Exception:
+        current_ver = "1.0.3"
+    latest_ver = _find_latest_tag()
+    if latest_ver and latest_ver != current_ver:
+        def _tuple(v: str) -> tuple[int, ...]:
+            return tuple(int(x) for x in _re.findall(r"\d+", v))
+        if _tuple(latest_ver) > _tuple(current_ver):
+            return (
+                f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
+                f"Run: hermes-brain update"
+            )
+    return None
+
+
 def health_report(hermes_home: str | Path) -> str:
     """One-line-per-DB summary: schema match, entry count, last entry, latest sync."""
     cached = _load_cache(Path(hermes_home) / S.CACHE_FILE)
     parent_id = cached.get("parent_page_id", "")
     lines: list[str] = []
+
+    try:
+        from . import __version__ as cur
+    except Exception:
+        cur = "1.0.3"
+    upd = _check_for_update()
+    if upd:
+        lines.append(upd)
+    else:
+        lines.append(f"version: {cur} (latest)")
+
     if not parent_id:
         return "error: no parent page cached; run `python -m notion_brain reset`"
     try:
@@ -347,6 +607,7 @@ def health_report(hermes_home: str | Path) -> str:
         lines.append(f"parent: {title}  url={parent.get('url','')}")
     except Exception as exc:
         lines.append(f"parent: ERROR fetching {parent_id}: {S.redact_secrets(str(exc))}")
+    rebinding_happened = False
     for key in S.DATABASES:
         db_id = cached.get(f"db_{key}")
         if not db_id:
@@ -354,23 +615,48 @@ def health_report(hermes_home: str | Path) -> str:
             continue
         try:
             db = store.get_database(db_id)
-            match = _database_schema_matches(db, _PROPS[key])
-            schema = "schema=ok" if match else "schema=MISMATCH"
-            entries = store.query_database(db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}])
-            count = len(entries)
-            last = entries[0].get("created_time", "")[:19] if entries else "(empty)"
-            url = db.get("url", "")
-            lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
-        except Exception as exc:
-            msg = S.redact_secrets(str(exc))
-            if "404" in msg and "shared with your integration" in msg:
+        except Exception:
+            # Stale cache ID — attempt live recovery before reporting failure
+            display_name = S.DATABASES[key]
+            new_id = _find_existing_database(parent_id, display_name)
+            if new_id:
+                cached[f"db_{key}"] = new_id
+                rebinding_happened = True
+                db_id = new_id
+                try:
+                    db = store.get_database(db_id)
+                except Exception as exc:
+                    msg = S.redact_secrets(str(exc))
+                    if "404" in msg and "shared with your integration" in msg:
+                        bot = store.get_bot_name()
+                        lines.append(
+                            f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
+                            f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
+                        )
+                    else:
+                        lines.append(f"  {key:<10}  ERROR: {msg}")
+                    continue
+            else:
                 bot = store.get_bot_name()
                 lines.append(
                     f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
                     f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
                 )
-            else:
-                lines.append(f"  {key:<10}  ERROR: {msg}")
+                continue
+        match = _database_schema_matches(db, _PROPS[key])
+        schema = "schema=ok" if match else "schema=MISMATCH"
+        try:
+            entries = store.query_database(db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}])
+        except Exception:
+            entries = []
+        count = len(entries)
+        last = entries[0].get("created_time", "")[:19] if entries else "(empty)"
+        url = db.get("url", "")
+        lines.append(f"  {key:<10}  {schema}  entries={count:<3}  last={last}  {url}")
+
+    if rebinding_happened:
+        _save_cache(Path(hermes_home) / S.CACHE_FILE, cached)
+
     return "\n".join(lines)
 
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
@@ -405,7 +691,19 @@ def _load_cache(path: Path) -> dict[str, str]:
 def _save_cache(path: Path, data: dict[str, str]) -> None:
     try:
         os.makedirs(path.parent, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2))
+        # Atomic write + 600 perms so a crash mid-write does not truncate the cache
+        # and other local users cannot read workspace IDs.
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        tmp.replace(path)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
     except Exception as exc:
         logger.warning("Failed to write cache: %s", S.redact_secrets(str(exc)))
 
@@ -461,23 +759,39 @@ def _find_existing_database(parent_page_id: str, title: str) -> str:
     Resolution order:
       1. Children of the parent page (deterministic, no search index).
       2. Workspace /search by title (case-insensitive exact match).
+      3. Enumerate ALL databases the integration can access, match by title
+         (catches cases where the query search misses shared databases).
     Returns "" when nothing is found.
     """
+    want = title.strip().lower()
+
+    # Method 1: child blocks of the parent page
     try:
         for block in store.get_block_children(parent_page_id, page_size=100):
             if block.get("type") == "child_database":
                 db_title = ((block.get("child_database") or {}).get("title") or "").strip()
-                if db_title.lower() == title.strip().lower():
+                if db_title.lower() == want:
                     return block["id"]
     except Exception as exc:
         logger.debug("Child-block scan for '%s' failed: %s", title, S.redact_secrets(str(exc)))
 
+    # Method 2: /search with query string
     try:
         existing = store.search_page_by_title(title, object_type="database")
         if existing:
             return existing["id"]
     except Exception as exc:
         logger.debug("Search for database '%s' failed: %s", title, S.redact_secrets(str(exc)))
+
+    # Method 3: enumerate every database the integration can see (no query filter)
+    try:
+        for db in store.search_all_databases():
+            db_title = store._page_title(db) or ""
+            if db_title.strip().lower() == want:
+                return db["id"]
+    except Exception as exc:
+        logger.debug("Full database enumeration for '%s' failed: %s", title, S.redact_secrets(str(exc)))
+
     return ""
 
 

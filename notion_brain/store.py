@@ -75,7 +75,17 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
             if resp.ok:
                 return resp.json()
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < _MAX_RETRIES:
-                time.sleep(_RETRY_DELAY_S * attempt)
+                # Honor Retry-After on 429 so we do not burn retries with fixed 1s sleeps.
+                sleep_for = _RETRY_DELAY_S * attempt
+                if resp.status_code == 429:
+                    try:
+                        retry_after = resp.headers.get("Retry-After")  # type: ignore[union-attr]
+                        if retry_after is not None:
+                            # Retry-After is seconds (or HTTP-date — we only handle seconds)
+                            sleep_for = min(max(float(retry_after), sleep_for), 60.0)
+                    except Exception:
+                        pass
+                time.sleep(sleep_for)
                 continue
             # Non-retryable error or retries exhausted: parse body safely
             try:
@@ -97,7 +107,7 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
     raise RuntimeError(f"Notion API {method} {path} max retries exceeded")
 
 
-# ─── Search ──────────────────────────────────────────────────────────────
+# Search
 
 
 def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any] | None:
@@ -114,6 +124,33 @@ def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any
         if candidate and candidate.strip().lower() == title.strip().lower():
             return result
     return None
+
+
+def search_all_databases() -> list[dict[str, Any]]:
+    """List every database the integration can access (paginated, no query filter).
+
+    Falls back here when /search with a query string misses databases that
+    are clearly shared — Notion's index is unreliable for database objects.
+    """
+    results: list[dict[str, Any]] = []
+    start_cursor: str | None = None
+    while True:
+        body: dict[str, Any] = {
+            "filter": {"value": "database", "property": "object"},
+            "page_size": 100,
+        }
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+        data = _request("POST", "/search", body)
+        if not isinstance(data, dict):
+            break
+        results.extend(data.get("results") or [])
+        if not data.get("has_more"):
+            break
+        start_cursor = data.get("next_cursor")
+        if not start_cursor:
+            break
+    return results
 
 
 def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
@@ -181,7 +218,7 @@ def query_database(database_id: str, *, page_size: int = 100,
     return results
 
 
-# ─── Pages ───────────────────────────────────────────────────────────────
+# Pages
 
 
 def create_page(parent_page_id: str, properties: dict[str, Any],
@@ -222,7 +259,7 @@ def get_page(page_id: str) -> dict[str, Any]:
     return result
 
 
-# ─── Databases ───────────────────────────────────────────────────────────
+# Databases
 
 
 def create_database(parent_page_id: str, title: str,
@@ -274,7 +311,7 @@ def delete_page(page_id: str) -> dict[str, Any]:
     return result
 
 
-# ─── Blocks (page content) ──────────────────────────────────────────────
+# Blocks (page content)
 
 
 def get_block_children(block_id: str, page_size: int = 100) -> list[dict[str, Any]]:
@@ -288,7 +325,7 @@ def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]
     result = _request("PATCH", f"/blocks/{block_id}/children", {"children": children})
     assert isinstance(result, dict)
     return result
-# ─── Rich text / property helpers ────────────────────────────────────────
+# Rich text / property helpers
 
 
 def _rich_text(content: str) -> list[dict]:
@@ -330,11 +367,21 @@ def number_property(value: float | None) -> dict[str, Any]:
 
 
 def status_property(name: str) -> dict[str, Any]:
-    return {"status": {"name": name}}
+    return {"status": {"name": redact_secrets(name)}}
 
 
 def _page_title(page: dict[str, Any]) -> str | None:
     try:
+        # Notion database objects store title at the top level as a rich text array
+        if page.get("object") == "database":
+            raw = page.get("title")
+            if isinstance(raw, list):
+                text = "".join(
+                    (t.get("plain_text") or t.get("text", {}).get("content", ""))
+                    for t in raw if isinstance(t, dict)
+                ).strip()
+                if text:
+                    return text
         props = page.get("properties") or {}
         for val in props.values():
             if isinstance(val, dict) and val.get("type") == "title":

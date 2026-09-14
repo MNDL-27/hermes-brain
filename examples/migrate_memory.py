@@ -24,9 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from notion_brain import ensure_brain, remember
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 def read_file(path: str) -> str:
     """Read a file and return its contents, or empty string if missing."""

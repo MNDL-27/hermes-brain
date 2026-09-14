@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from typing import Any
 
 import requests
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 _CLEAN = re.compile(r"[`\"'”“‘’]")
 _MERGE_WS = re.compile(r"\s+")
 
-# ─── Routing Guards ─────────────────────────────────────────────────────────
+# Routing Guards
 
 _GIT_OR_CODE = re.compile(
     r"(?i)(\b(git\s+(commit|push|pull|status|checkout|branch|merge|rebase|clone|diff|add|log|stash|fetch|reset|init|remote))\b"
@@ -77,7 +78,7 @@ _EXCLUDE_RESPONSE = re.compile(
 
 _PLATFORM_HINTS = re.compile(r"(?i)(\b(twitter|linkedin|instagram|tiktok|facebook|youtube|threads|bluesky|mastodon)\b)")
 
-# ─── LLM Extractor ─────────────────────────────────────────────────────────
+# LLM Extractor
 
 DEFAULT_LLM_URL = os.environ.get("OPENAI_BASE_URL", os.environ.get("OPENAI_API_BASE", "http://localhost:11434/v1"))
 DEFAULT_LLM_MODEL = os.environ.get("HERMES_MODEL", os.environ.get("OPENAI_MODEL", "qwen3-coder-30b:latest"))
@@ -121,9 +122,13 @@ def extract_with_llm(
 
     Returns list of BrainEntry on success, or None to fall back to heuristics.
     """
-    buffer = f"User: {user_content}\nAssistant: {assistant_content}".strip()
-    if not buffer:
+    # Privacy: scrub secrets and cap size before exfiltrating to an LLM
+    # (even localhost Ollama). Without this, Notion tokens / private keys
+    # pasted in a turn are POSTed to OPENAI_BASE_URL verbatim.
+    raw_buffer = f"User: {user_content}\nAssistant: {assistant_content}".strip()
+    if not raw_buffer:
         return []
+    buffer = redact_secrets(compact(raw_buffer, 4000))
 
     url = (base_url or os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or DEFAULT_LLM_URL).rstrip("/")
     endpoint = f"{url}/chat/completions"
@@ -134,7 +139,7 @@ def extract_with_llm(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {key}",
     }
-    payload = {
+    payload: dict[str, Any] = {
         "model": model_name,
         "messages": [
             {"role": "system", "content": EXTRACTION_PROMPT},

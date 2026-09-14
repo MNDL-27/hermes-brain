@@ -40,6 +40,54 @@ DOMAIN_DATABASE = {
     "memory": "memory",
 }
 
+# Dynamic registry for user-defined custom domains and databases
+_CUSTOM_DOMAINS: dict[str, str] = {}
+_CUSTOM_DATABASES: dict[str, str] = {}
+_CUSTOM_DOMAIN_DB: dict[str, str] = {}
+_CUSTOM_METADATA: dict[str, dict[str, Any]] = {}
+
+
+def register_custom_domain(
+    domain_key: str,
+    title: str,
+    *,
+    db_key: str | None = None,
+    description: str = "",
+    custom_fields: dict[str, str] | None = None,
+) -> None:
+    """Register a custom domain/database dynamically."""
+    d_key = domain_key.strip().lower().replace("-", "_").replace(" ", "_")
+    d_db = (db_key or d_key).strip().lower().replace("-", "_").replace(" ", "_")
+    _CUSTOM_DOMAINS[d_key] = title
+    _CUSTOM_DATABASES[d_db] = title
+    _CUSTOM_DOMAIN_DB[d_key] = d_db
+    _CUSTOM_METADATA[d_key] = {
+        "title": title,
+        "database": d_db,
+        "description": description,
+        "fields": dict(custom_fields or {}),
+    }
+
+
+def get_all_domains() -> dict[str, str]:
+    return {**DOMAINS, **_CUSTOM_DOMAINS}
+
+
+def get_all_databases() -> dict[str, str]:
+    return {**DATABASES, **_CUSTOM_DATABASES}
+
+
+def get_custom_metadata() -> dict[str, dict[str, Any]]:
+    return dict(_CUSTOM_METADATA)
+
+
+def clear_custom_domains() -> None:
+    _CUSTOM_DOMAINS.clear()
+    _CUSTOM_DATABASES.clear()
+    _CUSTOM_DOMAIN_DB.clear()
+    _CUSTOM_METADATA.clear()
+
+
 STATUSES = {"active", "done", "needs_review"}
 CONFIDENCES = {"high", "medium", "low"}
 
@@ -110,11 +158,16 @@ def normalize_domain(domain: str | None) -> str:
         "user": "entities",
     }
     raw = aliases.get(raw, raw)
-    return raw if raw in DOMAIN_DATABASE else "memory"
+    if raw in DOMAIN_DATABASE or raw in _CUSTOM_DOMAINS or raw in _CUSTOM_DOMAIN_DB:
+        return raw
+    return "memory"
 
 
 def database_for_domain(domain: str | None) -> str:
-    return DOMAIN_DATABASE[normalize_domain(domain)]
+    norm = normalize_domain(domain)
+    if norm in _CUSTOM_DOMAIN_DB:
+        return _CUSTOM_DOMAIN_DB[norm]
+    return DOMAIN_DATABASE.get(norm, "memory")
 
 
 def clean_title(title: str) -> str:

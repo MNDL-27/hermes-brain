@@ -26,9 +26,7 @@ from notion_brain.store import (
     title_property,
 )
 
-# ---------------------------------------------------------------------------
 # Provider existence and interface
-# ---------------------------------------------------------------------------
 
 class TestProviderInterface:
     def test_import(self):
@@ -83,9 +81,7 @@ class TestProviderInterface:
                 pass
 
 
-# ---------------------------------------------------------------------------
 # handle_tool_call dispatch
-# ---------------------------------------------------------------------------
 
 class TestToolDispatch:
     def _make_initialized_provider(self):
@@ -322,9 +318,7 @@ class TestToolDispatch:
                 assert redacted in properties["title"]["title"][0]["text"]["content"]
 
 
-# ---------------------------------------------------------------------------
 # Merge helpers for disk-only entries
-# ---------------------------------------------------------------------------
 
 class TestMergeDiskOnly:
     """Tests for _merge_disk_only and _merge_user_disk_only."""
@@ -414,7 +408,6 @@ class TestMergeDiskOnly:
         result = _merge_user_disk_only([], disk)
         titles = {e["title"] for e in result}
         assert titles == {"Preference One", "Preference Two"}
-# ---------------------------------------------------------------------------
 
 class TestDomainMapping:
     def test_all_domains_have_database(self):
@@ -431,9 +424,7 @@ class TestDomainMapping:
             assert norm == domain, f"normalize_domain({domain}) should be identity"
 
 
-# ---------------------------------------------------------------------------
 # Store helpers
-# ---------------------------------------------------------------------------
 
 class TestStoreHelpers:
     def test_title_property(self):
@@ -472,20 +463,25 @@ class TestStoreHelpers:
         assert len(prop["rich_text"][0]["text"]["content"]) == 2000
 
     def test_api_key_env(self):
-        with patch.dict(os.environ, {}, clear=True):
-            from notion_brain.store import get_api_key
-            assert get_api_key() is None
+        # get_api_key falls back to $HERMES_HOME/.env — patch the file loader
+        # so the test is isolated from the host's real ~/.hermes/.env.
+        from unittest.mock import patch as mock_patch
+
+        from notion_brain.store import get_api_key
+
+        with mock_patch("notion_brain.store._load_env_file"):
+            with patch.dict(os.environ, {}, clear=True):
+                assert get_api_key() is None
         with patch.dict(os.environ, {"NOTION_API_KEY": "test-key-123"}):
             from importlib import reload
 
             import notion_brain.store as store_mod
+
             reload(store_mod)
             assert store_mod.get_api_key() == "test-key-123"
 
 
-# ---------------------------------------------------------------------------
 # Regression: exception log redaction (Sentinel CRITICAL — PR #13)
-# ---------------------------------------------------------------------------
 
 class TestExceptionLogRedaction:
     """Production paths must redact secrets in exception messages before logging or returning."""
