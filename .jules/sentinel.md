@@ -17,3 +17,8 @@
 **Vulnerability:** API keys and sensitive tokens could be leaked to external services via the Notion integration's status property. The `status_property` function in `notion_brain/store.py` did not apply `redact_secrets` to the status name before sending it to the Notion API.
 **Learning:** Redaction must be applied consistently across all Notion property constructor functions. Leaving even one unredacted function exposes a vector for secrets leakage.
 **Prevention:** Integrate secret redaction directly into all output helper/formatting functions, including `status_property` in `notion_brain/store.py`. Ensure tests explicitly verify secret redaction for every property type.
+
+## 2024-09-14 - Fix Data Leakage in Exception Handling
+**Vulnerability:** Unredacted exception objects causing data leakage in JSON API responses and unsuppressed exception chaining leaking exception objects in stack traces.
+**Learning:** Returning exception objects directly in JSON payloads or leaving unsuppressed exception context (`from exc`) causes the unredacted inner exception details (like secrets) to leak into API responses or stack traces.
+**Prevention:** Always apply `S.redact_secrets()` to string representations of exceptions when returning them in error messages or passing them to external APIs. Always use `from None` when raising new exceptions containing redacted details to suppress the original unredacted exception context.
