@@ -15,6 +15,7 @@ import os
 
 __version__ = "1.0.3"
 
+# Hermes memory provider contract: register_memory_provider
 from .extract import classify_turn as classify_text
 from .provider import NotionBrainProvider, register
 from .schema import redact_secrets

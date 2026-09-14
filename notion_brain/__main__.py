@@ -49,6 +49,11 @@ def main(argv: list[str] | None = None) -> int:
     im.add_argument("--files", help="Comma-separated markdown files to import (default: auto-discover)")
     im.add_argument("--dry-run", action="store_true", help="Show what would be imported without writing to Notion")
 
+    stp = sub.add_parser("setup", help="Interactive or automated onboarding wizard to configure standard and custom databases.")
+    stp.add_argument("--standard-dbs", help="Comma-separated list of standard DBs to create (default: all)")
+    stp.add_argument("--custom-json", help="JSON string or file path defining custom databases")
+    stp.add_argument("--non-interactive", action="store_true", help="Run without interactive prompts")
+
     up = sub.add_parser("update", help="Pull latest from GitHub and reinstall.")
     up.add_argument("--check", action="store_true", help="Only check for updates, don't install")
 
@@ -102,6 +107,24 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "import":
         return _cmd_import(args)
+
+    if args.cmd == "setup":
+        answers: dict[str, Any] = {}
+        if getattr(args, "standard_dbs", None):
+            answers["standard_dbs"] = [x.strip() for x in args.standard_dbs.split(",") if x.strip()]
+        if getattr(args, "custom_json", None):
+            raw_c = args.custom_json.strip()
+            if os.path.isfile(raw_c):
+                answers["custom_dbs"] = json.loads(Path(raw_c).read_text(encoding="utf-8"))
+            else:
+                answers["custom_dbs"] = json.loads(raw_c)
+        elif getattr(args, "non_interactive", False):
+            answers["custom_dbs"] = []
+
+        res = bootstrap.interactive_setup(args.home, answers=answers or None)
+        print(f"✓ Setup complete: parent page '{res['parent_page_id']}'")
+        print(f"  Created {res.get('standard_count', 0)} standard DB(s) and {res.get('custom_count', 0)} custom DB(s)")
+        return 0
 
     parser.print_help()
     return 1

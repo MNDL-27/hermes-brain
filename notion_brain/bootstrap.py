@@ -27,6 +27,47 @@ _STATUS_OPTIONS = [{"name": "active", "color": "blue"},
                    {"name": "done", "color": "green"},
                    {"name": "needs_review", "color": "yellow"}]
 
+_NOTION_TYPE_MAP: dict[str, dict[str, Any]] = {
+    "number": {"number": {}},
+    "select": {"select": {}},
+    "multi_select": {"multi_select": {}},
+    "date": {"date": {}},
+    "rich_text": {"rich_text": {}},
+    "text": {"rich_text": {}},
+    "checkbox": {"checkbox": {}},
+    "url": {"url": {}},
+    "email": {"email": {}},
+}
+
+
+def build_custom_database_props(
+    domain_key: str,
+    custom_fields: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build a Notion database property schema inheriting standard audit fields."""
+    props: dict[str, Any] = {
+        "title": {"title": {}},
+        "Domain": {"select": {"options": [{"name": domain_key, "color": "green"}]}},
+        "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
+        "Tags": {"multi_select": {}},
+        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Source Session": {"rich_text": {}},
+        "Last Seen": {"date": {}},
+    }
+    for field_name, field_type in (custom_fields or {}).items():
+        clean_name = field_name.strip()
+        t = field_type.strip().lower()
+        props[clean_name] = _NOTION_TYPE_MAP.get(t, {"rich_text": {}})
+    return props
+
+
+def get_expected_props(key: str) -> dict[str, Any]:
+    """Return expected property schema for a standard or custom database."""
+    if key in _PROPS:
+        return _PROPS[key]
+    custom_meta = S.get_custom_metadata().get(key, {})
+    return build_custom_database_props(key, custom_meta.get("fields", {}))
+
 _PROPS: dict[str, dict[str, Any]] = {
     "tasks": {
         "title": {"title": {}},
@@ -164,13 +205,27 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
         cached["parent_page_id"] = parent
         _save_cache(cache_path, cached)
 
+    # Re-register any custom databases stored in cache
+    custom_dbs = cached.get("custom_databases")
+    if isinstance(custom_dbs, dict):
+        for c_key, c_info in custom_dbs.items():
+            if isinstance(c_info, dict):
+                S.register_custom_domain(
+                    c_key,
+                    c_info.get("title", c_key),
+                    db_key=c_info.get("database", c_key),
+                    description=c_info.get("description", ""),
+                    custom_fields=c_info.get("fields", {}),
+                )
+
     db_prefix = "db_"
-    for key, display_name in S.DATABASES.items():
+    for key, display_name in S.get_all_databases().items():
         cache_key = f"{db_prefix}{key}"
+        expected_props = get_expected_props(key)
         if cached.get(cache_key):
             try:
                 db = store.get_database(cached[cache_key])
-                _repair_database_schema(db, _PROPS[key], key)
+                _repair_database_schema(db, expected_props, key)
                 continue
             except Exception:
                 logger.info("Cached database '%s' missing or unreachable — resolving live ID", key)
@@ -178,16 +233,165 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
 
         db_id = _find_existing_database(cached["parent_page_id"], display_name)
         if not db_id:
-            raise RuntimeError(
-                f"Cannot find existing '{display_name}' database. "
-                "No data was changed. Open that database in Notion, choose "
-                "••• → Connections, add your integration, then rerun the installer."
-            )
+            if isinstance(custom_dbs, dict) and key in custom_dbs:
+                db_id = _find_or_create_database(cached["parent_page_id"], display_name, expected_props)
+            else:
+                raise RuntimeError(
+                    f"Cannot find existing '{display_name}' database. "
+                    "No data was changed. Open that database in Notion, choose "
+                    "••• → Connections, add your integration, then rerun the installer."
+                )
         cached[cache_key] = db_id
         _save_cache(cache_path, cached)
 
-    logger.info("Notion brain ready: %d database(s)", len(S.DATABASES))
+    logger.info("Notion brain ready: %d database(s)", len(S.get_all_databases()))
     return dict(cached)
+
+
+def interactive_setup(
+    hermes_home: str | Path,
+    *,
+    answers: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Interactive / automated onboarding wizard to select and create standard & custom databases."""
+    import sys
+
+    home_expanded = Path(os.path.expanduser(str(hermes_home)))
+    cache_path = home_expanded / S.CACHE_FILE
+    cached = _load_cache(cache_path)
+
+    # 1. Parent page
+    parent_id = cached.get("parent_page_id")
+    if parent_id:
+        try:
+            store.get_page(parent_id)
+        except Exception:
+            parent_id = _find_or_create_parent(S.DEFAULT_PARENT_PAGE)
+            cached["parent_page_id"] = parent_id
+    else:
+        parent_id = _find_or_create_parent(S.DEFAULT_PARENT_PAGE)
+        cached["parent_page_id"] = parent_id
+
+    _save_cache(cache_path, cached)
+
+    def _prompt(msg: str, default: str = "") -> str:
+        if answers and msg in answers:
+            return str(answers[msg])
+        if not sys.stdin.isatty():
+            return default
+        try:
+            val = input(f"{msg} [{default}]: ").strip()
+            return val or default
+        except (EOFError, KeyboardInterrupt):
+            return default
+
+    # 2. Select standard databases
+    standard_keys = list(S.DATABASES.keys())
+    if answers and "standard_dbs" in answers:
+        raw_std = answers["standard_dbs"]
+        if isinstance(raw_std, str):
+            selected_standard = [x.strip() for x in raw_std.split(",") if x.strip()]
+        else:
+            selected_standard = list(raw_std)
+    else:
+        print("\n╔══════════════════════════════════════════════════════════╗")
+        print("║          hermes-brain — Database Onboarding Setup        ║")
+        print("╚══════════════════════════════════════════════════════════╝")
+        print("\n[1/2] Standard Databases:")
+        for idx, k in enumerate(standard_keys, 1):
+            print(f"  [{idx}] {S.DATABASES[k]:<10} ({k})")
+        resp = _prompt("\nSelect databases to create (1-7, comma-separated, or 'all')", "all").lower()
+        if resp == "all" or not resp:
+            selected_standard = standard_keys
+        else:
+            selected_standard = []
+            for item in resp.split(","):
+                item = item.strip()
+                if item.isdigit() and 1 <= int(item) <= len(standard_keys):
+                    selected_standard.append(standard_keys[int(item) - 1])
+                elif item in standard_keys:
+                    selected_standard.append(item)
+            if not selected_standard:
+                selected_standard = standard_keys
+
+    created_dbs: dict[str, str] = {}
+    db_prefix = "db_"
+
+    for k in selected_standard:
+        title = S.DATABASES[k]
+        db_id = _find_or_create_database(parent_id, title, _PROPS[k])
+        cached[f"{db_prefix}{k}"] = db_id
+        created_dbs[k] = db_id
+
+    # 3. Custom databases
+    custom_dbs_spec: list[dict[str, Any]] = []
+    if answers and "custom_dbs" in answers:
+        custom_dbs_spec = answers["custom_dbs"]
+    else:
+        print("\n[2/2] Custom Databases:")
+        add_custom = _prompt("Would you like to add custom databases? (y/N)", "N").lower()
+        if add_custom.startswith("y"):
+            while True:
+                c_key = _prompt("  Database identifier / key (e.g. fitness, expenses)").strip().lower()
+                if not c_key:
+                    break
+                c_title = _prompt("  Display title in Notion", c_key.capitalize())
+                c_desc = _prompt("  What will you store in this database?", "")
+                c_fields_raw = _prompt("  Custom fields (format: Name:type, e.g. Reps:number, Exercise:select)", "")
+                fields: dict[str, str] = {}
+                if c_fields_raw:
+                    for f in c_fields_raw.split(","):
+                        f = f.strip()
+                        if ":" in f:
+                            fn, ft = f.split(":", 1)
+                            fields[fn.strip()] = ft.strip().lower()
+                        elif f:
+                            fields[f] = "rich_text"
+
+                custom_dbs_spec.append({
+                    "key": c_key,
+                    "title": c_title,
+                    "description": c_desc,
+                    "fields": fields,
+                })
+                more = _prompt("  Add another custom database? (y/N)", "N").lower()
+                if not more.startswith("y"):
+                    break
+
+    cached_custom = cached.setdefault("custom_databases", {})
+    if not isinstance(cached_custom, dict):
+        cached_custom = {}
+        cached["custom_databases"] = cached_custom
+
+    for spec in custom_dbs_spec:
+        k = spec["key"].strip().lower().replace("-", "_").replace(" ", "_")
+        title = spec.get("title", k.capitalize())
+        desc = spec.get("description", "")
+        fields = spec.get("fields", {})
+
+        props = build_custom_database_props(k, fields)
+        db_id = _find_or_create_database(parent_id, title, props)
+        cached[f"{db_prefix}{k}"] = db_id
+        created_dbs[k] = db_id
+
+        S.register_custom_domain(k, title, db_key=k, description=desc, custom_fields=fields)
+        cached_custom[k] = {
+            "title": title,
+            "database": k,
+            "description": desc,
+            "fields": fields,
+        }
+
+    cached["schema_version"] = str(SCHEMA_VERSION)
+    _save_cache(cache_path, cached)
+
+    return {
+        "parent_page_id": parent_id,
+        "created_databases": created_dbs,
+        "standard_count": len(selected_standard),
+        "custom_count": len(custom_dbs_spec),
+    }
+
 
 def reset_databases(
     hermes_home: str | Path,
