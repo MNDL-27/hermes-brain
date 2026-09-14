@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you find a security vulnerability in **hermes-brain**, please use [GitHub's Private Vulner Reporting](https://github.com/MNDL-27/hermes-brain/security/advisories/new) to report it.
+If you find a security vulnerability in **hermes-brain**, please use [GitHub's Private Vulnerability Reporting](https://github.com/MNDL-27/hermes-brain/security/advisories/new) to report it.
 
 This creates an encrypted, private report visible only to the maintainer. Do **not** open a public issue — that exposes the vulnerability to everyone before a fix is available.
 

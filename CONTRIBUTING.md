@@ -44,7 +44,7 @@ pytest
 pytest --cov=. --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_schema.py -v
+pytest tests/test_extract.py -v
 ```
 
 ## Code Quality
@@ -131,42 +131,48 @@ Open a Pull Request against `main`. The PR template will guide you.
 
 ```
 hermes-brain/
-├── __init__.py          # Plugin entry point, tool schemas, provider
-├── schema.py            # Data model, constants, normalization helpers
-├── extract.py           # Heuristic classifier (regex patterns)
-├── store.py             # Notion REST API client
-├── bootstrap.py         # Workspace setup, database creation
-├── plugin.yaml          # Plugin manifest
-├── tests/               # Test files (add here)
-├── .github/
-│   ├── workflows/       # CI/CD
-│   ├── assets/          # Images for README
-│   └── badges/          # Coverage badge
-└── docs/                # Additional documentation (future)
+├── notion_brain/
+│   ├── __init__.py          # Plugin exports & discovery marker
+│   ├── provider.py          # NotionBrainProvider lifecycle & tool dispatch
+│   ├── store.py             # Notion REST API client & block pagination
+│   ├── extract.py           # Heuristic & LLM classifier
+│   ├── schema.py            # Data model, constants, secret redaction
+│   ├── schemas.py           # OpenAI-compatible tool schemas for Hermes
+│   ├── bootstrap.py         # Workspace setup, schema repair, setup wizard
+│   ├── helpers.py           # Block and text helpers
+│   ├── config_schema.py     # Desktop config declaration
+│   └── __main__.py          # CLI commands (setup, health, reset, url)
+├── skills/
+│   └── notion-brain/        # Hermes Agent companion skill
+├── tests/                   # Pytest test suite
+├── examples/                # Quickstart and migration scripts
+├── docs/                    # Architecture and troubleshooting guides
+├── plugin.yaml              # Plugin manifest
+└── pyproject.toml           # Package configuration & entry points
 ```
 
 ## Adding New Features
 
-### New Heuristic Trigger (in `extract.py`)
+### New Heuristic Trigger (in `notion_brain/extract.py`)
 
-1. Add a new `_TRIGGERS_*` regex pattern (see lines 17-51)
-2. Add a new `if` block in `classify_turn()` (see lines 79-143)
-3. Add corresponding domain to `DOMAIN_DATABASE` in `schema.py` if needed
-4. Add tests for the new pattern
+1. Add a new `_TRIGGERS_*` regex pattern
+2. Add a new classification branch in `classify_turn()`
+3. Add corresponding domain to `DOMAIN_DATABASE` in `notion_brain/schema.py` if needed
+4. Add tests in `tests/test_extract.py`
 
-### New Tool Schema (in `__init__.py`)
+### New Tool Schema (in `notion_brain/schemas.py`)
 
-1. Define a new schema dict following the pattern of `SEARCH_SCHEMA` (line 29)
-2. Add to `ALL_TOOL_SCHEMAS` list (line 239)
-3. Add handler method `_tool_yourname()` (see `_tool_search` at line 576)
-4. Add dispatch in `handle_tool_call()` (line 477)
-5. Add tests
+1. Define a new schema dictionary in `notion_brain/schemas.py`
+2. Add it to the `ALL_TOOL_SCHEMAS` list
+3. Add the handler method `_tool_yourname()` in `notion_brain/provider.py`
+4. Add dispatch in `handle_tool_call()` in `notion_brain/provider.py`
+5. Add unit tests in `tests/test_provider.py`
 
 ### New Database Property
 
-1. Add property definition in `bootstrap.py` `_PROPS` dict (lines 20-101)
-2. Update corresponding handler in `__init__.py` to populate the property
-3. Run bootstrap to verify creation
+1. Add property definition in `notion_brain/bootstrap.py` `_PROPS` dict
+2. Update corresponding property builder in `notion_brain/provider.py`
+3. Run `hermes-brain reset` or tests to verify schema creation
 
 ## Testing Guidelines
 
@@ -201,10 +207,9 @@ By participating, you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 - No harassment, discrimination, or toxic behavior
 
 ## Getting Help
-
-- **GitHub Discussions** — for questions, ideas, general discussion
+- **GitHub Discussions** — for questions, ideas, and general discussion
 - **GitHub Issues** — for bugs and feature requests
-- **Discord** — [Join our server](https://discord.gg/your-invite) for real-time chat
+- **Discord** — [Nous Research Discord](https://discord.gg/nousresearch) `#plugins-skills-and-skins`
 
 ## Recognition
 
