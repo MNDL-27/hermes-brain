@@ -586,7 +586,7 @@ class NotionBrainProvider(object):
         except Exception as exc:
             logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
             return json.dumps({
-                "result": f"Tool error: {exc}",
+                "result": f"Tool error: {S.redact_secrets(str(exc))}",
                 "error": True,
             })
 
@@ -622,7 +622,7 @@ class NotionBrainProvider(object):
             logger.error("Failed to store entry %r: %s", safe_title, safe_detail)
             raise RuntimeError(
                 f"Failed to save {safe_title!r} to Notion: {safe_detail}"
-            ) from exc
+            ) from None
 
     def _database_properties(self, database_id: str, entry: S.BrainEntry) -> Dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
