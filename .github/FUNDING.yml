@@ -1,0 +1,7 @@
+# Funding sources for MNDL-27/hermes-brain
+#
+# There is no paid product or payment integration today. This file only
+# enables the GitHub Sponsors button on the repo. Add `custom:` URLs
+# (Stripe / Gumroad / etc.) only when a product page actually exists;
+# do NOT add them preemptively.
+github: [MNDL-27]
