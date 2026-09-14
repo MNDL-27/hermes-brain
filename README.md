@@ -246,5 +246,5 @@ Contributions are welcome.
 </p>
 
 <p align="center">
-  Built with ❤️ From 🇧🇩
+  Built with ❤️ from <img src=".github/assets/twemoji-bd.svg" width="18" height="18" alt="Bangladesh" />
 </p>
