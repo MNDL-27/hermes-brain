@@ -172,7 +172,7 @@ class NotionBrainProvider:
 
     def _process_sync_turn(self, user_content: str, assistant_content: str) -> None:
         try:
-            entries = extract.classify_turn(user_content, assistant_content)
+            entries = extract.classify_turn(S.redact_secrets(user_content), S.redact_secrets(assistant_content))
             for entry in entries:
                 if isinstance(entry, S.BrainEntry):
                     entry.source_session_id = self._session_id
@@ -243,14 +243,15 @@ class NotionBrainProvider:
         if not text.strip():
             return
 
-        # Classify using heuristics
-        classification = extract.classify_text(text)
-        domain = classification.get("domain", "memory")
-        kind = classification.get("kind", "note")
-
         # Scrub raw text BEFORE classification and storage so secrets never
         # travel through classification helpers, caches, or the outbox path.
         safe_text = S.redact_secrets(text)
+
+        # Classify using heuristics
+        classification = extract.classify_text(safe_text)
+        domain = classification.get("domain", "memory")
+        kind = classification.get("kind", "note")
+
         safe_title = S.clean_title(classification.get("title", "Untitled"))
 
         entry = S.BrainEntry(
@@ -380,7 +381,7 @@ class NotionBrainProvider:
                 logger.debug(
                     "Stored entry in %s: %s", target_db_id, entry.title
                 )
-        except Exception as exc:
+        except Exception:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
@@ -484,7 +485,7 @@ class NotionBrainProvider:
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
-                return f"No database found for: {database}"
+                return f"No database found for: {S.redact_secrets(str(database))}"
 
             entries = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
             entries = _merge_disk_only(entries, disk_text)
@@ -669,7 +670,7 @@ class NotionBrainProvider:
             or []
         )
         valid = sorted({opt.get("name", "") for opt in options if isinstance(opt, dict)})
-        return {}, f"Error: status '{status}' is not valid for {db_key}. Valid: {valid}"
+        return {}, f"Error: status '{S.redact_secrets(status)}' is not valid for {db_key}. Valid: {valid}"
 
     def _tool_content(self, args: dict[str, Any]) -> str:
         """Manage social content."""
@@ -707,9 +708,9 @@ class NotionBrainProvider:
             if "title" in args:
                 updates["title"] = store.title_property(S.clean_title(args["title"]))
             if "body" in args:
-                updates["Content"] = store.rich_text_property(args["body"])
+                updates["Content"] = store.rich_text_property(S.redact_secrets(args["body"]))
             if "tags" in args:
-                updates["Tags"] = store.multi_select_property(args["tags"])
+                updates["Tags"] = store.multi_select_property([S.redact_secrets(t) for t in args["tags"]])
 
             if not updates:
                 return "Error: No fields provided for update."
