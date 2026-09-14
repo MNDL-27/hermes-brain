@@ -99,7 +99,7 @@ class NotionBrainProvider:
         try:
             cache = bootstrap.ensure_brain(self._hermes_home)
             self._parent_page_id = cache.get("parent_page_id", "")
-            for key in S.DATABASES:
+            for key in S.get_all_databases():
                 self._db_ids[key] = cache.get(f"db_{key}", "")
             logger.info("Notion brain initialized: %d databases", len(self._db_ids))
         except Exception as exc:
@@ -275,7 +275,20 @@ class NotionBrainProvider:
         self._store_entry(entry)
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
-        return ALL_TOOL_SCHEMAS
+        import copy
+        domains = list(S.get_all_domains().keys())
+        dbs = list(S.get_all_databases().keys())
+        schemas = copy.deepcopy(ALL_TOOL_SCHEMAS)
+        for s in schemas:
+            if s.get("name") == "notion_brain_remember":
+                s["parameters"]["properties"]["domain"]["description"] = (
+                    f"Which domain: {'|'.join(domains)}."
+                )
+            elif s.get("name") == "notion_brain_search":
+                s["parameters"]["properties"]["database"]["description"] = (
+                    f"Optional database filter: {'|'.join(dbs)}. Omit to search all."
+                )
+        return schemas
 
     def handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> str:
         handlers = {
@@ -395,7 +408,7 @@ class NotionBrainProvider:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
-            raise RuntimeError("Failed to save entry to Notion") from exc
+            raise RuntimeError("Failed to save entry to Notion") from None
 
     def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
@@ -431,6 +444,24 @@ class NotionBrainProvider:
             props["Content"] = store.rich_text_property(entry.content)
         if "Source Session" in schema_props and entry.source_session_id:
             props["Source Session"] = store.rich_text_property(entry.source_session_id)
+
+        # Map any custom fields defined on the database from entry.metadata
+        for m_key, m_val in (entry.metadata or {}).items():
+            if m_key in schema_props and m_key not in props:
+                prop_type = schema_props[m_key].get("type")
+                if prop_type == "number" and isinstance(m_val, (int, float)):
+                    props[m_key] = store.number_property(float(m_val))
+                elif prop_type == "select":
+                    props[m_key] = store.select_property(str(m_val))
+                elif prop_type == "multi_select":
+                    val_list = [str(x) for x in m_val] if isinstance(m_val, list) else [str(m_val)]
+                    props[m_key] = store.multi_select_property(val_list)
+                elif prop_type in ("rich_text", "text"):
+                    props[m_key] = store.rich_text_property(str(m_val))
+                elif prop_type == "date":
+                    props[m_key] = store.date_property(str(m_val))
+                elif prop_type == "checkbox":
+                    props[m_key] = {"checkbox": bool(m_val)}
 
         return props
 
