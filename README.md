@@ -191,12 +191,56 @@ hermes-brain update    # Check for and install updates from GitHub
 
 ---
 
-## Testing
+## Development & Testing
 
-Run the test suite with pytest:
+Run the test suite:
 
 ```bash
 pytest
 ```
 
-All 289 unit tests pass with zero network dependencies by mocking Notion API responses.
+Run linting and type checks:
+
+```bash
+ruff check .
+mypy notion_brain
+```
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes and add tests
+4. Ensure tests and lints pass: `pytest && ruff check .`
+5. Open a Pull Request
+
+---
+
+## Acknowledgments
+
+- [Notion API](https://developers.notion.com/) — persistent database backend
+- [Hermes Agent](https://hermes-agent.nousresearch.com/) — autonomous AI agent framework
+- All contributors and users
+
+---
+
+## License
+
+<p align="center">
+  <a href="https://github.com/MNDL-27">
+    <img src=".github/assets/labtocat.png" width="200" alt="Labtocat"/>
+  </a>
+</p>
+
+<p align="center">
+  <strong>MIT License © <a href="https://github.com/MNDL-27">MNDL-27</a></strong>
+</p>
+
+<p align="center">
+  If you find this project useful, <strong>please consider starring it ⭐</strong> 
+  or <a href="https://github.com/MNDL-27">following</a> for more AI infrastructure tools.
+</p>
