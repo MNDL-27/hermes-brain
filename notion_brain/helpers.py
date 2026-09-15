@@ -24,6 +24,145 @@ def _safe_select_value(value: str, prop_schema: dict[str, Any]) -> str | None:
     return value if value in valid else None
 
 
+_HEADING_DOMAINS = {
+    "memory": "memory",
+    "tasks": "daily_work",
+    "daily work": "daily_work",
+    "daily_work": "daily_work",
+    "projects": "projects",
+    "project": "projects",
+    "content": "social_content",
+    "social content": "social_content",
+    "social": "social_content",
+    "research": "research",
+    "career": "career",
+    "job": "career",
+    "entities": "entities",
+    "people": "entities",
+    "preferences": "entities",
+    "user profile": "entities",
+    "user": "entities",
+}
+
+
+def parse_disk_memory_text(text: str, default_domain: str = "memory") -> list[dict[str, Any]]:
+    """Parse disk memory text from MEMORY.md, USER.md, CLAUDE.md into structured entries.
+
+    Supports:
+    - Hermes section delimiter: '§'
+    - Frontmatter blocks: '---' ... '---'
+    - Headings (#, ##) and bullet points (- **Label**: content)
+    - Plain paragraphs
+    """
+    if not text or not text.strip():
+        return []
+
+    from . import extract
+
+    entries: list[dict[str, Any]] = []
+
+    # 1. Hermes native section delimiter '§'
+    if "§" in text:
+        blocks = [b.strip() for b in text.split("§") if b.strip()]
+        for block in blocks:
+            lines = [line.strip() for line in block.splitlines() if line.strip()]
+            if not lines:
+                continue
+            first_line = lines[0]
+            if ":" in first_line and len(first_line.split(":")[0].split()) <= 6:
+                title = first_line.split(":")[0].strip()[:120]
+            else:
+                words = first_line.split()
+                title = " ".join(words[:8])[:120]
+
+            cl = extract.classify_text(block)
+            domain = cl.get("domain", default_domain)
+            kind = cl.get("kind", "note")
+            entries.append({
+                "title": title,
+                "content": block,
+                "domain": domain,
+                "kind": kind,
+                "tags": [domain] if domain != "memory" else [],
+            })
+        return entries
+
+    # 2. Frontmatter-like blocks ('---')
+    if re.search(r"(?m)^---$", text):
+        blocks = re.split(r"(?m)^---$", text)
+        i = 0
+        while i < len(blocks):
+            blk = blocks[i].strip()
+            if not blk:
+                i += 1
+                continue
+            if "name:" in blk or "domain:" in blk:
+                meta: dict[str, str] = {}
+                for line in blk.splitlines():
+                    if ":" in line:
+                        k, v = line.split(":", 1)
+                        meta[k.strip().lower()] = v.strip()
+                body = blocks[i + 1].strip() if i + 1 < len(blocks) else ""
+                domain = meta.get("domain", default_domain)
+                entries.append({
+                    "title": meta.get("name", "Untitled"),
+                    "content": body or meta.get("name", ""),
+                    "domain": domain,
+                    "kind": meta.get("kind", "note"),
+                    "tags": [t.strip() for t in meta.get("tags", "").split(",") if t.strip()],
+                })
+                i += 2
+                continue
+            i += 1
+        if entries:
+            return entries
+
+    # 3. Headings and Bullets
+    domain = default_domain
+    current_title = ""
+    current_body = ""
+
+    def flush() -> None:
+        nonlocal current_title, current_body
+        if current_title and current_body:
+            cl = extract.classify_text(current_body)
+            d = domain if domain != "memory" else cl.get("domain", "memory")
+            entries.append({
+                "title": current_title,
+                "content": current_body,
+                "domain": d,
+                "kind": cl.get("kind", "note"),
+                "tags": [d] if d != "memory" else [],
+            })
+        current_title = ""
+        current_body = ""
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            flush()
+            clean_head = stripped.lstrip("#").strip().lower()
+            domain = _HEADING_DOMAINS.get(clean_head, default_domain)
+        elif stripped.startswith(("- ", "* ")):
+            flush()
+            bullet = stripped[2:].strip()
+            m = re.match(r"\*\*([^*]+)\*\*:?\s*(.*)", bullet)
+            if m and m.group(2).strip():
+                current_title, current_body = m.group(1).strip(), m.group(2).strip()
+            else:
+                words = bullet.split()
+                current_title = " ".join(words[:8])[:120]
+                current_body = bullet
+        elif current_body and stripped:
+            current_body += " " + stripped
+        elif not current_title and stripped and not stripped.startswith("#"):
+            current_title = " ".join(stripped.split()[:8])[:120]
+            current_body = stripped
+
+    flush()
+    return entries
+
+
 def _merge_disk_only(notion_entries: list[dict], disk_text: str) -> list[dict]:
     """Merge entries from disk that aren't already in the Notion list.
 

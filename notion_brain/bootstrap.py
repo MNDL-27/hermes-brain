@@ -808,15 +808,21 @@ def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, A
     return db["id"]
 
 def read_memory_from_disk(hermes_home: str | Path) -> str:
-    fpath = Path(hermes_home) / "memories" / "MEMORY.md"
-    if fpath.exists():
-        return fpath.read_text(encoding="utf-8")
+    for fpath in (
+        Path(hermes_home) / "memories" / "MEMORY.md",
+        Path(hermes_home) / "MEMORY.md",
+    ):
+        if fpath.exists():
+            return fpath.read_text(encoding="utf-8")
     return ""
 
 def read_user_from_disk(hermes_home: str | Path) -> str:
-    fpath = Path(hermes_home) / "memories" / "USER.md"
-    if fpath.exists():
-        return fpath.read_text(encoding="utf-8")
+    for fpath in (
+        Path(hermes_home) / "memories" / "USER.md",
+        Path(hermes_home) / "USER.md",
+    ):
+        if fpath.exists():
+            return fpath.read_text(encoding="utf-8")
     return ""
 
 def write_memory_to_disk(hermes_home: str | Path, entries: list[dict[str, Any]]) -> None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -247,63 +246,28 @@ _HEADING_DOMAIN: dict[str, str] = {
 def _discover_memory_files(home: str) -> list[Path]:
     """Find candidate memory markdown files in common locations."""
     candidates = [
+        Path(home) / "memories" / "MEMORY.md",
+        Path(home) / "memories" / "USER.md",
         Path(home) / "MEMORY.md",
         Path(home) / "USER.md",
         Path.home() / ".claude" / "CLAUDE.md",
         Path.cwd() / "MEMORY.md",
     ]
-    return [p for p in candidates if p.is_file() and p.stat().st_size > 0]
+    seen = set()
+    out = []
+    for p in candidates:
+        rp = p.resolve() if p.exists() else p
+        if rp not in seen and p.is_file() and p.stat().st_size > 0:
+            seen.add(rp)
+            out.append(p)
+    return out
 
 
 def _parse_markdown(content: str) -> list[dict]:
-    """Parse markdown into entries: one per bullet under a recognized heading.
+    """Parse markdown into entries using the enhanced multi-format parser."""
+    from . import helpers
 
-    Falls back to one entry per paragraph when no bullets exist.
-    Uses ``extract.classify_text`` for kind/tags heuristics.
-    """
-
-    entries: list[dict] = []
-    domain = "memory"
-    current_title = ""
-    current_body = ""
-
-    def flush() -> None:
-        nonlocal current_title, current_body
-        if current_title and current_body:
-            entries.append({
-                "domain": domain,
-                "title": current_title,
-                "content": current_body,
-            })
-        current_title = ""
-        current_body = ""
-
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#") and set(stripped) & set(" ") or (stripped.startswith("## ")):
-            heading = stripped.lstrip("#").strip().lower()
-            flush()
-            domain = _HEADING_DOMAIN.get(heading, "memory")
-        elif stripped.startswith("- ") or stripped.startswith("* "):
-            flush()
-            text = stripped[2:].strip()
-            # **Bold label**: body → label becomes title
-            m = re.match(r"\*\*([^*]+)\*\*:?\s*(.*)", text)
-            if m and m.group(2).strip():
-                current_title, current_body = m.group(1).strip(), m.group(2).strip()
-            else:
-                words = text.split()
-                current_title = " ".join(words[:8])[:120]
-                current_body = text
-        elif current_body and stripped:
-            current_body += " " + stripped
-        elif not current_title and stripped and not stripped.startswith("#"):
-            # paragraph fallback (no bullets) — collect
-            current_title = " ".join(stripped.split()[:8])[:120]
-            current_body = stripped
-
-    flush()
-    return entries
+    return helpers.parse_disk_memory_text(content)
 
 
 def _classify(entry: dict) -> dict:

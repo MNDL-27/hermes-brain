@@ -10,13 +10,15 @@ Cache:  $HERMES_HOME/notion_brain.json
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import queue
 import threading
+from pathlib import Path
 from typing import Any
 
-from . import bootstrap, extract, store
+from . import bootstrap, extract, helpers, store
 from . import schema as S
 from .helpers import _merge_disk_only, _safe_select_value
 from .schemas import ALL_TOOL_SCHEMAS
@@ -105,7 +107,7 @@ class NotionBrainProvider:
         except Exception as exc:
             logger.error("NotionBrainProvider bootstrap failed: %s", S.redact_secrets(str(exc)))
 
-        # Pre-load memory files from disk as fallback context
+        # Pre-load memory files from disk as fallback context and trigger auto-sync
         if self._hermes_home:
             mem_text = bootstrap.read_memory_from_disk(self._hermes_home)
             user_text = bootstrap.read_user_from_disk(self._hermes_home)
@@ -115,6 +117,8 @@ class NotionBrainProvider:
                 self._prefetch_cache = (
                     "<!-- memory-context from disk -->\n" + combined[:4000]
                 )
+            if self._db_ids:
+                self._trigger_auto_disk_sync()
 
     def system_prompt_block(self) -> str:
         return (
@@ -209,6 +213,74 @@ class NotionBrainProvider:
                     name="notion-brain-sync-worker",
                 )
                 self._sync_thread.start()
+
+    def _trigger_auto_disk_sync(self) -> None:
+        """Queue a background task to sync local disk memory files to Notion."""
+        with self._sync_lock:
+            self._sync_queue.put((self._sync_disk_memories, (), {}))
+            if self._sync_thread is None or not self._sync_thread.is_alive():
+                self._sync_thread = threading.Thread(
+                    target=self._worker_loop,
+                    daemon=True,
+                    name="notion-brain-sync-worker",
+                )
+                self._sync_thread.start()
+
+    def _sync_disk_memories(self) -> None:
+        """Read local disk memories and persist them to Notion if modified."""
+        if not self._hermes_home or not self._db_ids:
+            return
+
+        mem_text = bootstrap.read_memory_from_disk(self._hermes_home)
+        user_text = bootstrap.read_user_from_disk(self._hermes_home)
+        combined = "\n".join(filter(None, [mem_text, user_text])).strip()
+        if not combined:
+            return
+
+        content_hash = hashlib.sha256(combined.encode("utf-8")).hexdigest()[:16]
+        cache_path = Path(self._hermes_home) / S.CACHE_FILE
+        cached = bootstrap._load_cache(cache_path)
+        if cached.get("disk_sync_hash") == content_hash:
+            logger.debug("Disk memories unchanged (hash=%s); skipping auto-sync", content_hash)
+            return
+
+        logger.info("Auto-syncing local memory files to Notion (hash=%s)...", content_hash)
+        entries: list[S.BrainEntry] = []
+        if mem_text:
+            for item in helpers.parse_disk_memory_text(mem_text, default_domain="memory"):
+                entries.append(S.BrainEntry(
+                    domain=item["domain"],
+                    title=item["title"],
+                    content=item["content"],
+                    kind=item.get("kind", "note"),
+                    tags=item.get("tags", []),
+                    source_session_id=self._session_id or "disk-sync",
+                ).normalized())
+        if user_text:
+            for item in helpers.parse_disk_memory_text(user_text, default_domain="entities"):
+                entries.append(S.BrainEntry(
+                    domain=item["domain"],
+                    title=item["title"],
+                    content=item["content"],
+                    kind=item.get("kind", "preference"),
+                    tags=item.get("tags", []),
+                    source_session_id=self._session_id or "disk-sync",
+                ).normalized())
+
+        synced = 0
+        for entry in entries:
+            try:
+                self._store_entry(entry)
+                synced += 1
+            except Exception as exc:
+                logger.warning("Failed to auto-sync entry '%s': %s", entry.title[:40], S.redact_secrets(str(exc)))
+
+        cached["disk_sync_hash"] = content_hash
+        bootstrap._save_cache(cache_path, cached)
+        logger.info("Auto-synced %d disk memories to Notion", synced)
+
+        with self._prefetch_lock:
+            self._prefetch_cache = ""
 
     def on_session_end(self, *args, **kwargs) -> None:
         """Called when Hermes session ends. Wait for pending sync, then
