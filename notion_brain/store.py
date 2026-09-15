@@ -93,18 +93,18 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                 msg = data.get("message", resp.reason or "unknown error")
             except requests.exceptions.JSONDecodeError:
                 msg = resp.text[:200] if resp.text else resp.reason or "unknown error"
-            raise RuntimeError(f"Notion API {resp.status_code} on {method} {path}: {msg}")
+            raise RuntimeError(f"Notion API {resp.status_code} on {method} {path}: {redact_secrets(str(msg))}") from None
         except requests.Timeout:
             if attempt < _MAX_RETRIES:
                 time.sleep(_RETRY_DELAY_S * attempt)
                 continue
-            raise RuntimeError(f"Notion API timeout on {method} {path}")
+            raise RuntimeError(f"Notion API timeout on {method} {path}") from None
         except requests.ConnectionError:
             if attempt < _MAX_RETRIES:
                 time.sleep(_RETRY_DELAY_S * attempt)
                 continue
-            raise RuntimeError(f"Notion API connection error on {method} {path}")
-    raise RuntimeError(f"Notion API {method} {path} max retries exceeded")
+            raise RuntimeError(f"Notion API connection error on {method} {path}") from None
+    raise RuntimeError(f"Notion API {method} {path} max retries exceeded") from None
 
 
 # Search
