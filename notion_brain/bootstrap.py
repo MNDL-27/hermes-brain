@@ -224,8 +224,12 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
         if cached.get(cache_key):
             try:
                 db = store.get_database(cached[cache_key])
-                _repair_database_schema(db, expected_props, key)
-                continue
+                if db.get("archived") or db.get("in_trash"):
+                    logger.info("Cached database '%s' is archived or in trash — resolving live ID", key)
+                    cached.pop(cache_key, None)
+                else:
+                    _repair_database_schema(db, expected_props, key)
+                    continue
             except Exception:
                 logger.info("Cached database '%s' missing or unreachable — resolving live ID", key)
                 cached.pop(cache_key, None)
@@ -614,6 +618,8 @@ def health_report(hermes_home: str | Path) -> str:
             continue
         try:
             db = store.get_database(db_id)
+            if db.get("archived") or db.get("in_trash"):
+                raise RuntimeError("Database is archived or in trash")
         except Exception:
             # Stale cache ID — attempt live recovery before reporting failure
             display_name = S.DATABASES[key]
@@ -777,7 +783,7 @@ def _find_existing_database(parent_page_id: str, title: str) -> str:
     # Method 2: /search with query string
     try:
         existing = store.search_page_by_title(title, object_type="database")
-        if existing:
+        if existing and not existing.get("archived") and not existing.get("in_trash"):
             return existing["id"]
     except Exception as exc:
         logger.debug("Search for database '%s' failed: %s", title, S.redact_secrets(str(exc)))
@@ -785,6 +791,8 @@ def _find_existing_database(parent_page_id: str, title: str) -> str:
     # Method 3: enumerate every database the integration can see (no query filter)
     try:
         for db in store.search_all_databases():
+            if db.get("archived") or db.get("in_trash"):
+                continue
             db_title = store._page_title(db) or ""
             if db_title.strip().lower() == want:
                 return db["id"]
