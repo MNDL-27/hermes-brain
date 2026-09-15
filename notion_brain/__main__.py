@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from . import bootstrap
 from . import schema as S
@@ -131,7 +133,6 @@ def main(argv: list[str] | None = None) -> int:
 
 def _cmd_update(check_only: bool = False) -> int:
     """Check GitHub for a newer release tag and update to it."""
-    import subprocess
 
     from .bootstrap import _check_for_update, _find_latest_tag
 

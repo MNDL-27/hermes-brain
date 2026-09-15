@@ -9,11 +9,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from pathlib import Path
-from typing import Any
-
 import re as _re
 import urllib.request as _urllib_request
+from pathlib import Path
+from typing import Any
 
 from . import schema as S
 from . import store
@@ -212,9 +211,9 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
             if isinstance(c_info, dict):
                 S.register_custom_domain(
                     c_key,
-                    c_info.get("title", c_key),
-                    db_key=c_info.get("database", c_key),
-                    description=c_info.get("description", ""),
+                    str(c_info.get("title") or c_key),
+                    db_key=str(c_info.get("database") or c_key),
+                    description=str(c_info.get("description") or ""),
                     custom_fields=c_info.get("fields", {}),
                 )
 
@@ -680,7 +679,7 @@ def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> Non
     except Exception as exc:
         logger.warning("Could not repair '%s' database schema: %s", key, S.redact_secrets(str(exc)))
 
-def _load_cache(path: Path) -> dict[str, str]:
+def _load_cache(path: Path) -> dict[str, Any]:
     try:
         if path.exists():
             return json.loads(path.read_text())
@@ -688,7 +687,7 @@ def _load_cache(path: Path) -> dict[str, str]:
         logger.debug("Failed to read cache: %s", S.redact_secrets(str(exc)))
     return {}
 
-def _save_cache(path: Path, data: dict[str, str]) -> None:
+def _save_cache(path: Path, data: dict[str, Any]) -> None:
     try:
         os.makedirs(path.parent, exist_ok=True)
         # Atomic write + 600 perms so a crash mid-write does not truncate the cache
