@@ -51,7 +51,15 @@ Conversation Turn (User / Assistant)
 
 ### 2. Installation
 
-Install into the Hermes Agent virtual environment:
+One-line installer (Ubuntu/Debian/Fedora/RHEL-family) — detects Python 3.11+,
+installs the package, prompts for your Notion API key, and bootstraps the
+workspace:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash
+```
+
+Or install manually into the Hermes Agent virtual environment:
 
 ```bash
 ~/.hermes/hermes-agent/venv/bin/pip install -e /path/to/hermes-brain
