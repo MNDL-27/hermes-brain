@@ -591,3 +591,29 @@ class TestExceptionLogRedaction:
         assert self.SECRET not in result["result"]
         assert "[REDACTED_SECRET]" in result["result"]
         self._assert_no_leak(caplog, self.SECRET)
+
+    def test_every_tool_branch_error_redacts_secrets(self, caplog):
+        """Each direct tool handler failure path redacts the returned JSON."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+        caplog.set_level("WARNING", logger="notion_brain")
+        provider = NotionBrainProvider()
+
+        # (tool name, private handler, sample arguments)
+        cases = [
+            ("notion_brain_search", "_tool_search", {"query": "test"}),
+            ("notion_brain_remember", "_tool_remember", {"title": "t", "content": "c"}),
+            ("notion_brain_task", "_tool_task", {"action": "list"}),
+            ("notion_brain_content", "_tool_content", {"topic": "t"}),
+            ("notion_brain_research", "_tool_research", {"question": "q"}),
+        ]
+        for tool_name, handler_name, args in cases:
+            caplog.clear()
+            with patch.object(provider, handler_name, side_effect=RuntimeError(f"boom: {self.SECRET}")):
+                result_json = provider.handle_tool_call(tool_name, args)
+            result = json.loads(result_json)
+            assert result["error"] is True, tool_name
+            assert self.SECRET not in result_json, tool_name
+            assert "[REDACTED_SECRET]" in result["result"], tool_name
+            self._assert_no_leak(caplog, self.SECRET)
