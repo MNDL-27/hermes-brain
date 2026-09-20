@@ -1,15 +1,31 @@
-import sys
-import types
+from dataclasses import dataclass
+from typing import Tuple, Type
 
-# Stub out the Hermes runtime — not installed in dev env.
-# Do NOT stub notion_brain; the tests import from it directly.
-for mod_name in ['agent', 'agent.memory_manager', 'agent.memory_provider', 'tools', 'tools.registry']:
-    if mod_name not in sys.modules:
-        mod = types.ModuleType(mod_name)
-        if mod_name == 'agent.memory_manager':
-            setattr(mod, 'sanitize_context', lambda x: x)
-        elif mod_name == 'agent.memory_provider':
-            setattr(mod, 'MemoryProvider', type('MemoryProvider', (), {}))
-        elif mod_name == 'tools.registry':
-            setattr(mod, 'tool_error', lambda x: 'error: ' + str(x))
-        sys.modules[mod_name] = mod
+@dataclass(frozen=True)
+class ProviderField:
+    key: str
+    label: str
+    kind: str
+    description: str = ""
+    env_key: str | None = None
+    env_fallbacks: tuple[str, ...] = ()
+    placeholder: str = ""
+    inline: bool = False
+    group: str = ""
+    default: str | None = None
+
+@dataclass(frozen=True)
+class ProviderConfigSchema:
+    name: str
+    label: str
+    storage: str
+    fields: tuple[ProviderField, ...]
+
+# Stub constants (D-02)
+KIND_SECRET: str = "secret"
+KIND_TEXT: str = "text"
+STORAGE_FLAT_JSON: str = "flat_json"
+
+def pytest_configure(config):
+    """Stub for conftest setup."""
+    pass
