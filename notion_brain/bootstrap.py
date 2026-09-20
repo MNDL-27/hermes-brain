@@ -22,9 +22,11 @@ logger = logging.getLogger(__name__)
 # Single source of truth: every Status option created across our 7 DBs must
 # be a name listed in S.STATUSES. ``_STATUS_OPTIONS`` here must stay ⊆
 # S.STATUSES — see ``_validate_status_options`` below.
-_STATUS_OPTIONS = [{"name": "active", "color": "blue"},
-                   {"name": "done", "color": "green"},
-                   {"name": "needs_review", "color": "yellow"}]
+_STATUS_OPTIONS = [
+    {"name": "active", "color": "blue"},
+    {"name": "done", "color": "green"},
+    {"name": "needs_review", "color": "yellow"},
+]
 
 _NOTION_TYPE_MAP: dict[str, dict[str, Any]] = {
     "number": {"number": {}},
@@ -49,7 +51,9 @@ def build_custom_database_props(
         "Domain": {"select": {"options": [{"name": domain_key, "color": "green"}]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     }
@@ -67,19 +71,28 @@ def get_expected_props(key: str) -> dict[str, Any]:
     custom_meta = S.get_custom_metadata().get(key, {})
     return build_custom_database_props(key, custom_meta.get("fields", {}))
 
+
 _PROPS: dict[str, dict[str, Any]] = {
     "tasks": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
-        "Priority": {"select": {"options": [
-            {"name": "urgent", "color": "red"}, {"name": "high", "color": "orange"},
-            {"name": "medium", "color": "yellow"}, {"name": "low", "color": "green"},
-        ]}},
+        "Priority": {
+            "select": {
+                "options": [
+                    {"name": "urgent", "color": "red"},
+                    {"name": "high", "color": "orange"},
+                    {"name": "medium", "color": "yellow"},
+                    {"name": "low", "color": "green"},
+                ]
+            }
+        },
         "Tags": {"multi_select": {}},
         "Due": {"date": {}},
         "Project": {"rich_text": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
@@ -88,20 +101,30 @@ _PROPS: dict[str, dict[str, Any]] = {
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
     "content": {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
-        "Status": {"select": {"options": [
-            {"name": "draft", "color": "blue"}, {"name": "published", "color": "green"},
-            {"name": "scheduled", "color": "orange"}, {"name": "idea", "color": "purple"},
-        ]}},
+        "Status": {
+            "select": {
+                "options": [
+                    {"name": "draft", "color": "blue"},
+                    {"name": "published", "color": "green"},
+                    {"name": "scheduled", "color": "orange"},
+                    {"name": "idea", "color": "purple"},
+                ]
+            }
+        },
         "Platform": {"select": {}},
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
@@ -110,7 +133,9 @@ _PROPS: dict[str, dict[str, Any]] = {
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
@@ -119,19 +144,30 @@ _PROPS: dict[str, dict[str, Any]] = {
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
     "entities": {
         "title": {"title": {}},
-        "Kind": {"select": {"options": [
-            {"name": "person", "color": "blue"}, {"name": "company", "color": "green"},
-            {"name": "tool", "color": "purple"}, {"name": "project", "color": "orange"},
-            {"name": "topic", "color": "pink"}, {"name": "preference", "color": "yellow"},
-        ]}},
+        "Kind": {
+            "select": {
+                "options": [
+                    {"name": "person", "color": "blue"},
+                    {"name": "company", "color": "green"},
+                    {"name": "tool", "color": "purple"},
+                    {"name": "project", "color": "orange"},
+                    {"name": "topic", "color": "pink"},
+                    {"name": "preference", "color": "yellow"},
+                ]
+            }
+        },
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
@@ -139,19 +175,28 @@ _PROPS: dict[str, dict[str, Any]] = {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
-        "Kind": {"select": {"options": [
-            {"name": "note", "color": "blue"}, {"name": "preference", "color": "yellow"},
-            {"name": "lesson", "color": "green"}, {"name": "decision", "color": "orange"},
-            {"name": "reminder", "color": "red"},
-        ]}},
+        "Kind": {
+            "select": {
+                "options": [
+                    {"name": "note", "color": "blue"},
+                    {"name": "preference", "color": "yellow"},
+                    {"name": "lesson", "color": "green"},
+                    {"name": "decision", "color": "orange"},
+                    {"name": "reminder", "color": "red"},
+                ]
+            }
+        },
         "Tags": {"multi_select": {}},
-        "Confidence": {"select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}},
+        "Confidence": {
+            "select": {"options": [{"name": c, "color": "blue"} for c in S.CONFIDENCES]}
+        },
         "Source Session": {"rich_text": {}},
         "Last Seen": {"date": {}},
     },
 }
 
 SCHEMA_VERSION = 2
+
 
 def _validate_status_options() -> None:
     """Fail loudly if a Status option name isn't in S.STATUSES.
@@ -176,7 +221,9 @@ def _validate_status_options() -> None:
                 f"Update _STATUS_OPTIONS or schema.STATUSES so they agree."
             )
 
+
 _validate_status_options()
+
 
 def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
     home_expanded = Path(os.path.expanduser(str(hermes_home)))
@@ -187,8 +234,11 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
     except (ValueError, TypeError):
         cached_version = 0
     if cached_version < SCHEMA_VERSION:
-        logger.info("Cache is at schema_version=%d (current=%d); updating cache version",
-                    cached_version, SCHEMA_VERSION)
+        logger.info(
+            "Cache is at schema_version=%d (current=%d); updating cache version",
+            cached_version,
+            SCHEMA_VERSION,
+        )
         cached["schema_version"] = str(SCHEMA_VERSION)
         _save_cache(cache_path, cached)
 
@@ -225,7 +275,9 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
             try:
                 db = store.get_database(cached[cache_key])
                 if db.get("archived") or db.get("in_trash"):
-                    logger.info("Cached database '%s' is archived or in trash — resolving live ID", key)
+                    logger.info(
+                        "Cached database '%s' is archived or in trash — resolving live ID", key
+                    )
                     cached.pop(cache_key, None)
                 else:
                     _repair_database_schema(db, expected_props, key)
@@ -237,7 +289,9 @@ def ensure_brain(hermes_home: str | Path) -> dict[str, str]:
         db_id = _find_existing_database(cached["parent_page_id"], display_name)
         if not db_id:
             if isinstance(custom_dbs, dict) and key in custom_dbs:
-                db_id = _find_or_create_database(cached["parent_page_id"], display_name, expected_props)
+                db_id = _find_or_create_database(
+                    cached["parent_page_id"], display_name, expected_props
+                )
             else:
                 raise RuntimeError(
                     f"Cannot find existing '{display_name}' database. "
@@ -303,7 +357,9 @@ def interactive_setup(
         print("\n[1/2] Standard Databases:")
         for idx, k in enumerate(standard_keys, 1):
             print(f"  [{idx}] {S.DATABASES[k]:<10} ({k})")
-        resp = _prompt("\nSelect databases to create (1-7, comma-separated, or 'all')", "all").lower()
+        resp = _prompt(
+            "\nSelect databases to create (1-7, comma-separated, or 'all')", "all"
+        ).lower()
         if resp == "all" or not resp:
             selected_standard = standard_keys
         else:
@@ -335,12 +391,16 @@ def interactive_setup(
         add_custom = _prompt("Would you like to add custom databases? (y/N)", "N").lower()
         if add_custom.startswith("y"):
             while True:
-                c_key = _prompt("  Database identifier / key (e.g. fitness, expenses)").strip().lower()
+                c_key = (
+                    _prompt("  Database identifier / key (e.g. fitness, expenses)").strip().lower()
+                )
                 if not c_key:
                     break
                 c_title = _prompt("  Display title in Notion", c_key.capitalize())
                 c_desc = _prompt("  What will you store in this database?", "")
-                c_fields_raw = _prompt("  Custom fields (format: Name:type, e.g. Reps:number, Exercise:select)", "")
+                c_fields_raw = _prompt(
+                    "  Custom fields (format: Name:type, e.g. Reps:number, Exercise:select)", ""
+                )
                 fields: dict[str, str] = {}
                 if c_fields_raw:
                     for f in c_fields_raw.split(","):
@@ -351,12 +411,14 @@ def interactive_setup(
                         elif f:
                             fields[f] = "rich_text"
 
-                custom_dbs_spec.append({
-                    "key": c_key,
-                    "title": c_title,
-                    "description": c_desc,
-                    "fields": fields,
-                })
+                custom_dbs_spec.append(
+                    {
+                        "key": c_key,
+                        "title": c_title,
+                        "description": c_desc,
+                        "fields": fields,
+                    }
+                )
                 more = _prompt("  Add another custom database? (y/N)", "N").lower()
                 if not more.startswith("y"):
                     break
@@ -440,7 +502,9 @@ def reset_databases(
             try:
                 store.archive_database(old_db_id)
             except Exception as exc:
-                logger.warning("Could not archive old database %s: %s", old_db_id, S.redact_secrets(str(exc)))
+                logger.warning(
+                    "Could not archive old database %s: %s", old_db_id, S.redact_secrets(str(exc))
+                )
             cached[f"db_{key}"] = new_db_id
 
         cached["schema_version"] = str(SCHEMA_VERSION)
@@ -450,6 +514,7 @@ def reset_databases(
         _save_cache(cache_path, cached)
         ensure_brain(hermes_home)
     return reset
+
 
 def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bool:
     actual = db.get("properties") or {}
@@ -466,6 +531,7 @@ def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bo
             if {o.get("name") for o in actual_opts} != {o.get("name") for o in expected_opts}:
                 return False
     return True
+
 
 def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
     """Print Notion URL(s) for the parent page and (optionally) every DB.
@@ -485,7 +551,9 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
                 title = page.get("title") or "Hermes Brain"
                 lines.append(f"{title}\t{url}")
         except Exception as exc:
-            logger.debug("Could not fetch parent page %s: %s", parent_id, S.redact_secrets(str(exc)))
+            logger.debug(
+                "Could not fetch parent page %s: %s", parent_id, S.redact_secrets(str(exc))
+            )
     if db:
         for key, db_id in cached.items():
             if not key.startswith("db_") or not db_id:
@@ -499,6 +567,7 @@ def get_url(hermes_home: str | Path, *, db: bool = False) -> str:
             except Exception as exc:
                 logger.debug("Could not fetch database %s: %s", db_id, S.redact_secrets(str(exc)))
     return "\n".join(lines)
+
 
 def wipe_database_rows(
     hermes_home: str | Path,
@@ -536,7 +605,9 @@ def wipe_database_rows(
                 try:
                     store.delete_page(page_id)
                 except Exception as exc:
-                    logger.warning("Could not delete page %s: %s", page_id, S.redact_secrets(str(exc)))
+                    logger.warning(
+                        "Could not delete page %s: %s", page_id, S.redact_secrets(str(exc))
+                    )
                     continue
             count += 1
         deleted_counts[key] = count
@@ -576,13 +647,12 @@ def _check_for_update() -> str | None:
         current_ver = "1.0.3"
     latest_ver = _find_latest_tag()
     if latest_ver and latest_ver != current_ver:
+
         def _tuple(v: str) -> tuple[int, ...]:
             return tuple(int(x) for x in _re.findall(r"\d+", v))
+
         if _tuple(latest_ver) > _tuple(current_ver):
-            return (
-                f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. "
-                f"Run: hermes-brain update"
-            )
+            return f"UPDATE AVAILABLE: {current_ver} -> {latest_ver}. Run: hermes-brain update"
     return None
 
 
@@ -607,7 +677,7 @@ def health_report(hermes_home: str | Path) -> str:
     try:
         parent = store.get_page(parent_id)
         title = parent.get("title") or "Hermes Brain"
-        lines.append(f"parent: {title}  url={parent.get('url','')}")
+        lines.append(f"parent: {title}  url={parent.get('url', '')}")
     except Exception as exc:
         lines.append(f"parent: ERROR fetching {parent_id}: {S.redact_secrets(str(exc))}")
     rebinding_happened = False
@@ -635,8 +705,8 @@ def health_report(hermes_home: str | Path) -> str:
                     if "404" in msg and "shared with your integration" in msg:
                         bot = store.get_bot_name()
                         lines.append(
-                            f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
-                            f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
+                            f'  {key:<10}  NOT SHARED: integration "{bot}" cannot see this database. '
+                            f'Fix: open the DB in Notion → ••• → Connections → add "{bot}".'
                         )
                     else:
                         lines.append(f"  {key:<10}  ERROR: {msg}")
@@ -644,14 +714,16 @@ def health_report(hermes_home: str | Path) -> str:
             else:
                 bot = store.get_bot_name()
                 lines.append(
-                    f"  {key:<10}  NOT SHARED: integration \"{bot}\" cannot see this database. "
-                    f"Fix: open the DB in Notion → ••• → Connections → add \"{bot}\"."
+                    f'  {key:<10}  NOT SHARED: integration "{bot}" cannot see this database. '
+                    f'Fix: open the DB in Notion → ••• → Connections → add "{bot}".'
                 )
                 continue
         match = _database_schema_matches(db, _PROPS[key])
         schema = "schema=ok" if match else "schema=MISMATCH"
         try:
-            entries = store.query_database(db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}])
+            entries = store.query_database(
+                db_id, page_size=100, sorts=[{"property": "Last Seen", "direction": "descending"}]
+            )
         except Exception:
             entries = []
         count = len(entries)
@@ -664,6 +736,7 @@ def health_report(hermes_home: str | Path) -> str:
 
     return "\n".join(lines)
 
+
 def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> None:
     """Add any properties that are missing from an existing Notion database.
 
@@ -674,16 +747,21 @@ def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> Non
     stay alongside our explicit options. The provider always writes its
     canonical names, so the extra defaults are inert clutter, not a bug.
     """
-    actual = (db.get("properties") or {})
+    actual = db.get("properties") or {}
     missing = {pname: spec for pname, spec in expected.items() if pname not in actual}
     if not missing:
         return
     try:
         store.update_database(db["id"], missing)
-        logger.info("Repaired '%s' database schema: added %d missing prop(s) (%s)",
-                    key, len(missing), ", ".join(missing))
+        logger.info(
+            "Repaired '%s' database schema: added %d missing prop(s) (%s)",
+            key,
+            len(missing),
+            ", ".join(missing),
+        )
     except Exception as exc:
         logger.warning("Could not repair '%s' database schema: %s", key, S.redact_secrets(str(exc)))
+
 
 def _load_cache(path: Path) -> dict[str, Any]:
     try:
@@ -692,6 +770,7 @@ def _load_cache(path: Path) -> dict[str, Any]:
     except Exception as exc:
         logger.debug("Failed to read cache: %s", S.redact_secrets(str(exc)))
     return {}
+
 
 def _save_cache(path: Path, data: dict[str, Any]) -> None:
     try:
@@ -712,6 +791,7 @@ def _save_cache(path: Path, data: dict[str, Any]) -> None:
     except Exception as exc:
         logger.warning("Failed to write cache: %s", S.redact_secrets(str(exc)))
 
+
 def _find_or_create_parent(title: str) -> str:
     existing = store.search_page_by_title(title, object_type="page")
     if existing:
@@ -724,14 +804,25 @@ def _find_or_create_parent(title: str) -> str:
     page = store.create_page(
         parent_id,
         properties=store.title_property(title),
-        children=[{
-            "object": "block", "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Long-term memory store for Hermes agent."}}]},
-        }],
+        children=[
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {"content": "Long-term memory store for Hermes agent."},
+                        }
+                    ]
+                },
+            }
+        ],
     )
     page_id = page["id"]
     logger.info("Created parent page '%s': %s", title, page_id)
     return page_id
+
 
 def _workspace_root_or_fail() -> str:
     """Pick the parent page for the Hermes Brain page.
@@ -757,6 +848,7 @@ def _workspace_root_or_fail() -> str:
         "(2) set HERMES_NOTION_PARENT_PAGE to the page ID; or (3) invite the "
         "notion_brain integration to a page first so search can see it."
     )
+
 
 def _find_existing_database(parent_page_id: str, title: str) -> str:
     """Locate an existing database WITHOUT creating one.
@@ -797,7 +889,9 @@ def _find_existing_database(parent_page_id: str, title: str) -> str:
             if db_title.strip().lower() == want:
                 return db["id"]
     except Exception as exc:
-        logger.debug("Full database enumeration for '%s' failed: %s", title, S.redact_secrets(str(exc)))
+        logger.debug(
+            "Full database enumeration for '%s' failed: %s", title, S.redact_secrets(str(exc))
+        )
 
     return ""
 
@@ -814,6 +908,7 @@ def _find_or_create_database(parent_page_id: str, title: str, props: dict[str, A
     logger.info("Created database '%s': %s", title, db["id"])
     return db["id"]
 
+
 def read_memory_from_disk(hermes_home: str | Path) -> str:
     for fpath in (
         Path(hermes_home) / "memories" / "MEMORY.md",
@@ -823,6 +918,7 @@ def read_memory_from_disk(hermes_home: str | Path) -> str:
             return fpath.read_text(encoding="utf-8")
     return ""
 
+
 def read_user_from_disk(hermes_home: str | Path) -> str:
     for fpath in (
         Path(hermes_home) / "memories" / "USER.md",
@@ -831,6 +927,7 @@ def read_user_from_disk(hermes_home: str | Path) -> str:
         if fpath.exists():
             return fpath.read_text(encoding="utf-8")
     return ""
+
 
 def write_memory_to_disk(hermes_home: str | Path, entries: list[dict[str, Any]]) -> None:
     """Rebuild MEMORY.md from a list of entries.
@@ -864,6 +961,7 @@ def write_memory_to_disk(hermes_home: str | Path, entries: list[dict[str, Any]])
         lines.append(f"{content}\n")
 
     fpath.write_text("\n".join(lines), encoding="utf-8")
+
 
 def write_user_to_disk(hermes_home: str | Path, entries: list[dict[str, Any]]) -> None:
     """Rebuild USER.md from a list of entries (usually entities with Kind=preference)."""

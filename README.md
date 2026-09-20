@@ -19,7 +19,7 @@
 
 ## Overview
 
-**hermes-brain** replaces local flat markdown memory files (`MEMORY.md` / `USER.md`) with a structured, multi-database Notion workspace under a single **Hermes Brain** parent page. 
+**hermes-brain** replaces local flat markdown memory files (`MEMORY.md` / `USER.md`) with a structured, multi-database Notion workspace under a single **Hermes Brain** parent page.
 
 Instead of an agent forgetting decisions or cluttering a single text file across long sessions, context is classified into dedicated databases with typed properties, status tracking, confidence scoring, and tag indexing.
 
@@ -231,7 +231,7 @@ For project documentation, policies, and guidelines, see:
 </p>
 
 <p align="center">
-  If you find this project useful, <strong>please consider starring it ⭐</strong> 
+  If you find this project useful, <strong>please consider starring it ⭐</strong>
   or <a href="https://github.com/MNDL-27">following</a> for more AI infrastructure tools.
 </p>
 

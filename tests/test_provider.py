@@ -28,35 +28,42 @@ from notion_brain.store import (
 
 # Provider existence and interface
 
+
 class TestProviderInterface:
     def test_import(self):
         from notion_brain import NotionBrainProvider, register
+
         assert NotionBrainProvider is not None
         assert callable(register)
 
     def test_has_name(self):
         from notion_brain import NotionBrainProvider
+
         provider = NotionBrainProvider()
         assert provider.name == "notion_brain"
 
     def test_is_available_without_key(self):
         from notion_brain import NotionBrainProvider
+
         with patch("notion_brain.store.get_api_key", return_value=None):
             provider = NotionBrainProvider()
             assert provider.is_available() is False
 
     def test_is_available_with_key(self):
         from notion_brain import NotionBrainProvider
+
         with patch("notion_brain.store.get_api_key", return_value="test-key"):
             provider = NotionBrainProvider()
             assert provider.is_available() is True
 
     def test_tool_schemas_count(self):
         from notion_brain import ALL_TOOL_SCHEMAS
+
         assert len(ALL_TOOL_SCHEMAS) == 5
 
     def test_tool_schema_names(self):
         from notion_brain import ALL_TOOL_SCHEMAS
+
         names = [s["name"] for s in ALL_TOOL_SCHEMAS]
         expected = [
             "notion_brain_search",
@@ -70,6 +77,7 @@ class TestProviderInterface:
 
     def test_tool_schemas_have_required_fields(self):
         from notion_brain import ALL_TOOL_SCHEMAS
+
         for schema in ALL_TOOL_SCHEMAS:
             assert "name" in schema
             assert "description" in schema
@@ -83,10 +91,12 @@ class TestProviderInterface:
 
 # handle_tool_call dispatch
 
+
 class TestToolDispatch:
     def _make_initialized_provider(self):
         """Create a provider with mocked initialized state."""
         from notion_brain import NotionBrainProvider
+
         provider = NotionBrainProvider()
         provider._db_ids = {
             "tasks": "db-tasks-id",
@@ -120,7 +130,9 @@ class TestToolDispatch:
         provider = self._make_initialized_provider()
         with patch("notion_brain.store.create_database_page") as mock_create:
             mock_create.return_value = {"id": "new-page-123"}
-            result = provider.handle_tool_call("notion_brain_remember", {"title": "Test", "content": "Content"})
+            result = provider.handle_tool_call(
+                "notion_brain_remember", {"title": "Test", "content": "Content"}
+            )
             data = json.loads(result)
             assert "result" in data
 
@@ -140,7 +152,16 @@ class TestToolDispatch:
         provider = self._make_initialized_provider()
         with patch("notion_brain.store.query_database") as mock_query:
             mock_query.return_value = [
-                {"id": "p1", "title": "Task 1", "properties": {"Status": {"name": "active"}, "Priority": {"name": "high"}, "Due": "2025-01-01", "Project": {"rich_text": [{"text": {"content": "Proj"}}]}}},
+                {
+                    "id": "p1",
+                    "title": "Task 1",
+                    "properties": {
+                        "Status": {"name": "active"},
+                        "Priority": {"name": "high"},
+                        "Due": "2025-01-01",
+                        "Project": {"rich_text": [{"text": {"content": "Proj"}}]},
+                    },
+                },
             ]
             result = provider.handle_tool_call("notion_brain_task", {"action": "list"})
             data = json.loads(result)
@@ -183,7 +204,11 @@ class TestToolDispatch:
                 "properties": {
                     "Status": {
                         "status": {
-                            "options": [{"name": "active"}, {"name": "done"}, {"name": "needs_review"}]
+                            "options": [
+                                {"name": "active"},
+                                {"name": "done"},
+                                {"name": "needs_review"},
+                            ]
                         }
                     }
                 }
@@ -204,9 +229,10 @@ class TestToolDispatch:
         provider = self._make_initialized_provider()
         with patch("notion_brain.store.create_database_page") as mock_create:
             mock_create.return_value = {"id": "content-page-1"}
-            result = provider.handle_tool_call("notion_brain_content", {
-                "action": "create", "title": "Tweet idea", "body": "Here's the text"
-            })
+            result = provider.handle_tool_call(
+                "notion_brain_content",
+                {"action": "create", "title": "Tweet idea", "body": "Here's the text"},
+            )
             data = json.loads(result)
             assert "result" in data
 
@@ -214,9 +240,10 @@ class TestToolDispatch:
         provider = self._make_initialized_provider()
         with patch("notion_brain.store.create_database_page") as mock_create:
             mock_create.return_value = {"id": "research-page-1"}
-            result = provider.handle_tool_call("notion_brain_research", {
-                "action": "save", "title": "Finding", "content": "Results"
-            })
+            result = provider.handle_tool_call(
+                "notion_brain_research",
+                {"action": "save", "title": "Finding", "content": "Results"},
+            )
             data = json.loads(result)
             assert "result" in data
 
@@ -245,12 +272,15 @@ class TestToolDispatch:
             # 1. Test notion_brain_task redacts secrets in title, content, and tags
             with patch("notion_brain.store.create_database_page") as mock_create:
                 mock_create.return_value = {"id": "task-page-secret"}
-                provider.handle_tool_call("notion_brain_task", {
-                    "action": "create",
-                    "title": f"Fix key {secret}",
-                    "content": f"Content with {secret}",
-                    "tags": [f"tag-{secret}", "safe-tag"],
-                })
+                provider.handle_tool_call(
+                    "notion_brain_task",
+                    {
+                        "action": "create",
+                        "title": f"Fix key {secret}",
+                        "content": f"Content with {secret}",
+                        "tags": [f"tag-{secret}", "safe-tag"],
+                    },
+                )
                 assert mock_create.call_count == 1
                 args, kwargs = mock_create.call_args
                 properties = kwargs["properties"]
@@ -266,12 +296,15 @@ class TestToolDispatch:
             # 2. Test notion_brain_content redacts secrets in title, body, and tags
             with patch("notion_brain.store.create_database_page") as mock_create:
                 mock_create.return_value = {"id": "content-page-secret"}
-                provider.handle_tool_call("notion_brain_content", {
-                    "action": "create",
-                    "title": f"Idea {secret}",
-                    "body": f"Post my secret: {secret}",
-                    "tags": [secret],
-                })
+                provider.handle_tool_call(
+                    "notion_brain_content",
+                    {
+                        "action": "create",
+                        "title": f"Idea {secret}",
+                        "body": f"Post my secret: {secret}",
+                        "tags": [secret],
+                    },
+                )
                 assert mock_create.call_count == 1
                 args, kwargs = mock_create.call_args
                 properties = kwargs["properties"]
@@ -286,12 +319,15 @@ class TestToolDispatch:
             # 3. Test notion_brain_research redacts secrets in title, content, and tags
             with patch("notion_brain.store.create_database_page") as mock_create:
                 mock_create.return_value = {"id": "research-page-secret"}
-                provider.handle_tool_call("notion_brain_research", {
-                    "action": "save",
-                    "title": f"Research on {secret}",
-                    "content": f"Confidential {secret}",
-                    "tags": [f"tag-{secret}"],
-                })
+                provider.handle_tool_call(
+                    "notion_brain_research",
+                    {
+                        "action": "save",
+                        "title": f"Research on {secret}",
+                        "content": f"Confidential {secret}",
+                        "tags": [f"tag-{secret}"],
+                    },
+                )
                 assert mock_create.call_count == 1
                 args, kwargs = mock_create.call_args
                 properties = kwargs["properties"]
@@ -306,11 +342,14 @@ class TestToolDispatch:
             # 4. Test notion_brain_task update action redacts title
             with patch("notion_brain.store.update_page") as mock_update:
                 mock_update.return_value = {"id": "task-page-secret"}
-                provider.handle_tool_call("notion_brain_task", {
-                    "action": "update",
-                    "page_id": "task-page-secret",
-                    "title": f"New title {secret}",
-                })
+                provider.handle_tool_call(
+                    "notion_brain_task",
+                    {
+                        "action": "update",
+                        "page_id": "task-page-secret",
+                        "title": f"New title {secret}",
+                    },
+                )
                 assert mock_update.call_count == 1
                 args, kwargs = mock_update.call_args
                 properties = args[1]
@@ -320,6 +359,7 @@ class TestToolDispatch:
 
 # Merge helpers for disk-only entries
 
+
 class TestMergeDiskOnly:
     """Tests for _merge_disk_only and _merge_user_disk_only."""
 
@@ -328,12 +368,14 @@ class TestMergeDiskOnly:
 
     def test_merge_disk_only_no_disk_text(self):
         from notion_brain.helpers import _merge_disk_only
+
         entries = [{"title": "Foo", "properties": {"Content": "bar"}}]
         result = _merge_disk_only(entries, "")
         assert result == entries
 
     def test_merge_disk_only_keeps_new_title(self):
         from notion_brain.helpers import _merge_disk_only
+
         notion = [{"title": "Already", "properties": {"Content": "x"}}]
         disk = "---\nname: New Entry\ndomain: Memory\nkind: note\ntags: a, b\n---\nSome body text\n"
         result = _merge_disk_only(notion, disk)
@@ -343,6 +385,7 @@ class TestMergeDiskOnly:
 
     def test_merge_disk_only_drops_duplicate_title(self):
         from notion_brain.helpers import _merge_disk_only
+
         notion = [{"title": "Duplicate", "properties": {"Content": "x"}}]
         disk = "---\nname: Duplicate\ndomain: Memory\nkind: note\n---\nBody\n"
         result = _merge_disk_only(notion, disk)
@@ -363,13 +406,20 @@ class TestMergeDiskOnly:
 
     def test_merge_user_disk_only_no_disk_text(self):
         from notion_brain.helpers import _merge_user_disk_only
+
         entries = [{"title": "Foo", "properties": {"Content": "bar"}}]
         result = _merge_user_disk_only(entries, "")
         assert result == entries
 
     def test_merge_user_disk_only_parses_sections(self):
         from notion_brain.helpers import _merge_user_disk_only
-        notion = [{"title": "Already In Notion", "properties": {"Content": "from notion", "Kind": "preference"}}]
+
+        notion = [
+            {
+                "title": "Already In Notion",
+                "properties": {"Content": "from notion", "Kind": "preference"},
+            }
+        ]
         result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
         titles = {e["title"] for e in result}
         # "Already In Notion" should be dropped (already in notion entries)
@@ -379,6 +429,7 @@ class TestMergeDiskOnly:
 
     def test_merge_user_disk_only_content_preserved(self):
         from notion_brain.helpers import _merge_user_disk_only
+
         notion: list = []
         result = _merge_user_disk_only(notion, self.USER_DISK_TEXT)
         code_entry = next(e for e in result if e["title"] == "Code Style Preference")
@@ -387,11 +438,13 @@ class TestMergeDiskOnly:
 
     def test_merge_user_disk_only_empty_user_md(self):
         from notion_brain.helpers import _merge_user_disk_only
+
         result = _merge_user_disk_only([], "# User Profile\n")
         assert result == []
 
     def test_merge_user_disk_only_all_duplicates(self):
         from notion_brain.helpers import _merge_user_disk_only
+
         notion = [
             {"title": "Code Style Preference", "properties": {"Content": "c"}},
             {"title": "Editing Tools", "properties": {"Content": "c"}},
@@ -404,10 +457,12 @@ class TestMergeDiskOnly:
 
     def test_merge_user_disk_only_no_profile_header(self):
         from notion_brain.helpers import _merge_user_disk_only
+
         disk = "## Preference One\nBody one.\n\n## Preference Two\nBody two.\n"
         result = _merge_user_disk_only([], disk)
         titles = {e["title"] for e in result}
         assert titles == {"Preference One", "Preference Two"}
+
 
 class TestDomainMapping:
     def test_all_domains_have_database(self):
@@ -425,6 +480,7 @@ class TestDomainMapping:
 
 
 # Store helpers
+
 
 class TestStoreHelpers:
     def test_title_property(self):
@@ -483,6 +539,7 @@ class TestStoreHelpers:
 
 # Regression: exception log redaction (Sentinel CRITICAL — PR #13)
 
+
 class TestExceptionLogRedaction:
     """Production paths must redact secrets in exception messages before logging or returning."""
 
@@ -496,6 +553,7 @@ class TestExceptionLogRedaction:
     def test_initialize_error_redacts_secrets(self, mock_ensure, caplog):
         """provider.initialize() logs bootstrap exception with redaction."""
         from notion_brain import NotionBrainProvider
+
         caplog.set_level("ERROR", logger="notion_brain")
         mock_ensure.side_effect = RuntimeError(f"db connection: {self.SECRET}")
         provider = NotionBrainProvider()
@@ -508,13 +566,16 @@ class TestExceptionLogRedaction:
         """_database_properties logs schema-fetch exception with redaction."""
         from notion_brain import NotionBrainProvider
         from notion_brain import schema as S
+
         caplog.set_level("WARNING", logger="notion_brain")
         mock_get_db.side_effect = RuntimeError(f"schema read: {self.SECRET}")
         mock_create.side_effect = RuntimeError("NOTION_API_KEY not set")
         provider = NotionBrainProvider()
         provider._session_id = "test"
         provider._db_ids = {"memory": "db-id"}
-        entry = S.BrainEntry(domain="memory", title="test", content="test", kind="note").normalized()
+        entry = S.BrainEntry(
+            domain="memory", title="test", content="test", kind="note"
+        ).normalized()
         try:
             provider._write_entry_raw("db-id", entry)
         except RuntimeError:
@@ -525,6 +586,7 @@ class TestExceptionLogRedaction:
     def test_validated_status_error_redacts_secrets(self, mock_get_db, caplog):
         """_validated_status logs schema-read exception with redaction."""
         from notion_brain import NotionBrainProvider
+
         caplog.set_level("WARNING", logger="notion_brain")
         mock_get_db.side_effect = RuntimeError(f"status schema: {self.SECRET}")
         provider = NotionBrainProvider()
@@ -536,11 +598,14 @@ class TestExceptionLogRedaction:
     def test_get_url_db_error_redacts_secrets(self, caplog):
         """get_url logs database-fetch exception with redaction."""
         from notion_brain import bootstrap
+
         caplog.set_level("DEBUG", logger="notion_brain.bootstrap")
         fake_cache = {"parent_page_id": "parent-123", "db_tasks": "db-456"}
-        with patch("notion_brain.bootstrap._load_cache", return_value=fake_cache), \
-             patch("notion_brain.store.get_page") as mock_pg, \
-             patch("notion_brain.store.get_database") as mock_db:
+        with (
+            patch("notion_brain.bootstrap._load_cache", return_value=fake_cache),
+            patch("notion_brain.store.get_page") as mock_pg,
+            patch("notion_brain.store.get_database") as mock_db,
+        ):
             mock_pg.side_effect = RuntimeError(f"parent fetch: {self.SECRET}")
             mock_db.side_effect = RuntimeError(f"db fetch: {self.SECRET}")
             bootstrap.get_url(Path("/tmp/fake-hermes-home"), db=True)
@@ -549,22 +614,32 @@ class TestExceptionLogRedaction:
     def test_cache_write_error_redacts_secrets(self, caplog):
         """_save_cache logs cache-write exception with redaction."""
         from notion_brain import bootstrap
+
         caplog.set_level("WARNING", logger="notion_brain.bootstrap")
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_path = Path(tmpdir) / "sub" / "cache.json"
-            with patch.object(Path, "write_text", side_effect=RuntimeError(f"disk full: {self.SECRET}")):
+            with patch.object(
+                Path, "write_text", side_effect=RuntimeError(f"disk full: {self.SECRET}")
+            ):
                 bootstrap._save_cache(cache_path, {"key": "val"})
             self._assert_no_leak(caplog, self.SECRET, logger_name="notion_brain.bootstrap")
 
     def test_health_report_error_redacts_secrets(self, caplog):
         """health_report interpolates exception with redaction, not raw."""
         from notion_brain import bootstrap
+
         caplog.set_level("INFO")
-        fake_cache = {"parent_page_id": "nonexistent-parent-uuid", "db_tasks": "nonexistent-db-uuid"}
-        with patch("notion_brain.bootstrap._load_cache", return_value=fake_cache), \
-             patch("notion_brain.store.get_page") as mock_pg, \
-             patch("notion_brain.store.get_database") as mock_db:
+        fake_cache = {
+            "parent_page_id": "nonexistent-parent-uuid",
+            "db_tasks": "nonexistent-db-uuid",
+        }
+        with (
+            patch("notion_brain.bootstrap._load_cache", return_value=fake_cache),
+            patch("notion_brain.store.get_page") as mock_pg,
+            patch("notion_brain.store.get_database") as mock_db,
+        ):
             mock_pg.side_effect = RuntimeError(f"page error: {self.SECRET}")
             mock_db.side_effect = RuntimeError(f"db error: {self.SECRET}")
             report = bootstrap.health_report(Path("/tmp/fake-hermes-home"))
@@ -576,6 +651,7 @@ class TestExceptionLogRedaction:
         import json
 
         from notion_brain import NotionBrainProvider
+
         caplog.set_level("WARNING", logger="notion_brain")
         provider = NotionBrainProvider()
 

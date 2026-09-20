@@ -25,9 +25,7 @@ def _cache() -> dict[str, str]:
 
 
 @pytest.fixture
-def initialized_provider(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-) -> NotionBrainProvider:
+def initialized_provider(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> NotionBrainProvider:
     monkeypatch.setattr(bootstrap, "ensure_brain", lambda home: _cache())
     monkeypatch.setattr(bootstrap, "read_memory_from_disk", lambda home: "")
     monkeypatch.setattr(bootstrap, "read_user_from_disk", lambda home: "")
@@ -104,9 +102,7 @@ def test_successful_public_tool_calls_return_json_objects(
             }
         },
     )
-    monkeypatch.setattr(
-        store, "create_database_page", lambda *args, **kwargs: {"id": "page-id"}
-    )
+    monkeypatch.setattr(store, "create_database_page", lambda *args, **kwargs: {"id": "page-id"})
 
     response = initialized_provider.handle_tool_call(tool_name, arguments)
 
@@ -172,9 +168,7 @@ def test_initialize_maps_every_cached_database_for_filtered_search(
     assert queried_database_ids == [f"{key}-id" for key in schema.DATABASES]
 
 
-def test_initialize_failure_does_not_escape(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-) -> None:
+def test_initialize_failure_does_not_escape(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
     def fail_bootstrap(home: str) -> dict[str, str]:
         raise RuntimeError("simulated bootstrap failure")
 

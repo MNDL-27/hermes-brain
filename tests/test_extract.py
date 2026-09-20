@@ -36,6 +36,7 @@ from notion_brain.schema import (
 
 # Helpers
 
+
 def _trivial_asst(text: str = "ok") -> str:
     return text
 
@@ -45,6 +46,7 @@ def _user(text: str) -> str:
 
 
 # Trivial responses are excluded
+
 
 class TestTrivialExclusions:
     def test_ok_response_excluded(self):
@@ -66,6 +68,7 @@ class TestTrivialExclusions:
 
 
 # Task detection
+
 
 class TestTaskDetection:
     def test_reminder_triggers_task(self):
@@ -105,6 +108,7 @@ class TestTaskDetection:
 
 # Project / Decision detection
 
+
 class TestProjectDetection:
     def test_decision_triggers_project(self):
         entries = classify_turn(
@@ -133,6 +137,7 @@ class TestProjectDetection:
 
 # Research detection
 
+
 class TestResearchDetection:
     def test_source_triggers_research(self):
         entries = classify_turn(
@@ -152,6 +157,7 @@ class TestResearchDetection:
 
 
 # Social content detection
+
 
 class TestContentDetection:
     def test_tweet_triggers_content(self):
@@ -183,6 +189,7 @@ class TestContentDetection:
 
 # Career detection
 
+
 class TestCareerDetection:
     def test_interview_triggers_career(self):
         entries = classify_turn(
@@ -202,6 +209,7 @@ class TestCareerDetection:
 
 
 # Preference detection
+
 
 class TestPreferenceDetection:
     def test_preference_triggered(self):
@@ -232,6 +240,7 @@ class TestPreferenceDetection:
 
 # No duplicate domains per turn
 
+
 class TestDeduplication:
     def test_same_turn_no_domain_dupes(self):
         """Only one entry per domain per turn."""
@@ -243,6 +252,7 @@ class TestDeduplication:
 
 
 # Sentence boundary helpers
+
 
 class TestSentenceBoundaries:
     def test_rev_boundary_finds_period(self):
@@ -428,6 +438,7 @@ class TestDatabaseMapping:
 
 # Internal extract helpers
 
+
 class TestBriefTitle:
     def test_truncates_to_80(self):
         assert len(_brief_title("x" * 200, "Fallback")) == 80
@@ -471,9 +482,12 @@ class TestExtractSentence:
 
 # Routing Rules and LLM Extractor Tests
 
+
 class TestRoutingAndLLMExtraction:
     def test_git_commands_never_route_to_content(self):
-        entries = classify_turn("git commit -m 'feat: add feature' and git push origin main", "Pushed.")
+        entries = classify_turn(
+            "git commit -m 'feat: add feature' and git push origin main", "Pushed."
+        )
         domains = [e.domain for e in entries]
         assert "social_content" not in domains
 
@@ -483,7 +497,9 @@ class TestRoutingAndLLMExtraction:
         assert "social_content" not in domains
 
     def test_conversational_filler_never_routes_to_tasks(self):
-        entries = classify_turn("Can you check the database status when you have time?", "Checking now.")
+        entries = classify_turn(
+            "Can you check the database status when you have time?", "Checking now."
+        )
         tasks = [e for e in entries if e.domain == "daily_work"]
         assert tasks == []
 
@@ -496,11 +512,13 @@ class TestRoutingAndLLMExtraction:
         entries = classify_turn("I prefer VPS/Docker over Cloud SaaS for hosting", "Got it.")
         prefs = [e for e in entries if e.kind == "preference"]
         assert prefs
-        assert "Hosting: Prefers VPS/Docker over Cloud SaaS" in prefs[0].title or "Prefers VPS/Docker" in prefs[0].title
+        assert (
+            "Hosting: Prefers VPS/Docker over Cloud SaaS" in prefs[0].title
+            or "Prefers VPS/Docker" in prefs[0].title
+        )
 
     def test_llm_extractor_integration(self, monkeypatch):
         from unittest.mock import patch
-
 
         fake_resp = [
             {
@@ -524,6 +542,7 @@ class TestRoutingAndLLMExtraction:
             },
         ]
         import json
+
         with patch("requests.post") as mock_post:
             mock_post.return_value.ok = True
             mock_post.return_value.json.return_value = {
@@ -536,4 +555,3 @@ class TestRoutingAndLLMExtraction:
             assert entries[1].domain == "projects"
             assert entries[2].domain == "daily_work"
             assert entries[2].kind == "task"
-

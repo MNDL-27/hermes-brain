@@ -85,4 +85,3 @@ def test_check_for_update_handles_network_failure(monkeypatch):
 
     monkeypatch.setattr(bootstrap._urllib_request, "urlopen", _fail)
     assert bootstrap._check_for_update() is None
-

@@ -1,7 +1,6 @@
 from __future__ import annotations
+
 import pytest
-import sys
-import unittest.mock
 
 # Import CONFIG_SCHEMA from production module (has its own fallback for offline use)
 from notion_brain.config_schema import CONFIG_SCHEMA, KIND_SECRET, KIND_TEXT, STORAGE_FLAT_JSON

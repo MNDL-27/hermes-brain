@@ -195,16 +195,16 @@ if "plugins" not in sys.modules:
     plugins_mod = types.ModuleType("plugins")
     memory_mod = types.ModuleType("plugins.memory")
     config_schema_mod = types.ModuleType("plugins.memory.config_schema")
-    
+
     plugins_mod.memory = memory_mod
     memory_mod.config_schema = config_schema_mod
-    
+
     config_schema_mod.KIND_SECRET = "secret"
     config_schema_mod.KIND_TEXT = "text"
     config_schema_mod.STORAGE_FLAT_JSON = "flat_json"
     config_schema_mod.ProviderConfigSchema = ProviderConfigSchema
     config_schema_mod.ProviderField = ProviderField
-    
+
     sys.modules["plugins"] = plugins_mod
     sys.modules["plugins.memory"] = memory_mod
     sys.modules["plugins.memory.config_schema"] = config_schema_mod
@@ -335,16 +335,16 @@ if "plugins" not in sys.modules:
     plugins_mod = types.ModuleType("plugins")
     memory_mod = types.ModuleType("plugins.memory")
     config_schema_mod = types.ModuleType("plugins.memory.config_schema")
-    
+
     plugins_mod.memory = memory_mod
     memory_mod.config_schema = config_schema_mod
-    
+
     config_schema_mod.KIND_SECRET = "secret"
     config_schema_mod.KIND_TEXT = "text"
     config_schema_mod.STORAGE_FLAT_JSON = "flat_json"
     config_schema_mod.ProviderConfigSchema = ProviderConfigSchema
     config_schema_mod.ProviderField = ProviderField
-    
+
     sys.modules["plugins"] = plugins_mod
     sys.modules["plugins.memory"] = memory_mod
     sys.modules["plugins.memory.config_schema"] = config_schema_mod

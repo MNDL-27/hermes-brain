@@ -112,9 +112,7 @@ def test_sync_turns_do_not_execute_writes_concurrently(
 
         provider.sync_turn("second user turn", "second assistant turn")
         worker_threads.append(provider._sync_thread)
-        concurrent_execution = second_write_entered.wait(
-            timeout=_CONCURRENCY_PROBE_SECONDS
-        )
+        concurrent_execution = second_write_entered.wait(timeout=_CONCURRENCY_PROBE_SECONDS)
     finally:
         release_first_write.set()
         _join_threads(*worker_threads)
@@ -185,9 +183,7 @@ def test_lifecycle_waits_for_every_accepted_sync_write(
         later_write_completed.wait(timeout=_CONCURRENCY_PROBE_SECONDS)
 
         lifecycle_thread.start()
-        returned_before_release = lifecycle_completed.wait(
-            timeout=_CONCURRENCY_PROBE_SECONDS
-        )
+        returned_before_release = lifecycle_completed.wait(timeout=_CONCURRENCY_PROBE_SECONDS)
     finally:
         release_first_write.set()
         _join_threads(*worker_threads, lifecycle_thread)

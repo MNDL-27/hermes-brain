@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Type
+
 
 @dataclass(frozen=True)
 class ProviderField:
@@ -14,6 +14,7 @@ class ProviderField:
     group: str = ""
     default: str | None = None
 
+
 @dataclass(frozen=True)
 class ProviderConfigSchema:
     name: str
@@ -21,10 +22,12 @@ class ProviderConfigSchema:
     storage: str
     fields: tuple[ProviderField, ...]
 
+
 # Stub constants (D-02)
 KIND_SECRET: str = "secret"
 KIND_TEXT: str = "text"
 STORAGE_FLAT_JSON: str = "flat_json"
+
 
 def pytest_configure(config):
     """Stub for conftest setup."""

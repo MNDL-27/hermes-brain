@@ -1,10 +1,10 @@
 # Codebase Audit Report — hermes-brain
 
-**Repository:** `MNDL-27/hermes-brain` (`/mnt/c/code/hermes-brain`)  
-**Commit audited:** `026ee0a` (`fix(cli): health command exits nonzero when databases are not shared`) — `main` @ 2026-09-01  
-**Auditor:** Lead Codebase Auditor (Hermes Agent) — multi-agent orchestration, 5 specialists dispatched (all hit token-router rate limits / truncation; findings below are lead-auditor direct verification)  
-**Date:** 2026-09-01  
-**Prior remediation:** `REMEDIATION-STATUS.md` v1.0.1 (2026-08-25) — 13 findings triaged across Wave 1 (P0), Wave 2 (P1), Wave 3 (P2)  
+**Repository:** `MNDL-27/hermes-brain` (`/mnt/c/code/hermes-brain`)
+**Commit audited:** `026ee0a` (`fix(cli): health command exits nonzero when databases are not shared`) — `main` @ 2026-09-01
+**Auditor:** Lead Codebase Auditor (Hermes Agent) — multi-agent orchestration, 5 specialists dispatched (all hit token-router rate limits / truncation; findings below are lead-auditor direct verification)
+**Date:** 2026-09-01
+**Prior remediation:** `REMEDIATION-STATUS.md` v1.0.1 (2026-08-25) — 13 findings triaged across Wave 1 (P0), Wave 2 (P1), Wave 3 (P2)
 **Method:** `deep-codebase-audit` baseline — Recon → Arch map → Critical-path trace → Specialist delegation → Independent verification (reads + `uv run pytest/ruff/mypy/coverage` + wheel inspection) → Finding review / dedup → Cross-system + root-cause analysis → Synthesis
 
 ---

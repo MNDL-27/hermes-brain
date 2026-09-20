@@ -1,4 +1,5 @@
 """Tests for automatic local disk memory synchronization."""
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ from notion_brain.provider import NotionBrainProvider
 def block_network(monkeypatch: pytest.MonkeyPatch):
     def forbid(*args, **kwargs):
         raise AssertionError("No real network calls during unit tests")
+
     monkeypatch.setattr(store.requests, "request", forbid)
 
 
@@ -53,7 +55,9 @@ def test_parse_disk_memory_text_headings_and_bullets():
 def test_auto_disk_sync_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mem_dir = tmp_path / "memories"
     mem_dir.mkdir()
-    (mem_dir / "MEMORY.md").write_text("Audit done: All P0 fixed.\n§\nDesktop installed.\n", encoding="utf-8")
+    (mem_dir / "MEMORY.md").write_text(
+        "Audit done: All P0 fixed.\n§\nDesktop installed.\n", encoding="utf-8"
+    )
     (mem_dir / "USER.md").write_text("User preference: Always use pytest.\n", encoding="utf-8")
 
     stored_entries = []

@@ -184,8 +184,7 @@ def test_paragraph_blocks_preserve_every_non_empty_line() -> None:
     blocks = _paragraph_blocks("\n".join(source_lines))
     emitted_lines = [
         "".join(
-            fragment.get("plain_text")
-            or fragment.get("text", {}).get("content", "")
+            fragment.get("plain_text") or fragment.get("text", {}).get("content", "")
             for fragment in block["paragraph"]["rich_text"]
         )
         for block in blocks
@@ -240,7 +239,11 @@ def test_domain_writes_emit_only_values_declared_by_bootstrap_schema(
         bootstrap_properties = bootstrap._PROPS[database_key]
         for property_name, payload in properties.items():
             emitted_type = next(
-                (property_type for property_type in ("select", "status") if property_type in payload),
+                (
+                    property_type
+                    for property_type in ("select", "status")
+                    if property_type in payload
+                ),
                 None,
             )
             if emitted_type is None:

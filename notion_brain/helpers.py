@@ -78,13 +78,15 @@ def parse_disk_memory_text(text: str, default_domain: str = "memory") -> list[di
             cl = extract.classify_text(block)
             domain = cl.get("domain", default_domain)
             kind = cl.get("kind", "note")
-            entries.append({
-                "title": title,
-                "content": block,
-                "domain": domain,
-                "kind": kind,
-                "tags": [domain] if domain != "memory" else [],
-            })
+            entries.append(
+                {
+                    "title": title,
+                    "content": block,
+                    "domain": domain,
+                    "kind": kind,
+                    "tags": [domain] if domain != "memory" else [],
+                }
+            )
         return entries
 
     # 2. Frontmatter-like blocks ('---')
@@ -104,13 +106,15 @@ def parse_disk_memory_text(text: str, default_domain: str = "memory") -> list[di
                         meta[k.strip().lower()] = v.strip()
                 body = blocks[i + 1].strip() if i + 1 < len(blocks) else ""
                 domain = meta.get("domain", default_domain)
-                entries.append({
-                    "title": meta.get("name", "Untitled"),
-                    "content": body or meta.get("name", ""),
-                    "domain": domain,
-                    "kind": meta.get("kind", "note"),
-                    "tags": [t.strip() for t in meta.get("tags", "").split(",") if t.strip()],
-                })
+                entries.append(
+                    {
+                        "title": meta.get("name", "Untitled"),
+                        "content": body or meta.get("name", ""),
+                        "domain": domain,
+                        "kind": meta.get("kind", "note"),
+                        "tags": [t.strip() for t in meta.get("tags", "").split(",") if t.strip()],
+                    }
+                )
                 i += 2
                 continue
             i += 1
@@ -127,13 +131,15 @@ def parse_disk_memory_text(text: str, default_domain: str = "memory") -> list[di
         if current_title and current_body:
             cl = extract.classify_text(current_body)
             d = domain if domain != "memory" else cl.get("domain", "memory")
-            entries.append({
-                "title": current_title,
-                "content": current_body,
-                "domain": d,
-                "kind": cl.get("kind", "note"),
-                "tags": [d] if d != "memory" else [],
-            })
+            entries.append(
+                {
+                    "title": current_title,
+                    "content": current_body,
+                    "domain": d,
+                    "kind": cl.get("kind", "note"),
+                    "tags": [d] if d != "memory" else [],
+                }
+            )
         current_title = ""
         current_body = ""
 
@@ -196,15 +202,17 @@ def _merge_disk_only(notion_entries: list[dict], disk_text: str) -> list[dict]:
                 content.append(line)
 
         if title and title.lower() not in notion_titles:
-            disk_entries.append({
-                "title": title,
-                "properties": {
-                    "Content": "\n".join(content).strip(),
-                    "Domain": "Memory",
-                    "Kind": "note",
-                    "Tags": tags,
+            disk_entries.append(
+                {
+                    "title": title,
+                    "properties": {
+                        "Content": "\n".join(content).strip(),
+                        "Domain": "Memory",
+                        "Kind": "note",
+                        "Tags": tags,
+                    },
                 }
-            })
+            )
 
     return notion_entries + disk_entries
 
@@ -254,7 +262,9 @@ def _user_disk_entry(title: str, body: list[str]) -> dict:
     }
 
 
-def _paragraph_blocks(content: str, *, max_paras: int | None = None, chunk: int = 1900) -> list[dict]:
+def _paragraph_blocks(
+    content: str, *, max_paras: int | None = None, chunk: int = 1900
+) -> list[dict]:
     """Split content into Notion paragraph children.
 
     Preserves every non-empty line without arbitrary truncation.
@@ -271,9 +281,13 @@ def _paragraph_blocks(content: str, *, max_paras: int | None = None, chunk: int 
         if not para:
             continue
         for i in range(0, len(para), chunk):
-            blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": [{"type": "text", "text": {"content": para[i:i + chunk]}}]},
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": para[i : i + chunk]}}]
+                    },
+                }
+            )
     return blocks

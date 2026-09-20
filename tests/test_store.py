@@ -21,6 +21,7 @@ from notion_brain.store import (
 
 # Property helpers
 
+
 class TestDateProperty:
     def test_with_date(self):
         prop = date_property("2026-07-22")
@@ -62,19 +63,18 @@ class TestRichTextTruncation:
 
 # _page_title — extract title from raw Notion page
 
+
 def _page(props):
     return {"properties": props}
 
 
 class TestPageTitle:
     def test_extracts_title(self):
-        page = _page({"Name": {"type": "title",
-                               "title": [{"text": {"content": "My Page"}}]}})
+        page = _page({"Name": {"type": "title", "title": [{"text": {"content": "My Page"}}]}})
         assert _page_title(page) == "My Page"
 
     def test_falls_back_to_lowercase(self):
-        page = _page({"Name": {"type": "title",
-                               "title": [{"text": {"content": "  lower  "}}]}})
+        page = _page({"Name": {"type": "title", "title": [{"text": {"content": "  lower  "}}]}})
         assert _page_title(page) == "lower"
 
     def test_returns_none_when_empty(self):
@@ -92,6 +92,7 @@ class TestPageTitle:
 
 
 # _flatten_result — pull usable props out of Notion result
+
 
 def _result(props):
     return {
@@ -114,8 +115,7 @@ class TestFlattenResult:
         assert flat["raw"]["id"] == "abc123"
 
     def test_title_uses_page_title(self):
-        props = {"Name": {"type": "title",
-                          "title": [{"text": {"content": "Hello"}}]}}
+        props = {"Name": {"type": "title", "title": [{"text": {"content": "Hello"}}]}}
         assert _flatten_result(_result(props))["title"] == "Hello"
 
     def test_title_fallback_to_id_prefix(self):
@@ -124,8 +124,7 @@ class TestFlattenResult:
         assert flat["title"] == "abc123"[:36]
 
     def test_rich_text_prop(self):
-        props = {"Notes": {"type": "rich_text",
-                           "rich_text": [{"text": {"content": "note"}}]}}
+        props = {"Notes": {"type": "rich_text", "rich_text": [{"text": {"content": "note"}}]}}
         assert _flatten_result(_result(props))["properties"]["Notes"] == "note"
 
     def test_select_prop(self):
@@ -137,8 +136,7 @@ class TestFlattenResult:
         assert _flatten_result(_result(props))["properties"]["Domain"] is None
 
     def test_multi_select_prop(self):
-        props = {"Tags": {"type": "multi_select",
-                          "multi_select": [{"name": "a"}, {"name": "b"}]}}
+        props = {"Tags": {"type": "multi_select", "multi_select": [{"name": "a"}, {"name": "b"}]}}
         assert _flatten_result(_result(props))["properties"]["Tags"] == ["a", "b"]
 
     def test_status_prop(self):
@@ -180,57 +178,68 @@ class TestFlattenResult:
 
 # search_page_by_title — exact case-insensitive match filtering
 
+
 class TestSearchPageByTitle:
     def _resp(self, results):
         import requests
+
         resp = requests.Response()
         resp.status_code = 200
         import json
+
         resp._content = json.dumps({"results": results}).encode()
         return resp
 
     def test_matches_case_insensitive(self, monkeypatch):
         results = [
-            {"object": "page", "id": "p1",
-             "properties": {"Name": {"type": "title",
-                                     "title": [{"text": {"content": "hermes brain"}}]}}},
+            {
+                "object": "page",
+                "id": "p1",
+                "properties": {
+                    "Name": {"type": "title", "title": [{"text": {"content": "hermes brain"}}]}
+                },
+            },
         ]
         import notion_brain.store as store_mod
-        monkeypatch.setattr(store_mod, "_request",
-                            lambda *a, **k: {"results": results})
+
+        monkeypatch.setattr(store_mod, "_request", lambda *a, **k: {"results": results})
         found = search_page_by_title("Hermes Brain")
         assert found is not None
         assert found["id"] == "p1"
 
     def test_skips_non_matching_title(self, monkeypatch):
         results = [
-            {"object": "page", "id": "p1",
-             "properties": {"Name": {"type": "title",
-                                     "title": [{"text": {"content": "Other"}}]}}},
+            {
+                "object": "page",
+                "id": "p1",
+                "properties": {
+                    "Name": {"type": "title", "title": [{"text": {"content": "Other"}}]}
+                },
+            },
         ]
         import notion_brain.store as store_mod
-        monkeypatch.setattr(store_mod, "_request",
-                            lambda *a, **k: {"results": results})
+
+        monkeypatch.setattr(store_mod, "_request", lambda *a, **k: {"results": results})
         assert search_page_by_title("Hermes Brain") is None
 
     def test_skips_wrong_object_type(self, monkeypatch):
         results = [
-            {"object": "database", "id": "d1",
-             "properties": {}},
+            {"object": "database", "id": "d1", "properties": {}},
         ]
         import notion_brain.store as store_mod
-        monkeypatch.setattr(store_mod, "_request",
-                            lambda *a, **k: {"results": results})
+
+        monkeypatch.setattr(store_mod, "_request", lambda *a, **k: {"results": results})
         assert search_page_by_title("Hermes Brain", object_type="page") is None
 
     def test_returns_none_empty_results(self, monkeypatch):
         import notion_brain.store as store_mod
-        monkeypatch.setattr(store_mod, "_request",
-                            lambda *a, **k: {"results": []})
+
+        monkeypatch.setattr(store_mod, "_request", lambda *a, **k: {"results": []})
         assert search_page_by_title("Hermes Brain") is None
 
 
 # Defensive Secret Redaction Coverage on Properties
+
 
 class TestSecretRedactionCoverage:
     def test_rich_text_redacts_secrets(self):
@@ -244,4 +253,3 @@ class TestSecretRedactionCoverage:
     def test_multi_select_property_redacts_secrets(self):
         prop = multi_select_property(["secret: ghp_12345678901234567890"])
         assert prop == {"multi_select": [{"name": "[REDACTED_SECRET]"}]}
-

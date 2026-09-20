@@ -1,4 +1,5 @@
 """Tests for user-defined custom databases and onboarding setup."""
+
 from __future__ import annotations
 
 import json
@@ -77,13 +78,17 @@ def test_interactive_setup_with_answers(tmp_path):
         ],
     }
 
-    mock_db_create = MagicMock(side_effect=lambda parent, title, props: {"id": f"mock-{title.lower().replace(' ', '-')}"})
+    mock_db_create = MagicMock(
+        side_effect=lambda parent, title, props: {"id": f"mock-{title.lower().replace(' ', '-')}"}
+    )
     mock_parent = MagicMock(return_value="parent-123")
 
-    with patch.object(bootstrap.store, "create_database", mock_db_create), \
-         patch.object(bootstrap, "_find_or_create_parent", mock_parent), \
-         patch.object(bootstrap, "_find_existing_database", MagicMock(return_value="")), \
-         patch.object(bootstrap.store, "get_page", MagicMock(return_value={"id": "parent-123"})):
+    with (
+        patch.object(bootstrap.store, "create_database", mock_db_create),
+        patch.object(bootstrap, "_find_or_create_parent", mock_parent),
+        patch.object(bootstrap, "_find_existing_database", MagicMock(return_value="")),
+        patch.object(bootstrap.store, "get_page", MagicMock(return_value={"id": "parent-123"})),
+    ):
         result = bootstrap.interactive_setup(tmp_path, answers=answers)
 
     assert result["parent_page_id"] == "parent-123"

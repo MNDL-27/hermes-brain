@@ -114,9 +114,7 @@ class NotionBrainProvider:
             combined = "\n".join(filter(None, [mem_text, user_text])).strip()
             if combined:
                 # Store as local fallback; prefetch() will use it
-                self._prefetch_cache = (
-                    "<!-- memory-context from disk -->\n" + combined[:4000]
-                )
+                self._prefetch_cache = "<!-- memory-context from disk -->\n" + combined[:4000]
             if self._db_ids:
                 self._trigger_auto_disk_sync()
 
@@ -124,7 +122,7 @@ class NotionBrainProvider:
         return (
             "# Notion Brain\n"
             "Your long-term memory lives in a Notion workspace called "
-            "\"Hermes Brain\" with 7 databases: "
+            '"Hermes Brain" with 7 databases: '
             "Memory (general notes + preferences), Tasks, Projects, Content "
             "(social media drafts), Research, Career, and Entities (people, "
             "companies, tools, topics). "
@@ -166,7 +164,9 @@ class NotionBrainProvider:
                 self._prefetch_cache = safe_lines
                 return self._prefetch_cache
             except Exception as exc:
-                logger.warning("NotionBrainProvider prefetch failed: %s", S.redact_secrets(str(exc)))
+                logger.warning(
+                    "NotionBrainProvider prefetch failed: %s", S.redact_secrets(str(exc))
+                )
                 return ""
 
     def _worker_loop(self) -> None:
@@ -181,7 +181,9 @@ class NotionBrainProvider:
             try:
                 func(*args, **kwargs)
             except Exception as exc:
-                logger.error("NotionBrainProvider sync worker error: %s", S.redact_secrets(str(exc)))
+                logger.error(
+                    "NotionBrainProvider sync worker error: %s", S.redact_secrets(str(exc))
+                )
             finally:
                 self._sync_queue.task_done()
 
@@ -248,24 +250,28 @@ class NotionBrainProvider:
         entries: list[S.BrainEntry] = []
         if mem_text:
             for item in helpers.parse_disk_memory_text(mem_text, default_domain="memory"):
-                entries.append(S.BrainEntry(
-                    domain=item["domain"],
-                    title=item["title"],
-                    content=item["content"],
-                    kind=item.get("kind", "note"),
-                    tags=item.get("tags", []),
-                    source_session_id=self._session_id or "disk-sync",
-                ).normalized())
+                entries.append(
+                    S.BrainEntry(
+                        domain=item["domain"],
+                        title=item["title"],
+                        content=item["content"],
+                        kind=item.get("kind", "note"),
+                        tags=item.get("tags", []),
+                        source_session_id=self._session_id or "disk-sync",
+                    ).normalized()
+                )
         if user_text:
             for item in helpers.parse_disk_memory_text(user_text, default_domain="entities"):
-                entries.append(S.BrainEntry(
-                    domain=item["domain"],
-                    title=item["title"],
-                    content=item["content"],
-                    kind=item.get("kind", "preference"),
-                    tags=item.get("tags", []),
-                    source_session_id=self._session_id or "disk-sync",
-                ).normalized())
+                entries.append(
+                    S.BrainEntry(
+                        domain=item["domain"],
+                        title=item["title"],
+                        content=item["content"],
+                        kind=item.get("kind", "preference"),
+                        tags=item.get("tags", []),
+                        source_session_id=self._session_id or "disk-sync",
+                    ).normalized()
+                )
 
         synced = 0
         for entry in entries:
@@ -273,7 +279,11 @@ class NotionBrainProvider:
                 self._store_entry(entry)
                 synced += 1
             except Exception as exc:
-                logger.warning("Failed to auto-sync entry '%s': %s", entry.title[:40], S.redact_secrets(str(exc)))
+                logger.warning(
+                    "Failed to auto-sync entry '%s': %s",
+                    entry.title[:40],
+                    S.redact_secrets(str(exc)),
+                )
 
         cached["disk_sync_hash"] = content_hash
         bootstrap._save_cache(cache_path, cached)
@@ -348,6 +358,7 @@ class NotionBrainProvider:
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
         import copy
+
         domains = list(S.get_all_domains().keys())
         dbs = list(S.get_all_databases().keys())
         schemas = copy.deepcopy(ALL_TOOL_SCHEMAS)
@@ -373,10 +384,12 @@ class NotionBrainProvider:
 
         handler = handlers.get(tool_name)
         if not handler:
-            return json.dumps({
-                "result": f"Unknown tool: {tool_name}",
-                "error": True,
-            })
+            return json.dumps(
+                {
+                    "result": f"Unknown tool: {tool_name}",
+                    "error": True,
+                }
+            )
 
         try:
             result = handler(arguments)
@@ -387,10 +400,12 @@ class NotionBrainProvider:
             return json.dumps({"result": result, "error": False})
         except Exception as exc:
             logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
-            return json.dumps({
-                "result": S.redact_secrets(f"Tool error: {exc}"),
-                "error": True,
-            })
+            return json.dumps(
+                {
+                    "result": S.redact_secrets(f"Tool error: {exc}"),
+                    "error": True,
+                }
+            )
 
     def _store_entry(self, entry: S.BrainEntry) -> None:
         """Store a normalized entry in the appropriate database.
@@ -457,9 +472,7 @@ class NotionBrainProvider:
         existing_id = ""
         if entry.title and target_db_id:
             try:
-                existing = store.search_page_by_title(
-                    entry.title, object_type="page"
-                )
+                existing = store.search_page_by_title(entry.title, object_type="page")
             except Exception:
                 existing = None
             if existing and existing.get("parent", {}).get("database_id") == target_db_id:
@@ -468,14 +481,10 @@ class NotionBrainProvider:
         try:
             if existing_id:
                 store.update_page(existing_id, properties)
-                logger.debug(
-                    "Updated entry in %s: %s", target_db_id, entry.title
-                )
+                logger.debug("Updated entry in %s: %s", target_db_id, entry.title)
             else:
                 store.create_database_page(database_id=target_db_id, properties=properties)
-                logger.debug(
-                    "Stored entry in %s: %s", target_db_id, entry.title
-                )
+                logger.debug("Stored entry in %s: %s", target_db_id, entry.title)
         except Exception:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
@@ -493,7 +502,9 @@ class NotionBrainProvider:
             db = store.get_database(database_id)
             schema_props = db.get("properties", {})
         except Exception as exc:
-            logger.warning("Could not get database schema for %s: %s", database_id, S.redact_secrets(str(exc)))
+            logger.warning(
+                "Could not get database schema for %s: %s", database_id, S.redact_secrets(str(exc))
+            )
             raise
 
         if "Domain" in schema_props:
@@ -554,7 +565,11 @@ class NotionBrainProvider:
         """
         status_prop = schema_props.get("Status", {})
         # Notion puts option lists under the property type key — ``status`` or ``select``.
-        options = status_prop.get("status", {}).get("options") or status_prop.get("select", {}).get("options") or []
+        options = (
+            status_prop.get("status", {}).get("options")
+            or status_prop.get("select", {}).get("options")
+            or []
+        )
         valid_names = {opt.get("name", "") for opt in options if isinstance(opt, dict)}
         use_select = "select" in status_prop and "status" not in status_prop
 
@@ -607,7 +622,9 @@ class NotionBrainProvider:
             all_entries: list[dict] = []
             for db_id in self._db_ids.values():
                 try:
-                    results = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
+                    results = store.query_database(
+                        db_id, page_size=max_results, filter_obj=query_filter
+                    )
                     all_entries.extend(results)
                 except Exception:
                     pass
@@ -632,13 +649,15 @@ class NotionBrainProvider:
             content = entry.get("properties", {}).get("Content", "")[:200]
             kind = entry.get("properties", {}).get("Kind", "note")
             lines.append(f"- [{kind}] {title}: {content}")
-            structured_items.append({
-                "title": title,
-                "content": content,
-                "kind": kind,
-                "id": entry.get("id"),
-                "properties": entry.get("properties", {}),
-            })
+            structured_items.append(
+                {
+                    "title": title,
+                    "content": content,
+                    "kind": kind,
+                    "id": entry.get("id"),
+                    "properties": entry.get("properties", {}),
+                }
+            )
 
         return ("\n".join(lines), {"items": structured_items})
 
@@ -729,9 +748,7 @@ class NotionBrainProvider:
             if "title" in args:
                 properties["title"] = store.title_property(S.clean_title(args["title"]))
             if "status" in args:
-                status_payload, status_err = self._validated_status(
-                    args["status"], "tasks"
-                )
+                status_payload, status_err = self._validated_status(args["status"], "tasks")
                 if status_err:
                     return status_err
                 if status_payload:
@@ -756,9 +773,7 @@ class NotionBrainProvider:
 
         return f"Unknown task action: {action}"
 
-    def _validated_status(
-        self, status: str, db_key: str
-    ) -> tuple[dict[str, Any], str | None]:
+    def _validated_status(self, status: str, db_key: str) -> tuple[dict[str, Any], str | None]:
         """Build a Status payload validated against ``db_key``'s real options.
 
         Returns (payload, None) on success, ({}, error_message) if ``status``
@@ -803,7 +818,9 @@ class NotionBrainProvider:
         try:
             page = store.get_page(page_id)
         except Exception as exc:
-            logger.debug("Could not verify page ownership for %s: %s", page_id, S.redact_secrets(str(exc)))
+            logger.debug(
+                "Could not verify page ownership for %s: %s", page_id, S.redact_secrets(str(exc))
+            )
             return None
         actual = page.get("parent", {}).get("database_id")
         if actual and actual != db_id:
@@ -965,6 +982,7 @@ class NotionBrainProvider:
 
 
 # Registration
+
 
 def register(context: Any) -> None:
     """Register the NotionBrainProvider with Hermes."""

@@ -85,9 +85,7 @@ def test_url_command_supports_all_database_urls(
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert captured.out == (
-        "https://www.notion.so/parent\nhttps://www.notion.so/memory\n"
-    )
+    assert captured.out == ("https://www.notion.so/parent\nhttps://www.notion.so/memory\n")
     assert captured.err == ""
     assert observed == [(str(tmp_path), True)]
 
@@ -99,9 +97,7 @@ def test_reset_dry_run_parses_only_without_touching_notion(
 ) -> None:
     observed: dict[str, Any] = {}
 
-    def reset_databases(
-        home: str, *, only: set[str], dry_run: bool, force: bool
-    ) -> list[str]:
+    def reset_databases(home: str, *, only: set[str], dry_run: bool, force: bool) -> list[str]:
         observed.update(
             home=home,
             only=only,
@@ -172,7 +168,9 @@ def test_wipe_command_wipes_noisy_rows(
     }
 
 
-def test_update_command_checks_tag_then_installs(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_update_command_checks_tag_then_installs(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     import subprocess
     from unittest.mock import MagicMock
 
@@ -196,7 +194,9 @@ def test_update_command_checks_tag_then_installs(monkeypatch: pytest.MonkeyPatch
     assert "9.9.9" in captured.out
 
 
-def test_update_check_only_shows_available_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_update_check_only_shows_available_version(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     fake_dir = Path("/fake")
     monkeypatch.setattr(cli.bootstrap, "_find_latest_tag", lambda: "9.9.9")
     monkeypatch.setattr(cli, "_repo_dir", lambda: fake_dir)
@@ -209,8 +209,11 @@ def test_update_check_only_shows_available_version(monkeypatch: pytest.MonkeyPat
     assert "9.9.9" in captured.out
 
 
-def test_update_check_only_says_up_to_date(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_update_check_only_says_up_to_date(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from notion_brain import __version__
+
     fake_dir = Path("/fake")
     monkeypatch.setattr(cli.bootstrap, "_find_latest_tag", lambda: __version__)
     monkeypatch.setattr(cli, "_repo_dir", lambda: fake_dir)
@@ -220,5 +223,3 @@ def test_update_check_only_says_up_to_date(monkeypatch: pytest.MonkeyPatch, caps
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "up to date" in captured.out
-
-

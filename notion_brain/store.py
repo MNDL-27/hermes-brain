@@ -70,8 +70,7 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
     url = f"{BASE_URL}{path}"
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            resp = requests.request(method, url, headers=_headers(),
-                                    json=json_body, timeout=30)
+            resp = requests.request(method, url, headers=_headers(), json=json_body, timeout=30)
             if resp.ok:
                 return resp.json()
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < _MAX_RETRIES:
@@ -93,7 +92,9 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
                 msg = data.get("message", resp.reason or "unknown error")
             except requests.exceptions.JSONDecodeError:
                 msg = resp.text[:200] if resp.text else resp.reason or "unknown error"
-            raise RuntimeError(f"Notion API {resp.status_code} on {method} {path}: {redact_secrets(str(msg))}") from None
+            raise RuntimeError(
+                f"Notion API {resp.status_code} on {method} {path}: {redact_secrets(str(msg))}"
+            ) from None
         except requests.Timeout:
             if attempt < _MAX_RETRIES:
                 time.sleep(_RETRY_DELAY_S * attempt)
@@ -178,9 +179,13 @@ def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
     return results
 
 
-def query_database(database_id: str, *, page_size: int = 100,
-                   sorts: list[dict] | None = None,
-                   filter_obj: dict | None = None) -> list[dict[str, Any]]:
+def query_database(
+    database_id: str,
+    *,
+    page_size: int = 100,
+    sorts: list[dict] | None = None,
+    filter_obj: dict | None = None,
+) -> list[dict[str, Any]]:
     """Query a Notion database and return flat results across all pages.
 
     Walks cursor pagination so databases with more than 100 rows are returned
@@ -221,8 +226,9 @@ def query_database(database_id: str, *, page_size: int = 100,
 # Pages
 
 
-def create_page(parent_page_id: str, properties: dict[str, Any],
-                children: list[dict] | None = None) -> dict[str, Any]:
+def create_page(
+    parent_page_id: str, properties: dict[str, Any], children: list[dict] | None = None
+) -> dict[str, Any]:
     body: dict[str, Any] = {
         "parent": {"type": "page_id", "page_id": parent_page_id},
         "properties": properties,
@@ -234,8 +240,9 @@ def create_page(parent_page_id: str, properties: dict[str, Any],
     return result
 
 
-def create_database_page(database_id: str, properties: dict[str, Any],
-                         children: list[dict] | None = None) -> dict[str, Any]:
+def create_database_page(
+    database_id: str, properties: dict[str, Any], children: list[dict] | None = None
+) -> dict[str, Any]:
     body: dict[str, Any] = {
         "parent": {"type": "database_id", "database_id": database_id},
         "properties": properties,
@@ -262,8 +269,7 @@ def get_page(page_id: str) -> dict[str, Any]:
 # Databases
 
 
-def create_database(parent_page_id: str, title: str,
-                    properties: dict[str, Any]) -> dict[str, Any]:
+def create_database(parent_page_id: str, title: str, properties: dict[str, Any]) -> dict[str, Any]:
     body = {
         "parent": {"type": "page_id", "page_id": parent_page_id},
         "title": _rich_text(title),
@@ -325,6 +331,8 @@ def append_block_children(block_id: str, children: list[dict]) -> dict[str, Any]
     result = _request("PATCH", f"/blocks/{block_id}/children", {"children": children})
     assert isinstance(result, dict)
     return result
+
+
 # Rich text / property helpers
 
 
@@ -378,7 +386,8 @@ def _page_title(page: dict[str, Any]) -> str | None:
             if isinstance(raw, list):
                 text = "".join(
                     (t.get("plain_text") or t.get("text", {}).get("content", ""))
-                    for t in raw if isinstance(t, dict)
+                    for t in raw
+                    if isinstance(t, dict)
                 ).strip()
                 if text:
                     return text
@@ -480,5 +489,6 @@ def _block_text(block: dict[str, Any]) -> str:
     rich = payload.get("rich_text") or payload.get("text") or []
     return "".join(
         (rt.get("plain_text") or rt.get("text", {}).get("content", "") or "")
-        for rt in rich if isinstance(rt, dict)
+        for rt in rich
+        if isinstance(rt, dict)
     )

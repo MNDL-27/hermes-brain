@@ -104,7 +104,9 @@ _SECRET_PATTERNS = [
     re.compile(r"\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\b"),
     re.compile(r"\bBearer [A-Za-z0-9._-]{20,}\b"),
     re.compile(r"://[^\s:@/]*:[^\s:@/]*@[^\s/]+"),
-    re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*(?:[\"\'`][^\"\'`\r\n]+[\"\'`]|[^\s\"\'`]+)"),
+    re.compile(
+        r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*(?:[\"\'`][^\"\'`\r\n]+[\"\'`]|[^\s\"\'`]+)"
+    ),
 ]
 
 
@@ -213,9 +215,35 @@ def compact(text: str, limit: int = 900) -> str:
 def keyword_tokens(text: str, *, limit: int = 8) -> list[str]:
     words = re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", text or "")
     stop = {
-        "the", "and", "for", "with", "that", "this", "from", "what", "when", "where",
-        "about", "should", "could", "would", "have", "has", "into", "your", "you",
-        "are", "was", "were", "will", "can", "how", "why", "all", "our", "my",
+        "the",
+        "and",
+        "for",
+        "with",
+        "that",
+        "this",
+        "from",
+        "what",
+        "when",
+        "where",
+        "about",
+        "should",
+        "could",
+        "would",
+        "have",
+        "has",
+        "into",
+        "your",
+        "you",
+        "are",
+        "was",
+        "were",
+        "will",
+        "can",
+        "how",
+        "why",
+        "all",
+        "our",
+        "my",
     }
     out: list[str] = []
     seen = set()

@@ -76,12 +76,18 @@ _EXCLUDE_RESPONSE = re.compile(
     r"(?i)^(yes|no|ok|okay|sure|done|got.it|will.do|on.it|checking|looking|one.moment)\s*[.!]?\s*$"
 )
 
-_PLATFORM_HINTS = re.compile(r"(?i)(\b(twitter|linkedin|instagram|tiktok|facebook|youtube|threads|bluesky|mastodon)\b)")
+_PLATFORM_HINTS = re.compile(
+    r"(?i)(\b(twitter|linkedin|instagram|tiktok|facebook|youtube|threads|bluesky|mastodon)\b)"
+)
 
 # LLM Extractor
 
-DEFAULT_LLM_URL = os.environ.get("OPENAI_BASE_URL", os.environ.get("OPENAI_API_BASE", "http://localhost:11434/v1"))
-DEFAULT_LLM_MODEL = os.environ.get("HERMES_MODEL", os.environ.get("OPENAI_MODEL", "qwen3-coder-30b:latest"))
+DEFAULT_LLM_URL = os.environ.get(
+    "OPENAI_BASE_URL", os.environ.get("OPENAI_API_BASE", "http://localhost:11434/v1")
+)
+DEFAULT_LLM_MODEL = os.environ.get(
+    "HERMES_MODEL", os.environ.get("OPENAI_MODEL", "qwen3-coder-30b:latest")
+)
 LLM_TIMEOUT_SECONDS = float(os.environ.get("NOTION_BRAIN_LLM_TIMEOUT", "5.0"))
 
 EXTRACTION_PROMPT = """You are a memory extractor for an AI assistant.
@@ -130,9 +136,19 @@ def extract_with_llm(
         return []
     buffer = redact_secrets(compact(raw_buffer, 4000))
 
-    url = (base_url or os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or DEFAULT_LLM_URL).rstrip("/")
+    url = (
+        base_url
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("OPENAI_API_BASE")
+        or DEFAULT_LLM_URL
+    ).rstrip("/")
     endpoint = f"{url}/chat/completions"
-    model_name = model or os.environ.get("HERMES_MODEL") or os.environ.get("OPENAI_MODEL") or DEFAULT_LLM_MODEL
+    model_name = (
+        model
+        or os.environ.get("HERMES_MODEL")
+        or os.environ.get("OPENAI_MODEL")
+        or DEFAULT_LLM_MODEL
+    )
     key = api_key or os.environ.get("OPENAI_API_KEY", "dummy-key")
 
     headers = {
@@ -154,7 +170,9 @@ def extract_with_llm(
             return None
         data = resp.json()
         raw_text = data["choices"][0]["message"]["content"].strip()
-        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text.strip(), flags=re.IGNORECASE | re.MULTILINE).strip()
+        clean_json = re.sub(
+            r"^```(?:json)?\s*|\s*```$", "", raw_text.strip(), flags=re.IGNORECASE | re.MULTILINE
+        ).strip()
         items = json.loads(clean_json)
         if not isinstance(items, list):
             return None
@@ -173,37 +191,52 @@ def extract_with_llm(
                 continue
 
             if cat in ("entity", "fact", "preference"):
-                is_pref = any(w in title.lower() or w in content.lower() for w in ("prefer", "preference", "like", "favorite", "hate", "always", "never"))
+                is_pref = any(
+                    w in title.lower() or w in content.lower()
+                    for w in ("prefer", "preference", "like", "favorite", "hate", "always", "never")
+                )
                 kind = "preference" if is_pref else "topic"
-                entries.append(BrainEntry(
-                    domain="entities",
-                    title=title[:120],
-                    content=compact(content, 600),
-                    kind=kind,
-                    tags=dedupe_strings(["preference" if kind == "preference" else "entity"] + tags),
-                    confidence="high",
-                ))
+                entries.append(
+                    BrainEntry(
+                        domain="entities",
+                        title=title[:120],
+                        content=compact(content, 600),
+                        kind=kind,
+                        tags=dedupe_strings(
+                            ["preference" if kind == "preference" else "entity"] + tags
+                        ),
+                        confidence="high",
+                    )
+                )
             elif cat in ("project", "project state", "project_state"):
-                is_dec = "decision" in title.lower() or "decided" in content.lower() or "chosen" in content.lower()
-                entries.append(BrainEntry(
-                    domain="projects",
-                    title=title[:120],
-                    content=compact(content, 900),
-                    kind="decision" if is_dec else "note",
-                    tags=dedupe_strings(tags),
-                    confidence="high",
-                ))
+                is_dec = (
+                    "decision" in title.lower()
+                    or "decided" in content.lower()
+                    or "chosen" in content.lower()
+                )
+                entries.append(
+                    BrainEntry(
+                        domain="projects",
+                        title=title[:120],
+                        content=compact(content, 900),
+                        kind="decision" if is_dec else "note",
+                        tags=dedupe_strings(tags),
+                        confidence="high",
+                    )
+                )
             elif cat in ("task", "daily_work"):
                 st = "done" if status in ("done", "completed") else "active"
-                entries.append(BrainEntry(
-                    domain="daily_work",
-                    title=title[:120],
-                    content=compact(content, 900),
-                    kind="task",
-                    status=st,
-                    tags=dedupe_strings(tags),
-                    confidence="high",
-                ))
+                entries.append(
+                    BrainEntry(
+                        domain="daily_work",
+                        title=title[:120],
+                        content=compact(content, 900),
+                        kind="task",
+                        status=st,
+                        tags=dedupe_strings(tags),
+                        confidence="high",
+                    )
+                )
 
         return entries
     except Exception as exc:
@@ -218,7 +251,10 @@ def _format_atomic_title(snippet: str, fallback: str) -> str:
         return fallback
     if ":" in cleaned and len(cleaned.split(":", 1)[0].split()) <= 3:
         return cleaned[:80]
-    m = re.search(r"(?i)\b(?:always|never)?\s*(?:prefer|like|use)\s+(.+?)(?:\s+over\s+(.+?))?(?:\s+for\s+(.+?))?$", cleaned)
+    m = re.search(
+        r"(?i)\b(?:always|never)?\s*(?:prefer|like|use)\s+(.+?)(?:\s+over\s+(.+?))?(?:\s+for\s+(.+?))?$",
+        cleaned,
+    )
     if m:
         item = m.group(1).strip()
         over = m.group(2).strip() if m.group(2) else ""
@@ -261,40 +297,67 @@ def classify_turn(user_content: str, assistant_content: str) -> list[BrainEntry]
 
     # Daily work tasks (enforce: conversational filler and git/code NEVER route to Tasks)
     if _TRIGGERS_TASK.search(combined):
-        snippet = _extract_sentence(user, _TRIGGERS_TASK) or _extract_sentence(assistant, _TRIGGERS_TASK) or combined
+        snippet = (
+            _extract_sentence(user, _TRIGGERS_TASK)
+            or _extract_sentence(assistant, _TRIGGERS_TASK)
+            or combined
+        )
         user_lower = (user or "").lower()
         is_negated = "not a" in user_lower
         is_code = bool(_GIT_OR_CODE.search(snippet))
-        is_filler = bool(_CONVERSATIONAL_FILLER.match(user.strip()) or _CONVERSATIONAL_FILLER.search(snippet))
+        is_filler = bool(
+            _CONVERSATIONAL_FILLER.match(user.strip()) or _CONVERSATIONAL_FILLER.search(snippet)
+        )
         if not is_negated and not is_code and not is_filler:
-            entries.append(BrainEntry(
-                domain="daily_work", title=_brief_title(snippet, "Task"),
-                content=compact(snippet, 900), kind="task",
-                tags=tokens,
-                status="active", confidence="high" if "deadline" in combined.lower() or "due" in combined.lower() else "medium",
-            ))
+            entries.append(
+                BrainEntry(
+                    domain="daily_work",
+                    title=_brief_title(snippet, "Task"),
+                    content=compact(snippet, 900),
+                    kind="task",
+                    tags=tokens,
+                    status="active",
+                    confidence="high"
+                    if "deadline" in combined.lower() or "due" in combined.lower()
+                    else "medium",
+                )
+            )
             seen_kinds.add("task")
 
     # Projects and decisions (Project State)
-    project_pattern = _TRIGGERS_PROJECT if _TRIGGERS_PROJECT.search(combined) else _TRIGGERS_DECISION if _TRIGGERS_DECISION.search(combined) else None
+    project_pattern = (
+        _TRIGGERS_PROJECT
+        if _TRIGGERS_PROJECT.search(combined)
+        else _TRIGGERS_DECISION
+        if _TRIGGERS_DECISION.search(combined)
+        else None
+    )
     if project_pattern and "project" not in seen_kinds:
         snippet = _extract_sentence(combined, project_pattern)
-        entries.append(BrainEntry(
-            domain="projects", title=_brief_title(snippet, "Project"),
-            content=compact(snippet, 900), kind="decision" if _TRIGGERS_DECISION.search(snippet) else "note",
-            tags=tokens,
-            confidence="high" if _TRIGGERS_DECISION.search(snippet) else "medium",
-        ))
+        entries.append(
+            BrainEntry(
+                domain="projects",
+                title=_brief_title(snippet, "Project"),
+                content=compact(snippet, 900),
+                kind="decision" if _TRIGGERS_DECISION.search(snippet) else "note",
+                tags=tokens,
+                confidence="high" if _TRIGGERS_DECISION.search(snippet) else "medium",
+            )
+        )
         seen_kinds.add("project")
 
     # Research
     if _TRIGGERS_RESEARCH.search(combined) and "research" not in seen_kinds:
         snippet = _extract_sentence(combined, _TRIGGERS_RESEARCH)
-        entries.append(BrainEntry(
-            domain="research", title=_brief_title(snippet, "Research"),
-            content=compact(snippet, 900), kind="source_note",
-            tags=dedupe_strings(tokens + ["research"]),
-        ))
+        entries.append(
+            BrainEntry(
+                domain="research",
+                title=_brief_title(snippet, "Research"),
+                content=compact(snippet, 900),
+                kind="source_note",
+                tags=dedupe_strings(tokens + ["research"]),
+            )
+        )
         seen_kinds.add("research")
 
     # Social content (enforce: git/code commands NEVER route to Content)
@@ -302,22 +365,29 @@ def classify_turn(user_content: str, assistant_content: str) -> list[BrainEntry]
         if not _GIT_OR_CODE.search(combined):
             snippet = _extract_sentence(combined, _TRIGGERS_CONTENT)
             platform = _find_platform(user) or _find_platform(assistant) or None
-            entries.append(BrainEntry(
-                domain="social_content", title=_brief_title(snippet, "Content"),
-                content=compact(snippet, 900), kind="draft",
-                tags=dedupe_strings(tokens + ([platform] if platform else [])),
-                status="draft",
-            ))
+            entries.append(
+                BrainEntry(
+                    domain="social_content",
+                    title=_brief_title(snippet, "Content"),
+                    content=compact(snippet, 900),
+                    kind="draft",
+                    tags=dedupe_strings(tokens + ([platform] if platform else [])),
+                    status="draft",
+                )
+            )
             seen_kinds.add("content")
 
     # Career
     if _TRIGGERS_CAREER.search(combined) and "career" not in seen_kinds:
         snippet = _extract_sentence(combined, _TRIGGERS_CAREER)
-        entries.append(BrainEntry(
-            domain="career", title=_brief_title(snippet, "Career"),
-            content=compact(snippet, 900),
-            tags=tokens,
-        ))
+        entries.append(
+            BrainEntry(
+                domain="career",
+                title=_brief_title(snippet, "Career"),
+                content=compact(snippet, 900),
+                tags=tokens,
+            )
+        )
         seen_kinds.add("career")
 
     # User preferences / facts (Fact/Preference: atomic key-value)
@@ -325,12 +395,18 @@ def classify_turn(user_content: str, assistant_content: str) -> list[BrainEntry]
         snippet = _extract_sentence(combined, _TRIGGERS_PREFERENCE)
         snip_lower = snippet.lower()
         title = _format_atomic_title(snippet, "Preference")
-        entries.append(BrainEntry(
-            domain="entities", title=title,
-            content=compact(snippet, 600),
-            kind="preference", tags=["preference"] + tokens,
-            confidence="high" if ("always" in snip_lower or "prefer" in snip_lower or "favorite" in snip_lower) else "medium",
-        ))
+        entries.append(
+            BrainEntry(
+                domain="entities",
+                title=title,
+                content=compact(snippet, 600),
+                kind="preference",
+                tags=["preference"] + tokens,
+                confidence="high"
+                if ("always" in snip_lower or "prefer" in snip_lower or "favorite" in snip_lower)
+                else "medium",
+            )
+        )
 
     return entries
 
@@ -395,4 +471,3 @@ def classify_text(text: str) -> dict[str, str]:
         "title": _brief_title(text, "Note"),
         "kind": "note",
     }
-

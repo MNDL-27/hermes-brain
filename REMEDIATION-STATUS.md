@@ -1,8 +1,8 @@
 # Hermes Brain v1.0.1 — Remediation Status
 
-**Target release:** v1.0.1  
-**Source of findings:** `docs/superpowers/specs/2026-07-25-v1.0.1-production-readiness-design.md` (lines 28-40) + install-script security review  
-**Created:** 2026-08-19  
+**Target release:** v1.0.1
+**Source of findings:** `docs/superpowers/specs/2026-07-25-v1.0.1-production-readiness-design.md` (lines 28-40) + install-script security review
+**Created:** 2026-08-19
 **Last updated:** 2026-08-25
 
 ---

@@ -94,8 +94,9 @@ def remember(
     return {"status": "saved", "title": title, "message": result["result"]}
 
 
-def search_entries(query: str, *, database: str = "all", max_results: int = 8,
-                   hermes_home: str | None = None) -> list[dict]:
+def search_entries(
+    query: str, *, database: str = "all", max_results: int = 8, hermes_home: str | None = None
+) -> list[dict]:
     """Search the Notion brain and return a list of result dicts."""
     provider = _session_provider(hermes_home)
     raw = provider.handle_tool_call(

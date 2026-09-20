@@ -28,9 +28,7 @@ def _notion_database(key: str, database_id: str) -> dict[str, Any]:
 
 def _mismatched_database(key: str, database_id: str) -> dict[str, Any]:
     database = _notion_database(key, database_id)
-    database["properties"]["Status"]["status"]["options"].append(
-        {"name": "legacy-status"}
-    )
+    database["properties"]["Status"]["status"]["options"].append({"name": "legacy-status"})
     return database
 
 
@@ -78,20 +76,14 @@ def _initialized_provider(tmp_path: Path) -> NotionBrainProvider:
 def test_startup_does_not_reset_databases_for_stale_local_schema(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _, cached = _write_complete_cache(
-        tmp_path, schema_version=bootstrap.SCHEMA_VERSION - 1
-    )
+    _, cached = _write_complete_cache(tmp_path, schema_version=bootstrap.SCHEMA_VERSION - 1)
     databases = {
         database_id: _notion_database(key, database_id)
         for key in S.DATABASES
         for database_id in [cached[f"db_{key}"]]
     }
-    databases[cached["db_tasks"]] = _mismatched_database(
-        "tasks", cached["db_tasks"]
-    )
-    databases["replacement-tasks"] = _notion_database(
-        "tasks", "replacement-tasks"
-    )
+    databases[cached["db_tasks"]] = _mismatched_database("tasks", cached["db_tasks"])
+    databases["replacement-tasks"] = _notion_database("tasks", "replacement-tasks")
     archived: list[str] = []
     recreated: list[str] = []
 
@@ -101,9 +93,7 @@ def test_startup_does_not_reset_databases_for_stale_local_schema(
         except KeyError as exc:
             raise RuntimeError(f"unexpected mocked database id: {database_id}") from exc
 
-    def find_or_create_database(
-        parent_page_id: str, title: str, properties: dict[str, Any]
-    ) -> str:
+    def find_or_create_database(parent_page_id: str, title: str, properties: dict[str, Any]) -> str:
         if parent_page_id != cached["parent_page_id"] or title != S.DATABASES["tasks"]:
             raise RuntimeError("startup attempted an unexpected database creation")
         recreated.append("tasks")
@@ -131,17 +121,12 @@ def test_startup_does_not_reset_databases_for_stale_local_schema(
 def test_health_is_read_only_when_schema_mismatches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    cache_path, cached = _write_complete_cache(
-        tmp_path, schema_version=bootstrap.SCHEMA_VERSION
-    )
+    cache_path, cached = _write_complete_cache(tmp_path, schema_version=bootstrap.SCHEMA_VERSION)
     before = cache_path.read_bytes()
     databases = {
-        cached[f"db_{key}"]: _notion_database(key, cached[f"db_{key}"])
-        for key in S.DATABASES
+        cached[f"db_{key}"]: _notion_database(key, cached[f"db_{key}"]) for key in S.DATABASES
     }
-    databases[cached["db_tasks"]] = _mismatched_database(
-        "tasks", cached["db_tasks"]
-    )
+    databases[cached["db_tasks"]] = _mismatched_database("tasks", cached["db_tasks"])
     mutation_attempts: list[str] = []
 
     monkeypatch.setattr(bootstrap.store, "get_api_key", lambda: "synthetic-test-key")
@@ -169,13 +154,10 @@ def test_health_is_read_only_when_schema_mismatches(
 def test_incompatible_migration_preserves_original_when_replacement_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    cache_path, cached = _write_complete_cache(
-        tmp_path, schema_version=bootstrap.SCHEMA_VERSION
-    )
+    cache_path, cached = _write_complete_cache(tmp_path, schema_version=bootstrap.SCHEMA_VERSION)
     original_id = cached["db_tasks"]
     databases = {
-        cached[f"db_{key}"]: _notion_database(key, cached[f"db_{key}"])
-        for key in S.DATABASES
+        cached[f"db_{key}"]: _notion_database(key, cached[f"db_{key}"]) for key in S.DATABASES
     }
     databases[original_id] = _mismatched_database("tasks", original_id)
     archived: list[str] = []
@@ -189,6 +171,7 @@ def test_incompatible_migration_preserves_original_when_replacement_fails(
         "get_database",
         lambda database_id: deepcopy(databases[database_id]),
     )
+
     def archive_database(database_id: str) -> dict[str, str]:
         archived.append(database_id)
         return {"id": database_id}
@@ -290,9 +273,7 @@ def test_all_major_write_paths_apply_the_same_secret_policy(
     )
     invoke(
         "mirror",
-        lambda: provider.on_memory_write(
-            f"add memory {detected_secret}"
-        ),
+        lambda: provider.on_memory_write(f"add memory {detected_secret}"),
     )
 
     leaking_paths = [

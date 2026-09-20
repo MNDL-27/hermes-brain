@@ -12,8 +12,8 @@ hermes-brain provides structured Notion memory for the Hermes AI agent ecosystem
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Config Schema Test Infrastructure** - Validate configuration schema contract and host stubs in offline isolation
-- [ ] **Phase 2: Pre-Commit Quality Gates & Tooling Parity** - Configure local pre-commit hooks mirroring CI checks
+- [x] **Phase 1: Config Schema Test Infrastructure** - Validate configuration schema contract and host stubs in offline isolation
+- [x] **Phase 2: Pre-Commit Quality Gates & Tooling Parity** - Configure local pre-commit hooks mirroring CI checks
 - [ ] **Phase 3: Platform Portability & Installation Guard** - Implement Darwin platform detection and graceful manual setup exit
 
 ## Phase Details
@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 
 Plans:
-- [ ] 01-01: TBD
+- [x] 01-01: Config schema offline test infrastructure (complete — 5 tests, 100% coverage)
 
 ### Phase 2: Pre-Commit Quality Gates & Tooling Parity
 **Goal**: Enforce automated local code hygiene, formatting, linting, and static typing matching remote CI before git commits
@@ -42,7 +42,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: TBD
+- [x] 02-01: Pre-commit hooks (ruff, ruff-format, mypy, file sanitizers) — complete
 
 ### Phase 3: Platform Portability & Installation Guard
 **Goal**: Provide clean, informative macOS onboarding and safeguard Linux package manager installation paths
@@ -64,6 +64,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Config Schema Test Infrastructure | 0/1 | Not started | - |
-| 2. Pre-Commit Quality Gates & Tooling Parity | 0/1 | Not started | - |
+| 1. Config Schema Test Infrastructure | 1/1 | Complete | 2026-09-20 |
+| 2. Pre-Commit Quality Gates & Tooling Parity | 1/1 | Complete | 2026-09-20 |
 | 3. Platform Portability & Installation Guard | 0/1 | Not started | - |

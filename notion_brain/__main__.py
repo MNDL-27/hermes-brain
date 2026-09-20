@@ -29,31 +29,60 @@ def _self_heal(home: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="notion_brain")
-    parser.add_argument("--home", default=os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+    parser.add_argument(
+        "--home", default=os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     rs = sub.add_parser("reset", help="Archive and recreate DBs whose schema no longer matches.")
     rs.add_argument("--only", help="Comma-separated DB keys to reset (default: all)")
-    rs.add_argument("--dry-run", action="store_true", help="Show what would be reset without touching Notion")
-    rs.add_argument("--force", action="store_true", help="Reset every cached DB, not just mismatched ones")
+    rs.add_argument(
+        "--dry-run", action="store_true", help="Show what would be reset without touching Notion"
+    )
+    rs.add_argument(
+        "--force", action="store_true", help="Reset every cached DB, not just mismatched ones"
+    )
 
     url = sub.add_parser("url", help="Print the Notion URL of the Hermes Brain parent page.")
-    url.add_argument("--all", action="store_true", help="Also print URLs for every cached database.")
+    url.add_argument(
+        "--all", action="store_true", help="Also print URLs for every cached database."
+    )
 
     sub.add_parser("health", help="Summarize each DB: schema match, entry count, last entry.")
 
-    wp = sub.add_parser("wipe", help="Wipe noisy rows from Entities, Tasks, Projects (or specified DBs).")
-    wp.add_argument("--dbs", help="Comma-separated DB keys to wipe (default: entities,tasks,projects)")
-    wp.add_argument("--dry-run", action="store_true", help="Show what would be wiped without modifying Notion")
+    wp = sub.add_parser(
+        "wipe", help="Wipe noisy rows from Entities, Tasks, Projects (or specified DBs)."
+    )
+    wp.add_argument(
+        "--dbs", help="Comma-separated DB keys to wipe (default: entities,tasks,projects)"
+    )
+    wp.add_argument(
+        "--dry-run", action="store_true", help="Show what would be wiped without modifying Notion"
+    )
 
-    im = sub.add_parser("import", help="Import local memory files (MEMORY.md/USER.md/CLAUDE.md) into Notion.")
-    im.add_argument("--files", help="Comma-separated markdown files to import (default: auto-discover)")
-    im.add_argument("--dry-run", action="store_true", help="Show what would be imported without writing to Notion")
+    im = sub.add_parser(
+        "import", help="Import local memory files (MEMORY.md/USER.md/CLAUDE.md) into Notion."
+    )
+    im.add_argument(
+        "--files", help="Comma-separated markdown files to import (default: auto-discover)"
+    )
+    im.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be imported without writing to Notion",
+    )
 
-    stp = sub.add_parser("setup", help="Interactive or automated onboarding wizard to configure standard and custom databases.")
-    stp.add_argument("--standard-dbs", help="Comma-separated list of standard DBs to create (default: all)")
+    stp = sub.add_parser(
+        "setup",
+        help="Interactive or automated onboarding wizard to configure standard and custom databases.",
+    )
+    stp.add_argument(
+        "--standard-dbs", help="Comma-separated list of standard DBs to create (default: all)"
+    )
     stp.add_argument("--custom-json", help="JSON string or file path defining custom databases")
-    stp.add_argument("--non-interactive", action="store_true", help="Run without interactive prompts")
+    stp.add_argument(
+        "--non-interactive", action="store_true", help="Run without interactive prompts"
+    )
 
     up = sub.add_parser("update", help="Pull latest from GitHub and reinstall.")
     up.add_argument("--check", action="store_true", help="Only check for updates, don't install")
@@ -75,7 +104,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         target = only or set(S.DATABASES)
         reset = bootstrap.reset_databases(
-            args.home, only=target, dry_run=args.dry_run, force=args.force,
+            args.home,
+            only=target,
+            dry_run=args.dry_run,
+            force=args.force,
         )
         verb = "would reset" if args.dry_run else "reset"
         print(f"{verb} {len(reset)} DB(s): {', '.join(reset) or '(none)'}")
@@ -86,7 +118,10 @@ def main(argv: list[str] | None = None) -> int:
         if output:
             print(output)
         else:
-            print("error: no URLs available (run `python -m notion_brain` to bootstrap first)", file=sys.stderr)
+            print(
+                "error: no URLs available (run `python -m notion_brain` to bootstrap first)",
+                file=sys.stderr,
+            )
             return 1
         return 0
 
@@ -99,11 +134,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "wipe":
         _self_heal(args.home)
-        dbs = {x.strip() for x in args.dbs.split(",")} if getattr(args, "dbs", None) else {"entities", "tasks", "projects"}
+        dbs = (
+            {x.strip() for x in args.dbs.split(",")}
+            if getattr(args, "dbs", None)
+            else {"entities", "tasks", "projects"}
+        )
         deleted = bootstrap.wipe_database_rows(args.home, databases=dbs, dry_run=args.dry_run)
         verb = "Would wipe" if args.dry_run else "Wiped"
         total = sum(deleted.values())
-        print(f"{verb} {total} row(s) across: {', '.join(f'{k} ({v})' for k, v in deleted.items())}")
+        print(
+            f"{verb} {total} row(s) across: {', '.join(f'{k} ({v})' for k, v in deleted.items())}"
+        )
         return 0
 
     if args.cmd == "import":
@@ -124,7 +165,9 @@ def main(argv: list[str] | None = None) -> int:
 
         res = bootstrap.interactive_setup(args.home, answers=answers or None)
         print(f"✓ Setup complete: parent page '{res['parent_page_id']}'")
-        print(f"  Created {res.get('standard_count', 0)} standard DB(s) and {res.get('custom_count', 0)} custom DB(s)")
+        print(
+            f"  Created {res.get('standard_count', 0)} standard DB(s) and {res.get('custom_count', 0)} custom DB(s)"
+        )
         return 0
 
     parser.print_help()
@@ -140,7 +183,10 @@ def _cmd_update(check_only: bool = False) -> int:
     if not (pkg_dir / ".git").is_dir():
         print(f"error: not a git repository ({pkg_dir})", file=sys.stderr)
         print("Install via git clone to use self-update, or re-run the installer:", file=sys.stderr)
-        print("  curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash", file=sys.stderr)
+        print(
+            "  curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash",
+            file=sys.stderr,
+        )
         return 1
 
     if check_only:
@@ -158,6 +204,7 @@ def _cmd_update(check_only: bool = False) -> int:
         return _git_pull_and_install(pkg_dir)
 
     from . import __version__ as current_ver
+
     if latest == current_ver:
         print(f"Already on latest release ({current_ver}).")
         return 0
@@ -183,7 +230,9 @@ def _git_pull_and_install(pkg_dir: Path) -> int:
 
     print(f"Pulling latest in {pkg_dir}…")
     try:
-        pull = subprocess.run(["git", "pull", "--rebase"], cwd=pkg_dir, capture_output=True, text=True)
+        pull = subprocess.run(
+            ["git", "pull", "--rebase"], cwd=pkg_dir, capture_output=True, text=True
+        )
         if pull.returncode != 0:
             print(f"git pull failed:\n{pull.stderr}", file=sys.stderr)
             return pull.returncode
@@ -199,8 +248,12 @@ def _checkout_tag_and_install(pkg_dir: Path, tag: str) -> int:
     import subprocess
 
     try:
-        subprocess.run(["git", "fetch", "--tags"], cwd=pkg_dir, capture_output=True, text=True, check=True)
-        subprocess.run(["git", "checkout", tag], cwd=pkg_dir, capture_output=True, text=True, check=True)
+        subprocess.run(
+            ["git", "fetch", "--tags"], cwd=pkg_dir, capture_output=True, text=True, check=True
+        )
+        subprocess.run(
+            ["git", "checkout", tag], cwd=pkg_dir, capture_output=True, text=True, check=True
+        )
     except subprocess.CalledProcessError as exc:
         print(f"git checkout {tag} failed:\n{exc.stderr}", file=sys.stderr)
         return 1
@@ -215,12 +268,24 @@ def _reinstall(pkg_dir: Path) -> int:
     print("Reinstalling Python package…")
     for cmd in [
         [sys.executable, "-m", "pip", "install", "--user", "-e", str(pkg_dir)],
-        [sys.executable, "-m", "pip", "install", "--user", "--break-system-packages", "-e", str(pkg_dir)],
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--user",
+            "--break-system-packages",
+            "-e",
+            str(pkg_dir),
+        ],
     ]:
         if subprocess.run(cmd, capture_output=True, text=True).returncode == 0:
             print("Update complete! Run: hermes-brain health")
             return 0
-    print("warning: pip reinstall failed; code was updated, but package metadata may be old.", file=sys.stderr)
+    print(
+        "warning: pip reinstall failed; code was updated, but package metadata may be old.",
+        file=sys.stderr,
+    )
     return 1
 
 
@@ -335,7 +400,10 @@ def _cmd_import(args) -> int:
             saved += 1
         except Exception as exc:
             errors += 1
-            print(f"  error importing '{e['title'][:40]}': {S.redact_secrets(str(exc))}", file=sys.stderr)
+            print(
+                f"  error importing '{e['title'][:40]}': {S.redact_secrets(str(exc))}",
+                file=sys.stderr,
+            )
     print(f"\nImported {saved} entries ({errors} errors).")
     return 0 if errors == 0 else 1
 
