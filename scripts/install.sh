@@ -55,7 +55,18 @@ info "║   Persistent long-term memory for the Hermes AI agent    ║"
 info "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
-# ─── Step 0: Not root ────────────────────────────────────────────────────
+# ─── Step 0: Platform detection ──────────────────────────────────────────
+if [ "$(uname -s 2>/dev/null || echo "")" = "Darwin" ]; then
+    info "macOS detected."
+    echo ""
+    echo "  Automated installation is currently designed for Linux distributions."
+    echo "  For macOS, please follow manual setup instructions in README Quickstart Step 2 (Installation):"
+    echo "    https://github.com/MNDL-27/hermes-brain#2-installation"
+    echo ""
+    exit 0
+fi
+
+# ─── Step 0.1: Not root ──────────────────────────────────────────────────
 if is_root; then
     fail "Do not run this installer as root. Re-run as a regular user."
     exit 1

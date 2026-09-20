@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Config Schema Test Infrastructure** - Validate configuration schema contract and host stubs in offline isolation
 - [x] **Phase 2: Pre-Commit Quality Gates & Tooling Parity** - Configure local pre-commit hooks mirroring CI checks
-- [ ] **Phase 3: Platform Portability & Installation Guard** - Implement Darwin platform detection and graceful manual setup exit
+- [x] **Phase 3: Platform Portability & Installation Guard** - Implement Darwin platform detection and graceful manual setup exit
 
 ## Phase Details
 
@@ -55,7 +55,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 03-01: TBD
+- [x] 03-01: Darwin platform detection & graceful manual setup exit — complete
 
 ## Progress
 
@@ -66,4 +66,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Config Schema Test Infrastructure | 1/1 | Complete | 2026-09-20 |
 | 2. Pre-Commit Quality Gates & Tooling Parity | 1/1 | Complete | 2026-09-20 |
-| 3. Platform Portability & Installation Guard | 0/1 | Not started | - |
+| 3. Platform Portability & Installation Guard | 1/1 | Complete | 2026-09-20 |
