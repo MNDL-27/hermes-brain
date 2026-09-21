@@ -1,112 +1,193 @@
 # Feature Research
 
-**Domain:** Developer Experience, Contributor Tooling & Release Polish (Python / Hermes Plugin)
-**Researched:** 2026-09-20
+**Domain:** Python Package Distribution, Release Automation, & Non-Blocking Drift Detection
+**Researched:** 2026-09-21
 **Confidence:** HIGH
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features contributors and end users assume exist. Missing these results in broken onboarding, failed git commits, CI mismatches, or terminal crashes.
+Features users assume exist. Missing these = product feels incomplete or broken.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Working `.pre-commit-config.yaml` | `CONTRIBUTING.md` instructs contributors to run `pre-commit install`. Without config, command fails or creates no hooks. | LOW | Must wire `ruff-check` (`--fix`), `ruff-format` (via `astral-sh/ruff-pre-commit`), `mirrors-mypy`, and standard file hygiene (`trailing-whitespace`, `end-of-file-fixer`). |
-| Pre-commit alignment with CI quality gates | Contributors expect local `git commit` checks to match GitHub Actions CI (`.github/workflows/ci.yml`). Differences cause surprise CI rejections. | LOW | Target versions in `.pre-commit-config.yaml` must match `pyproject.toml` pins (`ruff 0.16.0`, `mypy 2.3.0`, `target-version = py311`). |
-| Pure unit test coverage for `config_schema.py` (#51) | Declarative schema defining Desktop panel UI surface requires regression testing so field changes do not break Desktop panel. | LOW | Test in `tests/test_config_schema.py`. Must test schema name, storage, field types, required fields (`notionApiKey`), optional fields with defaults (`hermesHome`), and secret markers. |
-| Test runtime isolation / host stubbing | `notion_brain/config_schema.py` imports `plugins.memory.config_schema`. In standalone test environments, `plugins` is uninstalled. | LOW | Extend `tests/conftest.py` stubs or create test-time stub classes for `ProviderConfigSchema` and `ProviderField` so `pytest` runs offline without `ModuleNotFoundError`. |
-| Darwin (macOS) detection in `scripts/install.sh` (#53) | macOS is common Hermes dev OS. Script claims Linux support but lacks `uname` check, causing confusing package-manager failure cascades. | LOW | Add `uname -s` detection at top of system detection. If `Darwin`, output clear friendly guidance pointing to README Quickstart Step 2 and exit 0 cleanly. |
-| Linux distro installer preservation | Existing Linux users rely on automated setup across Ubuntu, Debian, Fedora, RHEL, Rocky, Alma, and Arch (`pacman`). | LOW | Ensure Darwin guard branches cleanly before package manager detection; Linux paths remain 100% untouched. |
-| Declared `pre-commit` dev dependency | Running `pip install -e ".[dev]"` as instructed in `CONTRIBUTING.md` must install the `pre-commit` CLI executable. | LOW | Add `pre-commit` to `[project.optional-dependencies] dev` in `pyproject.toml`. |
-| README & CONTRIBUTING docs sync | Documentation must accurately state macOS manual status and pre-commit workflow. | LOW | Update README installer note regarding macOS; verify `CONTRIBUTING.md` instructions match actual `.pre-commit-config.yaml` behavior. |
+| PyPI Package Availability & Installation | Standard Python distribution expectation (`pip install hermes-brain`, `uv pip install hermes-brain`). Users should not be forced to clone git repositories to use the package. | LOW | Packaged via setuptools PEP 621, distributed via wheel and sdist to PyPI. |
+| Automated Tag-Based PyPI Publishing | Pushing a version tag (e.g. `v1.1.0`) must automatically build, validate, and upload wheels/sdist without manual human intervention. | LOW | GitHub Actions workflow (`.github/workflows/publish.yml`) triggered on `push: tags: ['v*']`. |
+| PyPI OIDC Trusted Publishing | Secure PyPI publication without storing long-lived, static API tokens in repository secrets. | LOW | Requires `id-token: write` permission and `pypa/gh-action-pypi-publish@release/v1` with `environment: pypi`. |
+| Manual Twine Release Runbook | Offline or emergency distribution fallback when GitHub Actions runners are unavailable or OIDC exchange fails. | LOW | Documented step-by-step procedure: `python -m build`, `twine check dist/*`, and `twine upload dist/*`. |
+| Modern SPDX License Declaration | Deprecation warning elimination under modern setuptools (>=77.0.3) and packaging tools adhering to PEP 639. | LOW | Replace deprecated `license = { text = "MIT" }` table with SPDX string `license = "MIT"` in `pyproject.toml`. |
+| CLI Update Drift Detection Command | Users running `python -m notion_brain update` expect to know if a newer version exists and how to upgrade. | LOW | Queries GitHub Releases API; compares installed version against remote release tag. |
+| Explicit Environment Detection | Update instructions must match how hermes-brain was actually installed (uv, pip venv, pip user, or editable git clone). | MEDIUM | Inspects `pkg_dir / ".git"`, `VIRTUAL_ENV`, and presence of `uv` binary to produce exact copy-paste command. |
+| Zero-Latency Startup (<1ms) | Agent initialization (`NotionBrainProvider.initialize()`) must never stall on external network round-trips to GitHub or PyPI. | MEDIUM | Stale-while-revalidate pattern: synchronous read of local cache file (`$HERMES_HOME/.update_cache.json`), background refresh. |
+| Machine-Friendly CLI Flags (`--check`, `--json`) | Scripts and CI automation need to check for updates programmatically without parsing human terminal text. | LOW | `--check` exits 0 if current, 2 if update available; `--json` emits structured machine-readable payload. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that create exceptionally smooth DX and set this repository apart from standard plugin projects. Not strictly required, but high value.
+Features that set the product apart. Not required, but valuable.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Fast local pre-commit turnaround (<1.5s) | Keeps developer velocity high. Developers do not bypass hooks with `--no-verify` when checks complete almost instantly. | MEDIUM | Utilize `astral-sh/ruff-pre-commit` (Rust binary) for combined lint and format; scope `mypy` to changed files or package boundaries. |
-| Actionable terminal copy-paste for macOS | Rather than merely saying "unsupported", provide the exact 3 shell commands needed to complete manual installation directly in terminal output. | LOW | Output `python3 -m venv ~/.hermes/venv`, `pip install ...`, and `ln -s ... ~/.hermes/plugins/notion_brain` in formatted cyan/green boxes. |
-| Schema immutability & contract assertions | Prevents accidental modification of Desktop config keys (`notionApiKey`, `hermesHome`) that would corrupt existing user profiles. | LOW | Assert that schema fields are tuples (immutable), keys use camelCase matching Desktop conventions, and secret fields never have plaintext defaults. |
-| Centralized lint/type configs (No duplicate flags) | Hook definitions defer rule sets to `pyproject.toml` and `mypy.ini` rather than hardcoding CLI flags in `.pre-commit-config.yaml`. | LOW | Prevents configuration drift between pre-commit, local CLI runs, and GitHub Actions CI. |
-| Non-destructive preflight diagnostics in installer | Warns user immediately if prerequisites (Python 3.11+ or Hermes agent directory) are missing before cloning or writing files. | LOW | Already implemented in `scripts/install.sh`; Darwin detection builds on this clean diagnostic pattern. |
+| Dual Release Source (Tags & Git Commits) | Developer installs from git clones receive commit-level drift alerts even between formal tag releases. | MEDIUM | Fallback to GitHub commits API or git remote rev-parse if current version is not a tagged release. |
+| Tailored Per-Environment Copy-Paste Command | Eliminates confusion by printing the exact shell command needed for user's specific package manager (`uv`, `pip`, or `git pull && pip install -e .`). | MEDIUM | Distinguishes between `uv pip install --upgrade`, global/user pip, virtualenvs, and editable repository clones. |
+| Non-Blocking Daemon Worker Dispatch | Automatically keeps update state fresh without adding even 10ms of lag to interactive conversational turns. | LOW | Reuses existing `notion-brain-sync-worker` background queue (`self._sync_queue`) in `NotionBrainProvider`. |
+| Atomic, Secure Local Cache Perms (`0o600`) | Prevents multi-user cache snooping and partial file corruption on abnormal process exit or power loss. | LOW | Writes to temporary file `$HERMES_HOME/.update_cache.json.tmp`, applies `chmod 0o600`, and performs atomic filesystem replace. |
+| Actionable Update Banners with Direct Release Notes URL | Directs user straight to changelog (`https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z`) to evaluate breaking changes before upgrading. | LOW | Extracted directly from GitHub release metadata and surfaced in CLI and agent logs. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem appealing on the surface but introduce fragility, maintenance debt, or violate project scope constraints.
+Features that seem good but create problems.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Full Homebrew automation in `install.sh` | Users want single-command `curl \| bash` to install Python 3.11 and Hermes agent via `brew install`. | Homebrew environments vary wildly (Apple Silicon `/opt/homebrew` vs Intel `/usr/local`, Xcode Command Line Tools prompts, sudo requirement changes, permission failures, brew update hangs). Fragile and out of milestone scope. | Detect Darwin, print clear manual installation steps pointing to README Quickstart Step 2, and exit 0. |
-| Running full `pytest` suite in pre-commit hook | Ensures no test breaks before git commit is accepted. | Unit test execution takes 5–30+ seconds. Developers get frustrated by commit latency and routinely bypass hooks using `git commit --no-verify`, eliminating all lint/format protections. | Run fast static checks (Ruff, Mypy, whitespace) in pre-commit; reserve `pytest` for CI and optional pre-push hooks. |
-| Network calls / live Notion API mocks in `config_schema` tests | Test actual connection validation using config schema keys. | `config_schema.py` is pure metadata declaration for Desktop UI rendering. Adding network mocks or Notion API dependencies adds coupling, slows test runs, and risks credential leaks. | Pure unit assertions on schema structure, types, and values without network fixtures or mocks. |
-| Auto-installing `pre-commit` inside `install.sh` | Sets up contributor tooling for anyone installing the package. | `install.sh` is an end-user installer for agent users, not a contributor setup script. End users do not need git hooks or development dependencies. | Keep `pre-commit` restricted to `pyproject.toml [project.optional-dependencies] dev` and `CONTRIBUTING.md`. |
-| Windows native CMD/PowerShell installer within `install.sh` | Windows users want automated one-click install script. | `scripts/install.sh` is a POSIX Bash script. Running bash scripts on native Windows requires WSL or Git Bash, causing syntax and path mangling. | Instruct Windows users to use WSL2 or manual `pip install` as documented in README. |
-| Auto-committing fixed files in pre-commit | Automatically stages changes made by `ruff --fix` or `ruff format`. | Auto-staging can silently commit unexpected changes or mask linting side-effects without developer review. | Let hooks fail and modify working tree files; require developer to review diff and stage intentionally. |
+| Silent Automatic Self-Modification (`pip install` in running process) | Users want zero-touch auto-updates where the package updates itself in place without running commands. | Modifies byte-code (`.pyc`) and shared libraries in active `sys.path` while Python interpreter is executing. Causes `ImportError`, process corruption, permission crashes under PEP 668 externally-managed environments, and races against active daemon worker threads. Violates explicit project scope constraint. | "Detect + Instruct": Detect drift, output formatted alert banner, and provide exact one-line copy-paste upgrade command. |
+| Synchronous GitHub API Calls on Runtime Boot | Developer wants freshest release status immediately on agent start. | Adds 200ms–2500ms network latency to every CLI invocation and agent turn. Blocks agent initialization completely when offline or when GitHub API is degraded. | Stale-while-revalidate: Read local cache JSON in <1ms; dispatch network refresh task asynchronously to background daemon thread if TTL (24h) is expired. |
+| Permanent PyPI API Tokens in CI Repository Secrets | Simple to set up initially in GitHub Actions secrets. | Long-lived API tokens can leak, do not expire automatically, require manual rotation, and fail modern security audits. | PyPA OIDC Trusted Publishing (`pypa/gh-action-pypi-publish@release/v1` with `id-token: write`). |
+| Bundling Update Cache in `notion_brain.json` | Reuses existing workspace metadata cache file instead of creating another file. | Conflates package distribution state with Notion database IDs. Breaks `notion_brain update` if Notion is unconfigured (`notion_brain.json` missing). Resetting databases (`notion_brain reset --force`) would wipe update cache. Creates concurrency write conflicts with background disk sync workers. | Dedicated, decoupled cache file at `$HERMES_HOME/.update_cache.json`. |
+| Synchronous Network Calls in `bootstrap.health_report()` | Health report currently checks update status inline via urllib. | Running `notion_brain health` stalls for 2-3 seconds on slow network or hangs when offline. | Migrate `health_report()` to query `updater.get_cached_update_banner()` backed by the local update cache. |
+| Hardcoded Terminal Color Escapes without TTY Check | Colored ASCII boxes look pretty in terminal output. | Mangles output when piped to files, logs, or downstream agent parsers (`TERM=dumb` or `NO_COLOR`). | Check `sys.stdout.isatty()` and respect `NO_COLOR` / `TERM=dumb` conventions. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[pyproject.toml [dev] pre-commit pin]
-    └──requires──> [.pre-commit-config.yaml]
-                       └──wires──> [astral-sh/ruff-pre-commit (lint & format)]
-                       └──wires──> [mirrors-mypy (type checking)]
-                       └──wires──> [pre-commit-hooks (whitespace, eof)]
+[PyPI Trusted Publishing]
+    └──requires──> [SPDX License Declaration (PEP 639)]
+    └──requires──> [GitHub Actions OIDC Workflow (`publish.yml`)]
 
-[tests/conftest.py host runtime stubs]
-    └──enables──> [tests/test_config_schema.py]
-                      └──verifies──> [notion_brain/config_schema.py]
+[CLI `update` Drift Detection]
+    └──requires──> [Drift Engine (`updater.py`)]
+                       └──requires──> [GitHub Releases API Client (2.5s timeout)]
+                       └──requires──> [Installation Type Detector (uv/pip/git)]
+                       └──requires──> [Cache Layer (`.update_cache.json`)]
 
-[uname -s Darwin detection]
-    └──enables──> [Friendly macOS guidance & clean exit 0]
-    └──bypasses──> [Linux package manager detection (apt/dnf/yum/pacman)]
+[Non-Blocking Auto-Update Check]
+    └──requires──> [Cache Layer (`.update_cache.json`)]
+    └──requires──> [Provider Background Worker (`notion-brain-sync-worker`)]
+    └──enhances──> [CLI `update` Command]
+    └──enhances──> [CLI `health` Command]
 
-[.pre-commit-config.yaml] ──syncs_with──> [.github/workflows/ci.yml]
-[.pre-commit-config.yaml] ──satisfies──> [CONTRIBUTING.md setup guide]
-[scripts/install.sh Darwin guidance] ──references──> [README.md Quickstart Step 2]
+[Detect + Instruct Pattern] ──conflicts──> [Silent In-Place Self-Modification]
 ```
 
 ### Dependency Notes
 
-- **`tests/conftest.py` host runtime stubs enable `tests/test_config_schema.py`:** Because `notion_brain/config_schema.py` imports `plugins.memory.config_schema`, which is part of the external Hermes desktop host environment, tests cannot import `notion_brain.config_schema` without stubbing `plugins.memory.config_schema` in `tests/conftest.py`.
-- **`pyproject.toml` dev dependencies enable `.pre-commit-config.yaml`:** Contributors following `CONTRIBUTING.md` run `pip install -e ".[dev]"` followed by `pre-commit install`. If `pre-commit` is missing from `pyproject.toml` dev dependencies, `pre-commit install` fails with command not found.
-- **Darwin detection bypasses Linux package managers:** `uname -s` must execute before any Linux package manager checks (`apt-get`, `dnf`, `yum`, `pacman`) to prevent false-positive error exits or unexpected sudo prompts on macOS.
-- **Pre-commit configuration syncs with CI workflow:** Hooks in `.pre-commit-config.yaml` must align with `ci.yml` (`quality-debt` job running ruff and mypy). If versions or rules diverge, code passing locally will fail on GitHub Actions.
+- **`PyPI Trusted Publishing` requires `SPDX License Declaration`:** Modern packaging tools (setuptools >=77) building sdist and wheels validate metadata standards. Deprecated table syntax causes warnings and potential build rejections on PyPI.
+- **`CLI update Drift Detection` requires `updater.py` & Cache Layer:** The CLI subcommand delegates all version parsing, GitHub HTTP requests, and environment detection to `updater.py`, caching results to prevent repeated rate-limited API calls.
+- **`Non-Blocking Auto-Update Check` requires Provider Background Worker:** Provider `initialize()` enqueues the cache refresh onto `self._sync_queue` so the agent main thread never touches the network for update checks.
+- **`Detect + Instruct Pattern` conflicts with `Silent In-Place Self-Modification`:** Silent modification mutates running files; detect + instruct intentionally isolates the update check from environment mutation.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1 / Milestone Release Polish)
+### Launch With (v1.1)
 
-Minimum viable feature set required to resolve issues #51, #52, and #53, unblocking contributors and macOS users.
+Minimum viable product for Distribution & Updates milestone.
 
-- [ ] **`tests/test_config_schema.py` suite (#51)** — Full test coverage of `notion_brain/config_schema.py` verifying schema identity, fields, keys, types, defaults, required vs optional, and secret flags.
-- [ ] **`tests/conftest.py` stub extension (#51)** — Provide lightweight in-memory stubs for `plugins.memory.config_schema` to allow offline test execution.
-- [ ] **`.pre-commit-config.yaml` configuration (#52)** — Pre-commit hook definition wiring Ruff check (`--fix`), Ruff format, Mypy type-checking, and file hygiene hooks.
-- [ ] **`pyproject.toml` dev dependency update (#52)** — Add `pre-commit` to `[project.optional-dependencies] dev`.
-- [ ] **Darwin OS detection in `scripts/install.sh` (#53)** — Detect `Darwin` via `uname -s` before package manager inspection, print clear guidance pointing to README Quickstart, and exit with code 0.
-- [ ] **Documentation alignment (#52, #53)** — Ensure README Quickstart and CONTRIBUTING accurately reflect the macOS manual path and pre-commit setup.
+- [ ] **SPDX License Modernization** — Migrate `pyproject.toml` `license = { text = "MIT" }` to `license = "MIT"` to comply with PEP 639.
+- [ ] **PyPI Publishing Workflow (`.github/workflows/publish.yml`)** — Trigger on `v*` tag push with `id-token: write` permissions and `pypa/gh-action-pypi-publish@release/v1`.
+- [ ] **Manual Twine Runbook Documentation** — Step-by-step emergency release instructions in `docs/` or `CONTRIBUTING.md`.
+- [ ] **Core Drift Engine (`notion_brain/updater.py`)** — GitHub API fetcher (2.5s timeout, secret sanitization), version comparator, and environment detector.
+- [ ] **Isolated Local Cache (`$HERMES_HOME/.update_cache.json`)** — Atomic 0o600 file write with 24-hour default TTL.
+- [ ] **Overhauled CLI `update` Subcommand** — Replaces git-checkout self-mutation with "Detect + Instruct" output format, `--check`, `--json`, and `--force` flags.
+- [ ] **Non-Blocking Provider Integration** — Read cache on boot (<1ms); enqueue stale refresh into `notion-brain-sync-worker` daemon queue.
+- [ ] **Offline Unit Test Suite (`tests/test_updater.py`)** — 100% offline tests mocking GitHub API, cache TTL, rate limits, corrupt JSON, and CLI formatting.
 
-### Add After Validation (v1.x)
+### Add After Validation (v1.1.x)
 
-Features to add once core contributor and installation workflows are stable.
+Features to add once core distribution is validated.
 
-- [ ] **Pre-push hook configuration** — Optional `pre-push` hook running `pytest -q` so fast tests run before remote push without penalizing local commits.
-- [ ] **Automated hook auto-update action** — GitHub Action to periodically run `pre-commit autoupdate` via PR.
-- [ ] **Interactive installer mode check** — Detect whether `install.sh` is running interactively or piped (`curl | bash`), optimizing terminal output accordingly.
+- [ ] **Configurable Update TTL via Environment Variable** — Allow `HERMES_UPDATE_CHECK_INTERVAL_HOURS` override for enterprise or offline setups.
+- [ ] **CLI Upgrade One-Click Wrapper Script** — Interactive confirmation prompt (`Do you want to run this upgrade command now? [y/N]`) only when invoked interactively in a standalone terminal (never inside agent loop).
 
 ### Future Consideration (v2+)
 
-Features deferred until broader multi-platform distribution milestones.
+Features deferred to future milestones.
 
-- [ ] **Automated macOS Homebrew installer** — Dedicated brew formula or brew-based automated dependency resolution (if Hermes ecosystem adopts Homebrew).
-- [ ] **Windows native installer** — PowerShell script (`install.ps1`) for native Windows developer setups.
-- [ ] **Unified plugin test harness** — Shared testing utility distributed by Hermes core for validating plugin config schemas across all providers.
+- [ ] **Pre-push Git Hook (`pytest -q`)** — Local pre-push hook running test suite before remote push (TOOL-01).
+- [ ] **Scheduled `pre-commit autoupdate` Action** — Weekly CI workflow validating hook version bumps (TOOL-02).
+- [ ] **PyPI JSON API Fallback** — Fall back to `pypi.org/pypi/hermes-brain/json` if GitHub API is unreachable or rate-limited.
+
+---
+
+## Detailed Expected Behaviors
+
+### 1. Update Paths & User Experience
+
+| User Install Type | Detection Heuristic | User Sees / Gets | Exact Suggested Command |
+|-------------------|---------------------|------------------|-------------------------|
+| **uv Virtualenv** | `os.environ.get("VIRTUAL_ENV")` contains `bin/uv` or `uv` is on PATH in venv | Status banner showing current version, latest version, and release notes URL | `uv pip install --upgrade hermes-brain` |
+| **Standard venv / pip** | `os.environ.get("VIRTUAL_ENV")` is set, or running in active Python virtualenv | Status banner showing current version, latest version, and release notes URL | `pip install --upgrade hermes-brain` |
+| **pip User Install** | Not in venv, installed in `~/.local` or system user directory | Status banner with user flag reminder to avoid permission errors | `pip install --user --upgrade hermes-brain` |
+| **Git Clone / Editable** | `(pkg_dir / ".git").is_dir()` | Status banner showing local commit/tag vs remote HEAD, warning if working tree is dirty | `cd <pkg_dir> && git pull --rebase && pip install -e .` |
+
+### 2. Cache TTL & Startup Latency Behavior
+
+- **Startup Latency Contract:** `< 1ms` disk read time. Zero HTTP requests on the main thread.
+- **Cache Location:** `$HERMES_HOME/.update_cache.json` (mode `0o600`).
+- **Cache Schema:**
+  ```json
+  {
+    "last_checked_at": 1726915200.0,
+    "current_version": "1.0.3",
+    "latest_version": "1.1.0",
+    "latest_commit_sha": "9be1f77d3f82a9918b9557b44588df8e59e3924f",
+    "update_available": true,
+    "installation_type": "uv",
+    "upgrade_command": "uv pip install --upgrade hermes-brain",
+    "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.1.0"
+  }
+  ```
+- **Stale-While-Revalidate Lifecycle:**
+  1. **T = 0s (First Boot / Missing Cache):** Read returns empty. Main thread proceeds immediately without waiting. Enqueues background refresh task to daemon thread queue.
+  2. **T = 10s (Worker finishes):** Worker writes JSON to disk atomically.
+  3. **T = 1 hour (Subsequent Boot):** Cache age is 3600s (< 86400s). Cache hit. If `update_available: true`, logs single notice: `notion_brain: Update available: 1.0.3 -> 1.1.0. Run: uv pip install --upgrade hermes-brain`. Zero background tasks queued.
+  4. **T = 25 hours (Expired TTL):** Cache age is > 86400s. Displays cached status (stale data served immediately), and asynchronously dispatches background refresh to re-validate against GitHub.
+
+### 3. "Detect + Instruct" Output Format
+
+When user runs `python -m notion_brain update`:
+
+#### Output: Update Available
+```text
+hermes-brain: Update Available
+--------------------------------------------------
+Current version:  1.0.3
+Latest version:   1.1.0
+Release notes:    https://github.com/MNDL-27/hermes-brain/releases/tag/v1.1.0
+Environment:      uv virtualenv
+
+To upgrade, run:
+  uv pip install --upgrade hermes-brain
+--------------------------------------------------
+```
+Exit code: `2` (when `--check` is specified) or `0` (interactive).
+
+#### Output: Already Up to Date
+```text
+hermes-brain: Up to Date
+--------------------------------------------------
+Installed version: 1.0.3
+Latest release:    1.0.3 (latest)
+Repository:        https://github.com/MNDL-27/hermes-brain
+--------------------------------------------------
+```
+Exit code: `0`.
+
+#### Output: Machine Readable (`--json`)
+```json
+{
+  "update_available": true,
+  "current_version": "1.0.3",
+  "latest_version": "1.1.0",
+  "installation_type": "uv",
+  "upgrade_command": "uv pip install --upgrade hermes-brain",
+  "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.1.0",
+  "checked_at": 1726915200.0
+}
+```
 
 ---
 
@@ -114,46 +195,45 @@ Features deferred until broader multi-platform distribution milestones.
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Unit tests for `config_schema.py` (#51) | HIGH | LOW | P1 |
-| Stub `plugins.memory.config_schema` in tests (#51) | HIGH | LOW | P1 |
-| Create `.pre-commit-config.yaml` matching CI (#52) | HIGH | LOW | P1 |
-| Add `pre-commit` to `pyproject.toml` dev extra (#52) | HIGH | LOW | P1 |
-| macOS detection & clean exit 0 in `install.sh` (#53) | HIGH | LOW | P1 |
-| Manual install instructions in macOS installer output (#53) | HIGH | LOW | P1 |
-| Documentation updates (README / CONTRIBUTING) | MEDIUM | LOW | P1 |
-| Optional pre-push test hook | MEDIUM | LOW | P2 |
-| Hook auto-update CI workflow | LOW | LOW | P3 |
-| Automated Homebrew bootstrap on macOS | MEDIUM | HIGH | P3 (Anti-feature for now) |
+| SPDX License Modernization (`pyproject.toml`) | HIGH | LOW | P1 |
+| GitHub Actions OIDC PyPI Publishing (`publish.yml`) | HIGH | LOW | P1 |
+| Manual Twine Release Fallback Runbook | MEDIUM | LOW | P1 |
+| Core Drift Engine & Cache Layer (`updater.py`) | HIGH | MEDIUM | P1 |
+| CLI `update` Subcommand Overhaul (Detect + Instruct) | HIGH | LOW | P1 |
+| Non-Blocking Provider Boot Integration (`provider.py`) | HIGH | LOW | P1 |
+| Unit & Offline Characterization Tests (`test_updater.py`) | HIGH | MEDIUM | P1 |
+| Machine-Readable CLI Output (`--json`) | MEDIUM | LOW | P2 |
+| Configurable TTL via Environment Variable | LOW | LOW | P2 |
+| Scheduled Pre-Commit Autoupdate (TOOL-02, v2) | MEDIUM | LOW | P3 |
+| Optional Pre-Push Test Hook (TOOL-01, v2) | LOW | LOW | P3 |
 
 **Priority key:**
-- **P1:** Must have for milestone completion (Issues #51, #52, #53)
-- **P2:** Should have, add if time permits
-- **P3:** Defer to future milestone / Out of scope
+- P1: Must have for v1.1 milestone launch
+- P2: Should have, add when possible
+- P3: Nice to have, future consideration (v2)
 
 ---
 
-## Competitor Feature Analysis
+## Competitor & Ecosystem Feature Analysis
 
-Comparison with standard practices in modern Python CLI and agent plugin ecosystems (e.g., Astral tools, LangChain community plugins, Anthropic SDK plugins).
-
-| Feature | Standard Python Tooling | Common Agent Plugins | hermes-brain Release Polish Approach |
-|---------|-------------------------|----------------------|--------------------------------------|
-| Git Pre-Commit Hooks | Often bloated with 10+ slow hooks, causing developers to skip with `--no-verify`. | Missing entirely; relies solely on CI checks failing on PR. | Focused, ultra-fast hooks: Ruff (lint+format in <100ms), scoped Mypy, and basic whitespace. Matches CI exactly. |
-| Config Schema Testing | Tested only via end-to-end integration or not tested (0% coverage). | Often unvalidated or crashes when imported outside host agent daemon. | Pure unit testing in `tests/test_config_schema.py` with mock-free host stubs; asserts contract, defaults, and secrets. |
-| Cross-Platform Installer Scripts | Fails with cryptic errors on unsupported OSs (e.g., `apt-get: command not found`). | Prompts user to install unmaintained third-party dependencies or breaks system Python. | Immediate OS detection (`uname -s`); graceful exit 0 on Darwin with exact manual copy-paste instructions pointing to README. |
-| Test Environment Isolation | Requires full runtime environment installed or network access. | Requires live API keys (`NOTION_API_KEY`) to run test suite. | 100% offline unit testing; host stubs in `conftest.py` ensure `pytest` runs in any standard Python 3.11–3.13 venv. |
+| Feature | pip / pipx | Homebrew CLI Tools | hermes-brain v1.1 Approach |
+|---------|------------|--------------------|----------------------------|
+| **Update Notification** | Checks PyPI on invocation; prints notice at end of stderr | Checks git / tap index on command execution; prints notice | Synchronous local cache check (<1ms) on boot; background daemon refresh |
+| **Upgrade Execution** | Requires explicit user command (`pip install -U ...`) | Requires explicit user command (`brew upgrade ...`) | "Detect + Instruct": Prints exact per-environment command for copy-paste |
+| **Self-Modification** | Never self-modifies running binary; requires wrapper/runner | Never self-modifies running process | Explicit anti-feature: strictly avoids in-process virtualenv mutation |
+| **Packaging Publishing** | PyPA Trusted Publishing via OIDC | Release bottle upload via GitHub Actions | PyPA Trusted Publishing via GitHub Actions OIDC (`publish.yml`) |
+| **Cache Storage** | Dedicated cache directory (`~/.cache/pip`) | Local cache tap directory | Isolated JSON file (`$HERMES_HOME/.update_cache.json`, mode 0o600) |
 
 ---
 
 ## Sources
 
-- GitHub Issues #51, #52, #53 in `MNDL-27/hermes-brain` repository
-- `notion_brain/config_schema.py` and `scripts/install.sh` source files
-- `.github/workflows/ci.yml` and `pyproject.toml` quality gate definitions
-- Official Ruff Pre-Commit Integration Documentation (`https://github.com/astral-sh/ruff-pre-commit`)
-- Official Mypy Pre-Commit Mirror Documentation (`https://github.com/pre-commit/mirrors-mypy`)
-- `.planning/PROJECT.md` milestones and constraints
+- PyPA Trusted Publishing Specification: https://docs.pypi.org/trusted-publishers/
+- PyPA Sample Project Release Workflow: https://deepwiki.com/pypa/sampleproject/3-continuous-integration
+- PEP 639 – Improving License Expression in pyproject.toml: https://peps.python.org/pep-0639/
+- Python Packaging User Guide (Declaring License): https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+- Hermes Brain Codebase Architecture: `notion_brain/provider.py`, `notion_brain/__main__.py`, `notion_brain/bootstrap.py`
 
 ---
-*Feature research for: Developer Experience, Contributor Tooling & Release Polish*
-*Researched: 2026-09-20*
+*Feature research for: Python Package Distribution, Release Automation, & Non-Blocking Drift Detection*
+*Researched: 2026-09-21*

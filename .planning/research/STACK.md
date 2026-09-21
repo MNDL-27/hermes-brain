@@ -1,7 +1,7 @@
-# Technology Stack
+# Stack Research
 
-**Domain:** hermes-brain Release Polish (Config Schema Testing, Pre-commit Hook Integration, macOS Platform Detection)
-**Researched:** 2026-09-20
+**Domain:** Python Package Distribution, Release Automation & CLI Drift Detection
+**Researched:** 2026-09-21
 **Confidence:** HIGH
 
 ## Recommended Stack
@@ -10,150 +10,121 @@
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| `pre-commit` | `^4.1.0` | Multi-language Git pre-commit hook framework | Industry standard for Python repositories. Native support for Python 3.11–3.13, virtualenv isolation, deterministic hook execution. Enforces CONTRIBUTING.md requirements locally before CI push. |
-| `pytest` | `9.1.1` | Unit test execution runner and assertion framework | Already pinned in `pyproject.toml` and CI. Native Python assertions, zero runtime overhead, rich failure introspection for testing declarative schema structures without external libraries. |
-| POSIX `uname -s` / Bash 4+ | POSIX standard | Operating system detection in `scripts/install.sh` | Portable, zero-dependency POSIX detection across all Darwin/Linux environments. Replaces brittle Bash-only `$OSTYPE` and Linux-specific `/etc/os-release`. |
+| **Python Standard Library** (`json`, `pathlib`, `urllib.request`, `re`, `os`) | `>=3.11,<3.14` | Local update cache storage, atomic JSON writes, version tuple parsing, and daemon-thread network checks | Zero new runtime dependencies. `json` + `pathlib.Path` + `os.replace` provide atomic cache persistence. SemVer/PEP 440 parsing for `X.Y.Z` tags is trivial with regex tuple comparison. |
+| **`requests`** | `>=2.28` (locked `2.34.2`) | Existing HTTP client across `notion_brain` | Already the sole runtime dependency. Available for GitHub API calls with timeouts, custom headers (`User-Agent`, `Accept`), and error handling if preferred over `urllib.request`. |
+| **GitHub Actions OIDC** (`id-token: write`) | v1 / OIDC standard | Cryptographic identity exchange between GitHub Actions and PyPI | Eliminates long-lived PyPI API tokens stored in repository secrets. Token is ephemeral, scoped exclusively to `refs/tags/v*` and the specific workflow. |
+| **`pypa/gh-action-pypi-publish`** | `release/v1` | Official PyPA GitHub Action for PyPI uploads via Trusted Publishing | Official PyPA distribution upload action. Automatically requests OIDC token from GitHub, exchanges with PyPI for short-lived token, generates Sigstore digital attestations, and uploads wheels/sdists. |
+| **`setuptools`** | `>=77.0.3` | Build backend supporting PEP 639 SPDX license expressions | setuptools 77.0.3 introduced formal support for PEP 639 string-based `license = "SPDX"` in `pyproject.toml`. Eliminates deprecated `license = { text = "..." }` table without deprecation warnings. |
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `astral-sh/ruff-pre-commit` | `v0.16.0` | Git hook repository running Ruff linter and formatter | Run on every git commit. Matches `ruff==0.16.0` in `pyproject.toml`. Executes `ruff` with `--fix` and `ruff-format`. |
-| `pre-commit/mirrors-mypy` | `v2.3.0` | Git hook repository running Mypy static type checker | Run on git commit before push. Matches `mypy==2.3.0` in `pyproject.toml`. Scoped to `^(notion_brain\|tests)/` with `--config-file=mypy.ini`. |
-| `pre-commit/pre-commit-hooks` | `v5.0.0` | Core sanity checks (whitespace, EOF, YAML, TOML, conflict markers) | Run on every git commit. Prevents trailing whitespace, broken TOML/YAML syntax, committed merge conflicts, and accidental large file check-ins. |
-| `pytest-cov` | `7.1.0` | Branch coverage measurement and reporting | Run during test execution (`--cov=notion_brain`) to verify branch and line coverage for `config_schema.py`. |
+| **`actions/upload-artifact`** | `v4` | Shares built distributions from `build` job to `publish` job | In `.github/workflows/publish.yml` to preserve artifact immutability between build and publish stages. |
+| **`actions/download-artifact`** | `v4` | Retrieves distributions in `publish` job | In `.github/workflows/publish.yml` prior to invoking `pypa/gh-action-pypi-publish`. |
+| **`build`** | `1.5.0` (existing dev dep) | PEP 517 build frontend | Used in CI build job (`python -m build`) to generate wheel and sdist in `dist/`. |
+| **`twine`** | `6.2.0` (existing dev dep) | Distribution metadata linter and manual upload fallback | Used in CI to run `twine check --strict dist/*`. Used by maintainers for manual emergency release fallback with API tokens. |
 
-### Development Tools
+### Development & Maintenance Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| `uv` | Package and virtualenv manager | Fast resolution and syncing (`uv sync --extra dev`). Used in CI and local workflows. |
-| `ruff` (`0.16.0`) | Linter and code formatter | Configured in `pyproject.toml` (`target-version = "py311"`, `select = ["E", "F", "W", "I"]`, `ignore = ["E501"]`). |
-| `mypy` (`2.3.0`) | Static type checker | Configured via `mypy.ini` (ignoring missing imports for unstubbed `requests.*`, `agent.*`, `tools.*`, `plugins.*`) and `pyproject.toml`. |
+| **`uv`** | Fast local virtualenv, lockfile management, build runner | Lockfile revision 3 already committed (`uv.lock`). Run `uv run --no-sync python -m build` and `uv run --no-sync twine check dist/*`. |
+| **`pytest` + `pytest-cov`** | Offline unit test execution | Mock GitHub API responses via `monkeypatch` and cache file paths via `tmp_path`. Must maintain 100% offline test reliability. |
+| **`ruff`** (`0.16.0`) | Formatting and linting | Enforces imports and formatting in any new or modified modules (`bootstrap.py`, `__main__.py`). |
+| **`mypy`** (`2.3.0`) | Strict static type checking | Enforces `str | None`, `Path`, and JSON dict typing for cache and update functions. |
 
 ## Installation
 
+No new runtime dependencies are added to `pyproject.toml`.
+
 ```bash
-# Add pre-commit to pyproject.toml [project.optional-dependencies] dev:
-# "pre-commit>=4.1.0",
+# Core runtime: unchanged
+# Only requests>=2.28 remains in dependencies
 
-# Sync development environment using uv:
-uv sync --extra dev
+# Dev dependencies: already pinned in pyproject.toml [project.optional-dependencies]
+uv pip install -e ".[dev]"
+```
 
-# Install git hook scripts into .git/hooks:
-uv run pre-commit install
+Build-system configuration update in `pyproject.toml`:
+
+```toml
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-brain"
+version = "1.0.3"
+description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.14"
 ```
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| `pre-commit` framework | `lefthook` | Use when multi-language repository requires ultra-fast Go binary without Python dependency. Not needed here since project is 100% Python and contributor doc already specifies `pre-commit install`. |
-| `pre-commit` framework | Raw `.git/hooks/pre-commit` bash script | Use for single-developer zero-dependency repos. Brittle across cross-platform teams; lacks automatic virtualenv sandboxing and hook auto-updating. |
-| `astral-sh/ruff-pre-commit` | `repo: local` running `uv run ruff` | Use if developers must guarantee exact local venv interpreter. Git repo hook `astral-sh/ruff-pre-commit` provides isolated pre-built binaries that do not require an active venv. |
-| Pure `pytest` unit tests for `config_schema.py` | `pydantic` / `jsonschema` | Use if desktop schema required runtime schema validation against JSON schemas. `config_schema.py` is an internal static tuple definition; standard pytest assertions test field types and defaults with zero extra dependencies. |
-| `uname -s` detection | `$OSTYPE` inspection | Use if script is guaranteed to execute exclusively in Bash. `$OSTYPE` is undefined in pure POSIX `/bin/sh` or alternate shells. `uname -s` is universally available. |
-| `uname -s` detection | `/etc/os-release` parsing | Use for Linux distribution discrimination (Debian vs RHEL). `/etc/os-release` does not exist on macOS (Darwin). |
+| **Stdlib tuple/regex version comparison** | `packaging>=24.0` (`packaging.version.Version`) | `packaging` is superior if supporting complex version ranges (e.g. `~=`, PEP 508 specifiers) or arbitrary pre-release/post-release alpha combinations. For `hermes-brain`, releases follow standard SemVer `vX.Y.Z`. Adding `packaging` violates the zero-additional-runtime-dep rule for 5 lines of code. |
+| **Ephemeral `$HERMES_HOME/.update_cache.json` with 24h TTL** | Live API check on startup / turn sync | Live check is acceptable only when user explicitly invokes `hermes-brain update` or `hermes-brain health`. For agent startup, live checks introduce 200–2000ms latency and blow through GitHub's unauthenticated 60 req/hr rate limit. |
+| **GitHub Actions OIDC (Trusted Publishing)** | Long-lived PyPI API token in GitHub Secrets | Legacy PyPI token is used only if PyPI organization policy forbids OIDC or for manual offline maintenance scripts via `twine upload`. OIDC is the PyPA standard and eliminates secret leakage risk. |
+| **Detect + Instruct UX in `notion_brain update`** | Auto-in-place `git pull` + `pip install` | In-place self-modification was attempted in v1.0 but causes virtual environment corruption, permission errors on root-owned installs, and breakages in containerized or git-submodule deployments. |
+| **GitHub REST Tags/Releases API** | PyPI JSON API (`https://pypi.org/pypi/hermes-brain/json`) | PyPI API only tracks PyPI releases. Many Hermes agent users run directly from git clones or release tags. GitHub API catches both git and PyPI releases simultaneously. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `pydantic` or `jsonschema` validation dependencies | Adds unnecessary heavy dependencies and build overhead for a 38-line declarative configuration schema. Hermes desktop interface uses simple dataclass/tuple semantics. | Native Python assertions in `tests/test_config_schema.py` with mock/stub fixtures for `plugins.memory.config_schema`. |
-| Mismatched hook revisions (e.g. `ruff-pre-commit` `v0.9.x` or latest `v0.17+`) | Causes formatting drift and rule discrepancies between local commits and CI (`ruff==0.16.0` in `pyproject.toml`). | Pin `rev: v0.16.0` in `.pre-commit-config.yaml` to match `pyproject.toml` dev dependency. |
-| Mismatched `mirrors-mypy` revision (e.g. `v1.x` or unpinned `master`) | Mypy 1.x and 2.x have different type-inference semantics and flags. Divergence leads to local commits passing while CI fails, or vice-versa. | Pin `rev: v2.3.0` in `.pre-commit-config.yaml` to match `pyproject.toml` dev dependency. |
-| `exit 1` on macOS Darwin detection in `scripts/install.sh` | Fails the curl-pipe-bash script abruptly, giving users an impression of crash or installation error. Violates key project decision for issue #53. | Print clear manual guidance pointing to README Quickstart and exit with status code `0`. |
-| Automated Homebrew package bootstrap (`brew install ...`) in `scripts/install.sh` | Out of scope for release polish (PROJECT.md). High maintenance burden, permission variations, Homebrew path differences across Apple Silicon and Intel. | Clean guidance directing user to manual `pip install` or venv symlink steps. |
-| Bash-specific `[[ "$OSTYPE" == "darwin"* ]]` in POSIX scripts | Non-portable across minimal shell interpreters or `/bin/sh` symlinks. | Standard POSIX `case "$(uname -s)" in Darwin) ... ;; esac`. |
+| **Adding `packaging` to `dependencies`** | Unnecessary runtime dependency. Python stdlib does not include `packaging` (distutils was removed in 3.12, packaging is PyPA third-party). | Stdlib regex `re.findall(r"\d+", version)` or integer tuple comparison `tuple(map(int, ver.lstrip("v").split(".")[:3]))`. |
+| **Unauthenticated live GitHub API checks on agent startup** | GitHub limits unauthenticated requests to **60 requests per hour per IP**. Multi-agent loops or frequent CLI invocations quickly trigger HTTP 403 `rate limit exceeded`. | Read local `$HERMES_HOME/.update_cache.json`. Only refresh cache in background worker if cache age exceeds TTL (default 24h). |
+| **Silent self-updating (`subprocess.run(["git", "pull"])`)** | Corrupts running interpreter state, fails on immutable containers, breaks package manager ownership (pip vs uv vs apt). | Print clean, copy-pasteable instructions (`pip install -U hermes-brain` or `git checkout <tag>`). |
+| **`pypa/gh-action-pypi-publish@master`** | The `master` branch of the PyPA publish action has been sunset and disabled. | Use `pypa/gh-action-pypi-publish@release/v1`. |
+| **Global `permissions: id-token: write` in GitHub workflow** | Grants privilege escalation permissions to all jobs, including build and test jobs that run arbitrary user or PR code. | Set `permissions: id-token: write` strictly inside the isolated `publish` job, with `needs: build`. |
+| **Deprecated `license = { text = "MIT" }` table** | Deprecated by PEP 621 / PEP 639. Triggers deprecation warnings in newer packaging toolchains. | `license = "MIT"` string expression with `setuptools>=77.0.3`. |
+| **`pip` or `twine` in runtime `dependencies`** | Packaging tools belong in build environments (`[project.optional-dependencies].dev`), not in end-user agent runtimes. | Keep runtime dependencies strictly limited to `requests>=2.28`. |
 
 ## Stack Patterns by Variant
 
-**If running local development with Git:**
-- Run `uv run pre-commit install` once after cloning.
-- Pre-commit executes `ruff --fix`, `ruff-format`, `mirrors-mypy`, and file sanitation on staged files before commit.
-- Catches lint and type errors in milliseconds before pushing.
+**If running CLI `hermes-brain update`:**
+- Check cache first; if `--check` flag is passed, evaluate cached or perform immediate one-off query to GitHub API.
+- Print current version vs latest remote version.
+- If current < latest, output tailored command:
+  - If `.git` directory exists at package root: `git -C <path> fetch --tags && git -C <path> checkout <tag>`
+  - Otherwise: `pip install --upgrade hermes-brain` (or `uv pip install -U hermes-brain` if uv detected).
+- Exit 0 on success (or exit 2 on drift if used as a check gate in scripts).
 
-**If executing in GitHub Actions CI:**
-- Pre-commit does not need to duplicate CI steps.
-- CI runs `uv run --no-sync ruff check` and `uv run --no-sync mypy` across the entire workspace in `quality-debt` job.
-- Pre-commit configuration guarantees contributors locally adhere to CI expectations.
+**If running inside Hermes Agent daemon loop (`NotionBrainProvider`):**
+- On provider initialization or turn sync:
+  - Read `$HERMES_HOME/.update_cache.json`.
+  - If missing or `time.time() - last_checked > 86400`:
+    - Dispatch background task to existing `_sync_queue` (`notion-brain-sync-worker`).
+    - Worker executes GitHub tag fetch with 3.0s timeout and standard headers.
+    - Atomically write updated cache JSON.
+  - Zero blocking on foreground turn processing.
 
-**If running `scripts/install.sh` on macOS (Darwin):**
-- Early detection branch:
-  ```bash
-  OS="$(uname -s)"
-  case "$OS" in
-      Darwin)
-          info "macOS detected."
-          echo ""
-          echo "  Automated installer currently supports Linux (Ubuntu, Debian, Fedora, RHEL)."
-          echo "  For macOS, follow the manual installation guide in README.md:"
-          echo "    https://github.com/MNDL-27/hermes-brain#quickstart"
-          echo ""
-          exit 0
-          ;;
-  esac
-  ```
-- Exits cleanly with code 0. Prevents Linux package manager (`apt-get`, `dnf`, `pacman`) execution failure.
+**If GitHub API rate limit (403) or network failure occurs:**
+- Catch exception silently (`raise ... from None` or `logger.debug`).
+- Touch cache timestamp with exponential backoff (e.g. defer next check by 1 hour) so failing calls do not retry on every turn.
+- Never raise to user or Hermes agent.
 
 ## Version Compatibility
 
 | Package / Tool | Compatible With | Notes |
 |----------------|-----------------|-------|
-| `pre-commit` `4.1.0` | Python 3.11, 3.12, 3.13 | Full support for modern Python versions; manages isolated virtualenvs cleanly. |
-| `astral-sh/ruff-pre-commit` `v0.16.0` | `ruff==0.16.0` | Identical rule set (`E`, `F`, `W`, `I`, ignore `E501`) and format outputs. |
-| `pre-commit/mirrors-mypy` `v2.3.0` | `mypy==2.3.0` | Reads `mypy.ini` in workspace root. Matches CI typecheck behavior. |
-| `pre-commit/pre-commit-hooks` `v5.0.0` | Git 2.25+ | Stable baseline for standard whitespace, line endings, and file syntax sanity. |
-| `pytest` `9.1.1` | Python 3.11, 3.12, 3.13 | Supports `unittest.mock`, `types.ModuleType` stubbing, and strict test markers. |
-
-## Recommended `.pre-commit-config.yaml` Specification
-
-```yaml
-default_language_version:
-  python: python3.11
-
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
-      - id: end-of-file-fixer
-      - id: check-yaml
-        args: [--unsafe]
-      - id: check-toml
-      - id: check-added-large-files
-        args: [--maxkb=500]
-      - id: check-merge-conflict
-      - id: mixed-line-ending
-        args: [--fix=lf]
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.0
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
-    hooks:
-      - id: mypy
-        files: ^(notion_brain|tests)/
-        args: [--config-file=mypy.ini]
-```
+| `setuptools>=77.0.3` | PEP 639 (`license = "MIT"`) | Earlier setuptools versions (`<77.0.3`) fail when `license` is a string instead of a table. |
+| `pypa/gh-action-pypi-publish@release/v1` | `actions/upload-artifact@v4` / `download-artifact@v4` | Must download artifacts into `dist/` before running the publish action. |
+| `Python 3.11, 3.12, 3.13` | CPython stdlib `json`, `pathlib`, `urllib.request` | Fully compatible across all supported Python versions without deprecation warnings. |
+| `requests>=2.28` | `urllib3 2.x` | Handled via existing `uv.lock`. |
 
 ## Sources
 
-- `/pre-commit/pre-commit` (Context7) — Pre-commit hook configuration and lifecycle
-- `/astral-sh/ruff` (Context7) — `ruff-pre-commit` hook specifications and version alignment
-- `/pre-commit/pre-commit-hooks` (Context7) — Core pre-commit hooks configuration
-- `/python/mypy` (Context7) — Pre-commit integration and config discovery
-- `https://api.github.com/repos/pre-commit/mirrors-mypy/tags` (WebFetch) — Verified tag `v2.3.0` exists
-- `https://api.github.com/repos/astral-sh/ruff-pre-commit/tags` (WebFetch) — Verified tag `v0.16.0` exists
-- `https://api.github.com/repos/pre-commit/pre-commit-hooks/tags` (WebFetch) — Verified tag `v5.0.0` exists
-- POSIX IEEE Std 1003.1 — Portable OS discovery via `uname -s`
+- `/pypa/packaging.python.org` — Verified PEP 639 specification, `license` SPDX expression syntax, and `setuptools>=77.0.3` requirement.
+- `pypa/gh-action-pypi-publish` README (`gh api repos/pypa/gh-action-pypi-publish/readme`) — Verified `release/v1`, `id-token: write` permission, separate `build` and `publish` jobs, and `environment: pypi`.
+- PyPI Trusted Publishers Guide (`docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/`) — Verified pending publisher workflow, GitHub owner/repo/workflow/environment fields.
+- GitHub REST API Rate Limit Documentation — Verified unauthenticated rate limit of 60 req/hr per IP and `x-ratelimit-*` response headers.
 
 ---
-*Stack research for: hermes-brain release polish*
-*Researched: 2026-09-20*
+*Stack research for: hermes-brain v1.1 Distribution & Updates*
+*Researched: 2026-09-21*
