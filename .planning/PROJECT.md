@@ -19,25 +19,30 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 - ✓ Strict secret redaction for API keys, tokens, and exception boundaries (`raise ... from None`) — existing
 - ✓ CLI utilities for setup wizard, health diagnostic, schema repair, database wiping, and markdown import — existing
 - ✓ Full multi-block page body hydration and chunked paragraph writes for Notion limits — existing
+- ✓ Complete unit test suite for `notion_brain/config_schema.py` (5 tests, 100% statement + branch coverage, offline host stubs) — v1.0 (SCHEMA-01/02/03, #51)
+- ✓ `.pre-commit-config.yaml` wiring ruff lint/format, mypy typechecking, and whitespace/EOF hooks mirroring CI — v1.0 (HOOK-01/02/03/04, #52)
+- ✓ `scripts/install.sh` Darwin detection with manual setup guidance and exit 0; Linux paths regression-free — v1.0 (PLAT-01/02/03, #53)
 
 ### Active
 
-- [ ] Complete unit test suite for `notion_brain/config_schema.py` covering schema structure, keys, types, defaults, and required vs. optional fields (#51)
-- [ ] Add `.pre-commit-config.yaml` wiring ruff lint/format, mypy typechecking, and basic whitespace hooks to match CONTRIBUTING.md (#52)
-- [ ] Update `scripts/install.sh` to cleanly detect macOS (Darwin), display manual install instructions pointing to the README Quickstart, and exit 0 (#53)
+- [ ] Optional pre-push git hook running `pytest -q` before remote push (TOOL-01, v2)
+- [ ] Scheduled GitHub Action for automated `pre-commit autoupdate` verification (TOOL-02, v2)
+- [ ] Nyquist validation reconciliation for Phase 1 (`01-VALIDATION.md` still `status: draft`) — carried from v1.0 closeout
 
 ### Out of Scope
 
-- Automated Homebrew package bootstrap on macOS — manual installation instructions in README Step 2 are sufficient for release polish (#53)
+- Automated Homebrew package bootstrap on macOS — manual installation instructions in README Step 2 are sufficient for release polish (#53); validated at v1.0
 - PyPI automated deployment pipeline — deferred to public distribution milestone
 - Real-time cloud vector database integrations — local Notion workspace remains primary storage backend
+- Live Notion API mocks in `test_config_schema.py` — schema is pure declarative metadata; network mocks add latency and failure modes
+- Automatic staging of hook fixes (`git add`) — working tree changes must be reviewed and staged manually
 
 ## Context
 
 - **Ecosystem**: Python 3.11–3.13 plugin package for Hermes Agent ecosystem (`hermes-agent`).
 - **Storage Layer**: Notion REST API (`api.notion.com/v1`) using internal integration tokens (`NOTION_API_KEY`).
-- **Quality Gates**: Ruff linting and formatting, Mypy strict type checking, and Pytest test suite with branch coverage tracking.
-- **Related Issues**: Open GitHub issues #51, #52, and #53 targeted for contributor experience and release polish.
+- **Quality Gates**: Ruff linting and formatting, Mypy strict type checking, Pytest test suite with branch coverage tracking, and local pre-commit hooks (7 hooks) mirroring the CI `quality-debt` job.
+- **Current State (v1.0 shipped 2026-09-21)**: 303 tests passing offline; `config_schema.py` at 100% coverage; macOS install guarded with clean manual-setup exit. Git range `828f240` → `23932c1`.
 
 ## Constraints
 
@@ -49,9 +54,9 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Isolated unit tests for `config_schema.py` | Schema declaration is pure Python; pure unit tests verify Desktop compatibility without network mocks | — Pending |
-| Match `.pre-commit-config.yaml` to CI | Ensures local contributor commits pass the exact same ruff and mypy checks as GitHub Actions | — Pending |
-| Clean exit 0 with guidance for Darwin in `install.sh` | Prevents package manager script failure on macOS while guiding developers to supported pip/symlink workflows | — Pending |
+| Isolated unit tests for `config_schema.py` | Schema declaration is pure Python; pure unit tests verify Desktop compatibility without network mocks | ✓ Good — v1.0: 5 tests, 100% coverage, offline-clean |
+| Match `.pre-commit-config.yaml` to CI | Ensures local contributor commits pass the exact same ruff and mypy checks as GitHub Actions | ✓ Good — v1.0: 7 hooks, same ruff/mypy versions; note mypy wired via `repo: local` + `uv run` (not `mirrors-mypy` repo) |
+| Clean exit 0 with guidance for Darwin in `install.sh` | Prevents package manager script failure on macOS while guiding developers to supported pip/symlink workflows | ✓ Good — v1.0: Step 0 guard before root/distro checks, Linux paths regression-free |
 
 ## Evolution
 
@@ -71,4 +76,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-20 after initialization*
+*Last updated: 2026-09-21 after v1.0 milestone*

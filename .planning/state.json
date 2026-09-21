@@ -1,0 +1,34 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": {
+    "version": "1.0",
+    "name": "Release Polish",
+    "status": "complete",
+    "shipped": "2026-09-21",
+    "phases": [
+      {
+        "number": "1",
+        "name": "Config Schema Test Infrastructure",
+        "status": "complete"
+      },
+      {
+        "number": "2",
+        "name": "Pre-Commit Quality Gates & Tooling Parity",
+        "status": "complete"
+      },
+      {
+        "number": "3",
+        "name": "Platform Portability & Installation Guard",
+        "status": "complete"
+      }
+    ]
+  },
+  "phases": [],
+  "next": {
+    "command": "/gsd-new-milestone",
+    "label": "Start next milestone",
+    "reason": "Milestone v1.0 complete and archived 2026-09-21"
+  },
+  "updated_at": "2026-09-21T10:30:00Z"
+}
