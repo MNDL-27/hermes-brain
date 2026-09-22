@@ -69,27 +69,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIST-01 | — | Pending |
-| DIST-02 | — | Pending |
-| DIST-03 | — | Pending |
-| META-01 | — | Pending |
-| META-02 | — | Pending |
-| UPD-01 | — | Pending |
-| UPD-02 | — | Pending |
-| UPD-03 | — | Pending |
-| UPD-04 | — | Pending |
-| UPD-05 | — | Pending |
-| CHK-01 | — | Pending |
-| CHK-02 | — | Pending |
-| CHK-03 | — | Pending |
-| CHK-04 | — | Pending |
-| CHK-05 | — | Pending |
+| META-01 | Phase 4 | Pending |
+| META-02 | Phase 4 | Pending |
+| DIST-01 | Phase 4 | Pending |
+| DIST-02 | Phase 4 | Pending |
+| DIST-03 | Phase 4 | Pending |
+| UPD-01 | Phase 5 | Pending |
+| UPD-02 | Phase 5 | Pending |
+| UPD-03 | Phase 5 | Pending |
+| UPD-04 | Phase 5 | Pending |
+| UPD-05 | Phase 5 | Pending |
+| CHK-01 | Phase 6 | Pending |
+| CHK-02 | Phase 6 | Pending |
+| CHK-03 | Phase 6 | Pending |
+| CHK-04 | Phase 6 | Pending |
+| CHK-05 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 ⚠️ (populated during roadmap creation)
+- Mapped to phases: 15 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-09-21*
-*Last updated: 2026-09-21 — initial definition for v1.1 Distribution & Updates*
+*Last updated: 2026-09-21 — traceability populated for v1.1 roadmap (Phases 4-6)*

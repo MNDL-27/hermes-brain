@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Distribution & Updates
-status: planning
-last_updated: "2026-09-21T10:39:59.010Z"
+status: ready
+last_updated: "2026-09-21T10:45:00.000Z"
 last_activity: 2026-09-21
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-21)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** Planning next milestone (/gsd-new-milestone)
+**Current focus:** Roadmap defined for v1.1 — ready to plan Phase 4
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 4 (Build Metadata Modernization & PyPI Publishing) — ready to plan
 Plan: —
-Status: Defining requirements
-Last activity: 2026-09-21 — Milestone v1.1 started
+Status: Ready to plan Phase 4
+Last activity: 2026-09-21 — v1.1 roadmap created (Phases 4-6)
 
 ## Performance Metrics
 
@@ -44,6 +44,9 @@ Last activity: 2026-09-21 — Milestone v1.1 started
 | 1. Config Schema Test Infrastructure | 1 | - | - |
 | 2. Pre-Commit Quality Gates & Tooling Parity | 1 | - | - |
 | 3. Platform Portability & Installation Guard | 1 | - | - |
+| 4. Build Metadata Modernization & PyPI Publishing | - | - | - |
+| 5. CLI Update Drift Detection | - | - | - |
+| 6. Cached Non-Blocking Auto-Update Check | - | - | - |
 
 **Recent Trend:**
 
@@ -60,7 +63,7 @@ All decisions logged in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-None yet.
+- One-time manual PyPI Trusted Publisher registration (owner + repo + `publish.yml` + environment `pypi`) must be documented in the maintainer runbook before the first `v*` tag push (research gap, Phase 4)
 
 ### Blockers/Concerns
 
@@ -77,9 +80,9 @@ Items acknowledged and deferred at milestone close, most recent first:
 ## Session Continuity
 
 Last session: 2026-09-21
-Stopped at: Milestone v1.0 completed and archived
+Stopped at: v1.1 roadmap created — Phases 4-6 defined, 15/15 requirements mapped
 Resume file: .planning/ROADMAP.md
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 4 with /gsd-plan-phase 4
