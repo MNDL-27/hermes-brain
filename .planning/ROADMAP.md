@@ -22,7 +22,10 @@
   2. Pushing a `v*` git tag triggers a CI workflow that builds wheel + sdist and uploads to PyPI via OIDC trusted publishing — no static PyPI API token exists in CI secrets (DIST-01)
   3. The publish workflow separates build and publish jobs, gates on `refs/tags/v*`, and configures `environment: pypi` with `id-token: write` so the OIDC token exchange succeeds (DIST-02)
   4. A maintainer can perform an offline/emergency release by following the documented twine runbook (build → `twine check` → `twine upload dist/*`) without any GitHub Actions involvement (DIST-03)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 04-01-PLAN.md — Modernize pyproject.toml to PEP 639 SPDX + setuptools>=77.0.3 and add offline packaging tests (META-01, META-02)
+- [ ] 04-02-PLAN.md — Author tag-triggered OIDC publish workflow (DIST-01, DIST-02) and maintainer release runbook with manual twine fallback (DIST-03)
 
 ### Phase 5: CLI Update Drift Detection
 **Goal:** Users running hermes-brain from any install mode (uv, pip venv, pip user, git clone) can check for newer releases and get exact, copy-pasteable upgrade instructions — without the tool ever modifying their environment.
@@ -52,7 +55,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4. Build Metadata Modernization & PyPI Publishing | 0/? | Not started | - |
+| 4. Build Metadata Modernization & PyPI Publishing | 0/2 | Planned | - |
 | 5. CLI Update Drift Detection | 0/? | Not started | - |
 | 6. Cached Non-Blocking Auto-Update Check | 0/? | Not started | - |
 
