@@ -671,12 +671,13 @@ def test_version_strings_match() -> None:
 
 *All other packaging and workflow claims were verified against official documentation or directly executed via local test tools.*
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **First-time PyPI Registration Timing:**
+1. **First-time PyPI Registration Timing:** (RESOLVED — D-08 in CONTEXT.md locks documenting both paths)
    - What we know: Trusted Publishing allows registering a pending publisher for a new package before the first upload occurs.
    - What's unclear: Whether the maintainer prefers creating the project on PyPI manually beforehand or using the pending publisher workflow.
    - Recommendation: Document both paths in `docs/RELEASES.md` step-by-step so the maintainer can execute either without ambiguity.
+   - **Resolution:** CONTEXT.md D-08 explicitly requires documenting both the manual project-creation path and the pending-publisher workflow. Plan 04-02 task "Author docs/RELEASES.md maintainer runbook (DIST-03)" implements this with two distinct setup sections.
 
 ## Environment Availability
 
