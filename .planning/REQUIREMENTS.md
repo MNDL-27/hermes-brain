@@ -11,14 +11,14 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### PyPI Publishing (DIST)
 
-- [ ] **DIST-01**: A `v*` tag push automatically builds wheel + sdist and uploads to PyPI via OIDC trusted publishing — no static PyPI API tokens in CI secrets
-- [ ] **DIST-02**: The publish workflow uses separate build and publish jobs, gated on `refs/tags/v*`, with `environment: pypi` and `id-token: write` so the OIDC token exchange succeeds
-- [ ] **DIST-03**: A documented manual twine runbook (build → `twine check` → `twine upload dist/*`) exists for offline/emergency releases when GitHub Actions or the OIDC exchange is unavailable
+- [x] **DIST-01**: A `v*` tag push automatically builds wheel + sdist and uploads to PyPI via OIDC trusted publishing — no static PyPI API tokens in CI secrets
+- [x] **DIST-02**: The publish workflow uses separate build and publish jobs, gated on `refs/tags/v*`, with `environment: pypi` and `id-token: write` so the OIDC token exchange succeeds
+- [x] **DIST-03**: A documented manual twine runbook (build → `twine check` → `twine upload dist/*`) exists for offline/emergency releases when GitHub Actions or the OIDC exchange is unavailable
 
 ### Build Metadata (META)
 
-- [ ] **META-01**: `pyproject.toml` declares the PEP 639 SPDX string `license = "MIT"` and the deprecated `license = { text = "MIT" }` table is removed
-- [ ] **META-02**: Build-system floor is bumped to `setuptools>=77.0.3`; `python -m build` + `twine check` produce clean metadata with zero deprecation warnings on Python 3.11, 3.12, and 3.13
+- [x] **META-01**: `pyproject.toml` declares the PEP 639 SPDX string `license = "MIT"` and the deprecated `license = { text = "MIT" }` table is removed
+- [x] **META-02**: Build-system floor is bumped to `setuptools>=77.0.3`; `python -m build` + `twine check` produce clean metadata with zero deprecation warnings on Python 3.11, 3.12, and 3.13
 
 ### CLI Update Command (UPD)
 
@@ -69,11 +69,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| META-01 | Phase 4 | Pending |
-| META-02 | Phase 4 | Pending |
-| DIST-01 | Phase 4 | Pending |
-| DIST-02 | Phase 4 | Pending |
-| DIST-03 | Phase 4 | Pending |
+| META-01 | Phase 4 | Complete |
+| META-02 | Phase 4 | Complete |
+| DIST-01 | Phase 4 | Complete |
+| DIST-02 | Phase 4 | Complete |
+| DIST-03 | Phase 4 | Complete |
 | UPD-01 | Phase 5 | Pending |
 | UPD-02 | Phase 5 | Pending |
 | UPD-03 | Phase 5 | Pending |
@@ -86,6 +86,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHK-05 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1.1 requirements: 15 total
 - Mapped to phases: 15 ✓
 - Unmapped: 0

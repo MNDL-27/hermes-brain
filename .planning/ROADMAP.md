@@ -7,7 +7,7 @@
 
 ## Phases
 
-- [ ] **Phase 4: Build Metadata Modernization & PyPI Publishing** — PEP 639 license, setuptools floor, OIDC publish workflow, manual twine runbook
+- [x] **Phase 4: Build Metadata Modernization & PyPI Publishing** — PEP 639 license, setuptools floor, OIDC publish workflow, manual twine runbook (completed 2026-09-26)
 - [ ] **Phase 5: CLI Update Drift Detection** — `notion_brain update` detects drift, instructs per-environment upgrade commands, machine-readable flags
 - [ ] **Phase 6: Cached Non-Blocking Auto-Update Check** — sub-ms cached startup, background TTL refresh on daemon worker, health report reads cache
 
@@ -29,11 +29,11 @@
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Modernize pyproject.toml to PEP 639 SPDX + setuptools>=77.0.3 and add offline packaging tests (META-01, META-02)
+- [x] 04-01-PLAN.md — Modernize pyproject.toml to PEP 639 SPDX + setuptools>=77.0.3 and add offline packaging tests (META-01, META-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-02-PLAN.md — Author tag-triggered OIDC publish workflow (DIST-01, DIST-02) and maintainer release runbook with manual twine fallback (DIST-03)
+- [x] 04-02-PLAN.md — Author tag-triggered OIDC publish workflow (DIST-01, DIST-02) and maintainer release runbook with manual twine fallback (DIST-03)
 
 ### Phase 5: CLI Update Drift Detection
 
@@ -69,7 +69,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4. Build Metadata Modernization & PyPI Publishing | 0/2 | Planned | - |
+| 4. Build Metadata Modernization & PyPI Publishing | 2/2 | Complete    | 2026-09-26 |
 | 5. CLI Update Drift Detection | 0/? | Not started | - |
 | 6. Cached Non-Blocking Auto-Update Check | 0/? | Not started | - |
 
