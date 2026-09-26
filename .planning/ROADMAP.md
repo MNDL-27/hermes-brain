@@ -8,7 +8,7 @@
 ## Phases
 
 - [x] **Phase 4: Build Metadata Modernization & PyPI Publishing** — PEP 639 license, setuptools floor, OIDC publish workflow, manual twine runbook (completed 2026-09-26)
-- [ ] **Phase 5: CLI Update Drift Detection** — `notion_brain update` detects drift, instructs per-environment upgrade commands, machine-readable flags
+- [x] **Phase 5: CLI Update Drift Detection** — `notion_brain update` detects drift, instructs per-environment upgrade commands, machine-readable flags (completed 2026-09-26)
 - [ ] **Phase 6: Cached Non-Blocking Auto-Update Check** — sub-ms cached startup, background TTL refresh on daemon worker, health report reads cache
 
 ## Phase Details
@@ -70,7 +70,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Build Metadata Modernization & PyPI Publishing | 2/2 | Complete    | 2026-09-26 |
-| 5. CLI Update Drift Detection | 0/? | Not started | - |
+| 5. CLI Update Drift Detection | 1/1 | Complete    | 2026-09-26 |
 | 6. Cached Non-Blocking Auto-Update Check | 0/? | Not started | - |
 
 ## Milestone Archive

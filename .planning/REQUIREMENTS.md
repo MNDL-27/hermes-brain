@@ -22,11 +22,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### CLI Update Command (UPD)
 
-- [ ] **UPD-01**: `notion_brain update` detects drift against the latest GitHub release and prints the installed version vs. the latest version
-- [ ] **UPD-02**: The command prints an exact, copy-pasteable upgrade command matching the detected environment (uv / pip venv / pip user / git clone)
-- [ ] **UPD-03**: Version comparison uses integer-tuple SemVer with pre-release ranking — `1.10.0` sorts above `1.9.0` and `1.1.0` sorts above `1.1.0b1`
-- [ ] **UPD-04**: `--check` exits 0 when current and 2 when an update is available; `--json` emits a machine-readable payload
-- [ ] **UPD-05**: The command is detect + instruct only — it never mutates the running environment (no `pip install`, `git pull`, or virtualenv modification)
+- [x] **UPD-01**: `notion_brain update` detects drift against the latest GitHub release and prints the installed version vs. the latest version
+- [x] **UPD-02**: The command prints an exact, copy-pasteable upgrade command matching the detected environment (uv / pip venv / pip user / git clone)
+- [x] **UPD-03**: Version comparison uses integer-tuple SemVer with pre-release ranking — `1.10.0` sorts above `1.9.0` and `1.1.0` sorts above `1.1.0b1`
+- [x] **UPD-04**: `--check` exits 0 when current and 2 when an update is available; `--json` emits a machine-readable payload
+- [x] **UPD-05**: The command is detect + instruct only — it never mutates the running environment (no `pip install`, `git pull`, or virtualenv modification)
 
 ### Auto Update Check (CHK)
 
@@ -74,11 +74,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIST-01 | Phase 4 | Complete |
 | DIST-02 | Phase 4 | Complete |
 | DIST-03 | Phase 4 | Complete |
-| UPD-01 | Phase 5 | Pending |
-| UPD-02 | Phase 5 | Pending |
-| UPD-03 | Phase 5 | Pending |
-| UPD-04 | Phase 5 | Pending |
-| UPD-05 | Phase 5 | Pending |
+| UPD-01 | Phase 5 | Complete |
+| UPD-02 | Phase 5 | Complete |
+| UPD-03 | Phase 5 | Complete |
+| UPD-04 | Phase 5 | Complete |
+| UPD-05 | Phase 5 | Complete |
 | CHK-01 | Phase 6 | Pending |
 | CHK-02 | Phase 6 | Pending |
 | CHK-03 | Phase 6 | Pending |
