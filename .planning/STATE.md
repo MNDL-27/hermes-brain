@@ -5,10 +5,10 @@ milestone_name: Distribution & Updates
 current_phase: 06
 status: completed
 stopped_at: Phase 06 complete — all phases complete
-last_updated: "2026-09-27T08:40:55.039Z"
+last_updated: "2026-09-27T18:23:03.319Z"
 last_activity: 2026-09-27
 last_activity_desc: Phase 06 complete
-state_head: a0c739023e1863c29d2d3f462b01bc3561463e04
+state_head: 80774ea273e822bc6179ccb8baccb5b09daf74e8
 progress:
   total_phases: 3
   completed_phases: 3
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-09-21)
 Phase: 06
 Plan: Not started
 Status: All phases complete
-Last activity: 2026-09-27 — Phase 06 complete
+Last activity: 2026-09-27 - Completed quick task 260927-p1q: made the unit test suite hermetic offline (network-deny conftest, wrong-mock fix, network marker)
 
 ## Performance Metrics
 
@@ -75,6 +75,12 @@ All decisions logged in PROJECT.md Key Decisions table.
 ### Blockers/Concerns
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260927-p1q | Make the unit test suite hermetic offline (conftest autouse socket-deny + NOTION_API_KEY/HERMES_HOME neutralization; fix wrong mock in test_search_dispatches to patch store.query_database; neutralize init GitHub-refresh leak; register+deselect a network marker and mark the PyPI build test) | 2026-09-27 | 80774ea | [260927-p1q-make-the-hermes-brain-unit-test-suite-he](./quick/260927-p1q-make-the-hermes-brain-unit-test-suite-he/) |
 
 ## Deferred Items
 
