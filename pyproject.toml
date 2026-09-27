@@ -48,8 +48,11 @@ include = ["notion_brain*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--strict-config", "--strict-markers"]
+addopts = ["--strict-config", "--strict-markers", "-m", "not network"]
 xfail_strict = true
+markers = [
+    "network: test requires real network egress (PyPI/GitHub); deselected by default, run with -m network",
+]
 
 [tool.coverage.run]
 branch = true

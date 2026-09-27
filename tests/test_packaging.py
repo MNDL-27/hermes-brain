@@ -2,6 +2,11 @@
 
 Validates PEP 639 SPDX metadata, setuptools>=77.0.3 floor, version consistency,
 and zero-deprecation offline build + twine check.
+
+NOTE: test_offline_build_and_twine_check needs real network — PEP517 build
+isolation fetches setuptools/wheel from PyPI — so it is marked
+@pytest.mark.network and deselected by default. Run it with:
+``uv run pytest -m network``.
 """
 
 from __future__ import annotations
@@ -11,6 +16,8 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT = REPO_ROOT / "pyproject.toml"
@@ -64,6 +71,7 @@ def test_version_strings_match() -> None:
     )
 
 
+@pytest.mark.network
 def test_offline_build_and_twine_check(tmp_path: Path) -> None:
     """META-02: python -m build produces clean artifacts; twine check --strict passes."""
     dist_dir = tmp_path / "dist"
