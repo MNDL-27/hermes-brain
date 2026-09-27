@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import schema as S
-from . import store
+from . import store, update_cache
 
 logger = logging.getLogger(__name__)
 
@@ -666,11 +666,15 @@ def health_report(hermes_home: str | Path) -> str:
         from . import __version__ as cur
     except Exception:
         cur = "1.0.3"
-    upd = _check_for_update()
-    if upd:
-        lines.append(upd)
+    # CHK-04: read cached update status; never perform a synchronous network call here.
+    cache = update_cache.load_cache(hermes_home)
+    if cache and cache.get("drift"):
+        latest = cache.get("latest") or "?"
+        lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+    elif cache and cache.get("latest"):
+        lines.append(f"version: {cur} (latest: {cache.get('latest')})")
     else:
-        lines.append(f"version: {cur} (latest)")
+        lines.append(f"version: {cur} (latest: unknown)")
 
     if not parent_id:
         return "error: no parent page cached; run `python -m notion_brain reset`"
