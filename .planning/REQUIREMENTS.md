@@ -30,11 +30,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Auto Update Check (CHK)
 
-- [ ] **CHK-01**: Provider init reads `$HERMES_HOME/.update_cache.json` synchronously in <1ms with zero network calls on the startup path
-- [ ] **CHK-02**: When the cache TTL (default 24h, configurable) is expired, a refresh is dispatched to the existing `notion-brain-sync-worker` background queue and stale data is served until the refresh lands
-- [ ] **CHK-03**: Cache writes are atomic (tempfile + `os.replace`, mode `0o600`) with a `JSONDecodeError` guard so a corrupt or interrupted cache degrades silently and never crashes startup
-- [ ] **CHK-04**: `health_report()` no longer performs its own synchronous network update check and instead reads the cached update status
-- [ ] **CHK-05**: The refresh queries the GitHub API unauthenticated with a short timeout (~2.5s), redacts secrets from all error/log paths, and is offline-safe (no exception escapes when the network is down)
+- [x] **CHK-01**: Provider init reads `$HERMES_HOME/.update_cache.json` synchronously in <1ms with zero network calls on the startup path
+- [x] **CHK-02**: When the cache TTL (default 24h, configurable) is expired, a refresh is dispatched to the existing `notion-brain-sync-worker` background queue and stale data is served until the refresh lands
+- [x] **CHK-03**: Cache writes are atomic (tempfile + `os.replace`, mode `0o600`) with a `JSONDecodeError` guard so a corrupt or interrupted cache degrades silently and never crashes startup
+- [x] **CHK-04**: `health_report()` no longer performs its own synchronous network update check and instead reads the cached update status
+- [x] **CHK-05**: The refresh queries the GitHub API unauthenticated with a short timeout (~2.5s), redacts secrets from all error/log paths, and is offline-safe (no exception escapes when the network is down)
 
 ## Future Requirements
 
@@ -79,11 +79,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UPD-03 | Phase 5 | Complete |
 | UPD-04 | Phase 5 | Complete |
 | UPD-05 | Phase 5 | Complete |
-| CHK-01 | Phase 6 | Pending |
-| CHK-02 | Phase 6 | Pending |
-| CHK-03 | Phase 6 | Pending |
-| CHK-04 | Phase 6 | Pending |
-| CHK-05 | Phase 6 | Pending |
+| CHK-01 | Phase 6 | Complete |
+| CHK-02 | Phase 6 | Complete |
+| CHK-03 | Phase 6 | Complete |
+| CHK-04 | Phase 6 | Complete |
+| CHK-05 | Phase 6 | Complete |
 
 **Coverage:**
 

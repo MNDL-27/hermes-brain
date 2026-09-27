@@ -16,13 +16,13 @@
     {
       "number": "6",
       "name": "Cached Non-Blocking Auto-Update Check",
-      "status": "pending"
+      "status": "complete"
     }
   ],
   "next": {
-    "command": "/gsd:progress --next",
-    "label": "Advance to the next step (plan phase 06)",
-    "reason": "Phase 06 of 3 — needs a plan"
+    "command": "/gsd:new-milestone",
+    "label": "Start a new milestone",
+    "reason": "All phases complete — start a new milestone"
   },
-  "updated_at": "2026-09-26T22:46:24.418Z"
+  "updated_at": "2026-09-27T08:40:55.101Z"
 }
