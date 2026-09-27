@@ -114,8 +114,10 @@ class TestToolDispatch:
 
     def test_search_dispatches(self):
         provider = self._make_initialized_provider()
-        with patch("notion_brain.store.search_entries") as mock_search:
-            mock_search.return_value = []
+        # _tool_search calls store.query_database (per-database search), not
+        # store.search_entries — patch the symbol it actually invokes.
+        with patch("notion_brain.store.query_database") as mock_query:
+            mock_query.return_value = []
             result = provider.handle_tool_call("notion_brain_search", {"query": "test"})
             data = json.loads(result)
             assert "result" in data
@@ -549,12 +551,16 @@ class TestExceptionLogRedaction:
         assert secret not in caplog.text
         assert "[REDACTED_SECRET]" in caplog.text
 
+    @patch("notion_brain.provider.update_cache.refresh")
     @patch("notion_brain.bootstrap.ensure_brain")
-    def test_initialize_error_redacts_secrets(self, mock_ensure, caplog):
+    def test_initialize_error_redacts_secrets(self, mock_ensure, mock_refresh, caplog):
         """provider.initialize() logs bootstrap exception with redaction."""
         from notion_brain import NotionBrainProvider
 
         caplog.set_level("ERROR", logger="notion_brain")
+        # Neutralize the init-time background update refresh so the daemon
+        # worker performs no real network (it would urlopen GitHub otherwise).
+        mock_refresh.return_value = None
         mock_ensure.side_effect = RuntimeError(f"db connection: {self.SECRET}")
         provider = NotionBrainProvider()
         provider.initialize("test-session", hermes_home="/tmp/test")
