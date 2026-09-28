@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from . import bootstrap, extract, helpers, store
+from . import bootstrap, extract, helpers, store, update_cache
 from . import schema as S
 from .helpers import _merge_disk_only, _safe_select_value
 from .schemas import ALL_TOOL_SCHEMAS
@@ -81,6 +81,9 @@ class NotionBrainProvider:
         self._prefetch_cache: str = ""
         self._prefetch_lock = threading.Lock()
 
+        # Update-check cache (CHK-01..CHK-05); populated in initialize()
+        self._update_cache: dict[str, Any] | None = None
+
     # Core lifecycle
 
     @property
@@ -96,6 +99,14 @@ class NotionBrainProvider:
 
         if not self._hermes_home:
             logger.warning("NotionBrainProvider: no hermes_home — limited functionality")
+
+        # CHK-01: load the update-check cache synchronously before any network work.
+        if self._hermes_home:
+            self._update_cache = update_cache.load_cache(self._hermes_home)
+            # CHK-02: stale or missing → enqueue a background refresh on the
+            # existing sync worker; do NOT block init on the network.
+            if update_cache.is_expired(self._update_cache):
+                self._dispatch_update_refresh()
 
         # Bootstrap workspace (idempotent)
         try:
@@ -220,6 +231,18 @@ class NotionBrainProvider:
         """Queue a background task to sync local disk memory files to Notion."""
         with self._sync_lock:
             self._sync_queue.put((self._sync_disk_memories, (), {}))
+            if self._sync_thread is None or not self._sync_thread.is_alive():
+                self._sync_thread = threading.Thread(
+                    target=self._worker_loop,
+                    daemon=True,
+                    name="notion-brain-sync-worker",
+                )
+                self._sync_thread.start()
+
+    def _dispatch_update_refresh(self) -> None:
+        """Queue a background update-check refresh on the existing sync worker (CHK-02)."""
+        with self._sync_lock:
+            self._sync_queue.put((update_cache.refresh, (self._hermes_home,), {}))
             if self._sync_thread is None or not self._sync_thread.is_alive():
                 self._sync_thread = threading.Thread(
                     target=self._worker_loop,

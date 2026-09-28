@@ -8,6 +8,16 @@ hermes-brain replaces local flat markdown memory files (`MEMORY.md` / `USER.md`)
 
 Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
 
+## Current Milestone: v1.1 Distribution & Updates
+
+**Goal:** Provide automated PyPI distribution pipelines, CLI update command, and non-blocking remote GitHub commit/tag update checking for hermes-brain contributors and end-users.
+
+**Target features:**
+- PyPI automated distribution via GitHub Actions tag workflow (OIDC trusted publishing) and manual twine fallback runbook
+- CLI update command (`python -m notion_brain update`) displaying version diff and exact upgrade command
+- Auto-update check mechanism querying GitHub latest commit/tag with ephemeral caching to prevent startup latency
+- Build metadata cleanup (modernize `pyproject.toml` license declaration to SPDX expression)
+
 ## Requirements
 
 ### Validated
@@ -25,14 +35,18 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 
 ### Active
 
+- [ ] Automated GitHub Actions workflow for PyPI publishing on `v*` tag push with trusted publishing (OIDC)
+- [ ] Documented manual twine build and upload runbook for offline/local release fallback
+- [ ] `notion_brain update` CLI subcommand detecting drift against remote GitHub latest release/commit and printing pip/uv upgrade instructions
+- [ ] Background/cached auto-update check querying GitHub commits/tags with TTL cache to avoid blocking runtime initialization
+- [ ] Migrate deprecated `project.license` table in `pyproject.toml` to SPDX expression string
 - [ ] Optional pre-push git hook running `pytest -q` before remote push (TOOL-01, v2)
 - [ ] Scheduled GitHub Action for automated `pre-commit autoupdate` verification (TOOL-02, v2)
-- [ ] Nyquist validation reconciliation for Phase 1 (`01-VALIDATION.md` still `status: draft`) — carried from v1.0 closeout
 
 ### Out of Scope
 
 - Automated Homebrew package bootstrap on macOS — manual installation instructions in README Step 2 are sufficient for release polish (#53); validated at v1.0
-- PyPI automated deployment pipeline — deferred to public distribution milestone
+- Silent automatic self-modification in `notion_brain update` — modifying running virtual environments silently causes corruption; detect + instruct is standard
 - Real-time cloud vector database integrations — local Notion workspace remains primary storage backend
 - Live Notion API mocks in `test_config_schema.py` — schema is pure declarative metadata; network mocks add latency and failure modes
 - Automatic staging of hook fixes (`git add`) — working tree changes must be reviewed and staged manually
@@ -42,7 +56,9 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 - **Ecosystem**: Python 3.11–3.13 plugin package for Hermes Agent ecosystem (`hermes-agent`).
 - **Storage Layer**: Notion REST API (`api.notion.com/v1`) using internal integration tokens (`NOTION_API_KEY`).
 - **Quality Gates**: Ruff linting and formatting, Mypy strict type checking, Pytest test suite with branch coverage tracking, and local pre-commit hooks (7 hooks) mirroring the CI `quality-debt` job.
-- **Current State (v1.0 shipped 2026-09-21)**: 303 tests passing offline; `config_schema.py` at 100% coverage; macOS install guarded with clean manual-setup exit. Git range `828f240` → `23932c1`.
+- **Current State (v1.0 shipped 2026-09-21)**: 303 tests passing offline; `config_schema.py` at 100% coverage; macOS install guarded with clean manual-setup exit. Tag `v1.0` published to remote.
+- **Distribution**: `hermes-brain` wheel/sdist builds clean via `python -m build` + `twine check` (setuptools PEP 621). PyPI publishing arrives in v1.1 via GitHub Actions trusted publishing.
+- **Update UX**: Remote version source of truth is the GitHub repository (latest tag/commit via public API), chosen over PyPI JSON API so git-installed users also get update notifications without PyPI lag.
 
 ## Constraints
 
@@ -76,4 +92,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-21 after v1.0 milestone*
+*Last updated: 2026-09-21 for milestone v1.1 Distribution & Updates*

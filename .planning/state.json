@@ -1,34 +1,28 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": {
-    "version": "1.0",
-    "name": "Release Polish",
-    "status": "complete",
-    "shipped": "2026-09-21",
-    "phases": [
-      {
-        "number": "1",
-        "name": "Config Schema Test Infrastructure",
-        "status": "complete"
-      },
-      {
-        "number": "2",
-        "name": "Pre-Commit Quality Gates & Tooling Parity",
-        "status": "complete"
-      },
-      {
-        "number": "3",
-        "name": "Platform Portability & Installation Guard",
-        "status": "complete"
-      }
-    ]
-  },
-  "phases": [],
+  "milestone": "v1.1 — Distribution & Updates",
+  "phases": [
+    {
+      "number": "4",
+      "name": "Build Metadata Modernization & PyPI Publishing",
+      "status": "complete"
+    },
+    {
+      "number": "5",
+      "name": "CLI Update Drift Detection",
+      "status": "complete"
+    },
+    {
+      "number": "6",
+      "name": "Cached Non-Blocking Auto-Update Check",
+      "status": "complete"
+    }
+  ],
   "next": {
-    "command": "/gsd-new-milestone",
-    "label": "Start next milestone",
-    "reason": "Milestone v1.0 complete and archived 2026-09-21"
+    "command": "/gsd:new-milestone",
+    "label": "Start a new milestone",
+    "reason": "All phases complete — start a new milestone"
   },
-  "updated_at": "2026-09-21T10:30:00Z"
+  "updated_at": "2026-09-27T08:40:55.101Z"
 }

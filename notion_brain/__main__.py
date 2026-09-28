@@ -84,13 +84,31 @@ def main(argv: list[str] | None = None) -> int:
         "--non-interactive", action="store_true", help="Run without interactive prompts"
     )
 
-    up = sub.add_parser("update", help="Pull latest from GitHub and reinstall.")
-    up.add_argument("--check", action="store_true", help="Only check for updates, don't install")
+    up = sub.add_parser(
+        "update",
+        help=(
+            "Detect drift between installed and latest GitHub release "
+            "(detect+instruct only; never mutates the install)."
+        ),
+    )
+    up.add_argument(
+        "--check",
+        action="store_true",
+        help="Only check for updates, never modify the install (default behavior)",
+    )
+    up.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON (implies --check)",
+    )
 
     args = parser.parse_args(argv)
 
     if args.cmd == "update":
-        return _cmd_update(check_only=getattr(args, "check", False))
+        return _cmd_update(
+            check_only=getattr(args, "check", False),
+            json_output=getattr(args, "json", False),
+        )
 
     if not bootstrap.store.get_api_key():
         print("error: NOTION_API_KEY is not set", file=sys.stderr)
@@ -174,43 +192,23 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def _cmd_update(check_only: bool = False) -> int:
-    """Check GitHub for a newer release tag and update to it."""
+def _cmd_update(check_only: bool = False, json_output: bool = False) -> int:
+    """Detect drift between installed and latest GitHub release (UPD-01..UPD-05).
 
-    from .bootstrap import _check_for_update, _find_latest_tag
+    Detect+instruct only. Never runs `pip install`, `git pull`, or any other
+    mutation. Exit codes: 0 = no drift, 2 = drift available. JSON mode
+    serializes the structured payload to stdout.
+    """
+    from . import update as update_mod
 
     pkg_dir = _repo_dir()
-    if not (pkg_dir / ".git").is_dir():
-        print(f"error: not a git repository ({pkg_dir})", file=sys.stderr)
-        print("Install via git clone to use self-update, or re-run the installer:", file=sys.stderr)
-        print(
-            "  curl -fsSL https://raw.githubusercontent.com/MNDL-27/hermes-brain/main/scripts/install.sh | bash",
-            file=sys.stderr,
-        )
-        return 1
+    result = update_mod.check_for_update(repo_dir=pkg_dir)
 
-    if check_only:
-        msg = _check_for_update()
-        if msg:
-            print(msg)
-            return 2
-        print("already up to date")
-        return 0
-
-    # Check for a newer release tag on GitHub
-    latest = _find_latest_tag()
-    if not latest:
-        print("Could not fetch release info from GitHub. Falling back to git pull…")
-        return _git_pull_and_install(pkg_dir)
-
-    from . import __version__ as current_ver
-
-    if latest == current_ver:
-        print(f"Already on latest release ({current_ver}).")
-        return 0
-
-    print(f"Updating {current_ver} → {latest}…")
-    return _checkout_tag_and_install(pkg_dir, latest)
+    if json_output:
+        print(update_mod.format_json(result))
+    else:
+        print(update_mod.format_human(result))
+    return 2 if result.get("drift") else 0
 
 
 def _repo_dir() -> Path:
@@ -222,71 +220,6 @@ def _repo_dir() -> Path:
     if (default / ".git").is_dir():
         return default
     return pkg_dir
-
-
-def _git_pull_and_install(pkg_dir: Path) -> int:
-    """Fallback: pull latest from current branch and reinstall."""
-    import subprocess
-
-    print(f"Pulling latest in {pkg_dir}…")
-    try:
-        pull = subprocess.run(
-            ["git", "pull", "--rebase"], cwd=pkg_dir, capture_output=True, text=True
-        )
-        if pull.returncode != 0:
-            print(f"git pull failed:\n{pull.stderr}", file=sys.stderr)
-            return pull.returncode
-        print(pull.stdout.strip())
-    except Exception as exc:
-        print(f"git error: {exc}", file=sys.stderr)
-        return 1
-    return _reinstall(pkg_dir)
-
-
-def _checkout_tag_and_install(pkg_dir: Path, tag: str) -> int:
-    """Fetch and checkout a specific release tag, then reinstall."""
-    import subprocess
-
-    try:
-        subprocess.run(
-            ["git", "fetch", "--tags"], cwd=pkg_dir, capture_output=True, text=True, check=True
-        )
-        subprocess.run(
-            ["git", "checkout", tag], cwd=pkg_dir, capture_output=True, text=True, check=True
-        )
-    except subprocess.CalledProcessError as exc:
-        print(f"git checkout {tag} failed:\n{exc.stderr}", file=sys.stderr)
-        return 1
-    print(f"Checked out {tag}")
-    return _reinstall(pkg_dir)
-
-
-def _reinstall(pkg_dir: Path) -> int:
-    """Reinstall the Python package from the repo directory."""
-    import subprocess
-
-    print("Reinstalling Python package…")
-    for cmd in [
-        [sys.executable, "-m", "pip", "install", "--user", "-e", str(pkg_dir)],
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--user",
-            "--break-system-packages",
-            "-e",
-            str(pkg_dir),
-        ],
-    ]:
-        if subprocess.run(cmd, capture_output=True, text=True).returncode == 0:
-            print("Update complete! Run: hermes-brain health")
-            return 0
-    print(
-        "warning: pip reinstall failed; code was updated, but package metadata may be old.",
-        file=sys.stderr,
-    )
-    return 1
 
 
 # import subcommand

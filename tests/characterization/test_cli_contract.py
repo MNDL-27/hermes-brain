@@ -168,30 +168,47 @@ def test_wipe_command_wipes_noisy_rows(
     }
 
 
-def test_update_command_checks_tag_then_installs(
+def test_update_command_detects_drift_without_mutating(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Bare `update` is detect+instruct only (UPD-04, UPD-05).
+
+    Asserts: exits 2 on drift, prints the human-readable report, and never
+    invokes any mutating subprocess (`pip install`, `git pull`, `git checkout`,
+    `git fetch`). Read-only `pip show` for install-mode detection is allowed.
+    """
     import subprocess
-    from unittest.mock import MagicMock
 
     fake_dir = Path("/fake")
-    # _find_latest_tag lives on bootstrap, _repo_dir lives on __main__
     monkeypatch.setattr(cli.bootstrap, "_find_latest_tag", lambda: "9.9.9")
     monkeypatch.setattr(cli, "_repo_dir", lambda: fake_dir)
-    monkeypatch.setattr(Path, "is_dir", lambda self: self == fake_dir / ".git" or self == fake_dir)
 
-    def mock_run(cmd, *args, **kwargs):
-        res = MagicMock()
-        res.returncode = 0
-        res.stdout = ""
-        res.stderr = ""
-        return res
+    mutating_calls: list[list[str]] = []
 
-    monkeypatch.setattr(subprocess, "run", mock_run)
+    def fail_on_mutating_subprocess(cmd, *args, **kwargs):
+        # Allow `pip show` (read-only install-mode probe); block everything else.
+        cmd_list = list(cmd) if cmd else []
+        is_pip_show = (
+            len(cmd_list) >= 4
+            and "pip" in cmd_list
+            and "show" in cmd_list
+            and "install" not in cmd_list
+        )
+        if is_pip_show:
+            res = subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="")
+            return res
+        mutating_calls.append(cmd_list)
+        raise AssertionError(
+            f"UPD-05 violation: bare `update` invoked mutating subprocess {cmd_list}"
+        )
+
+    monkeypatch.setattr(subprocess, "run", fail_on_mutating_subprocess)
     exit_code = cli.main(["update"])
     captured = capsys.readouterr()
-    assert exit_code == 0
+    assert exit_code == 2  # drift available
     assert "9.9.9" in captured.out
+    assert "UPDATE AVAILABLE" in captured.out
+    assert mutating_calls == []
 
 
 def test_update_check_only_shows_available_version(

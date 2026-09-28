@@ -1,0 +1,162 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Run tests
+        run: uv run --no-sync pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Ruff check
+        run: uv run --no-sync ruff check notion_brain tests
+      - name: Mypy
+        run: uv run --no-sync mypy notion_brain tests
+
+  build:
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify tag ancestry and version match
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main || {
+            echo "Error: tag commit is not reachable from origin/main" >&2
+            exit 1
+          }
+          python3 - <<'PY'
+          import re, sys, tomllib
+          from pathlib import Path
+          ref = "${{ github.ref_name }}"
+          assert ref.startswith("v"), f"ref must start with 'v', got {ref!r}"
+          version = ref[1:]
+          assert re.match(r"^\d+\.\d+\.\d+(?:[a-zA-Z0-9.+-]+)?$", version), \
+              f"ref does not strip to a valid PEP 440 / SemVer: {version!r}"
+          data = tomllib.loads(Path("pyproject.toml").read_text())
+          project_version = data["project"]["version"]
+          assert project_version == version, \
+              f"pyproject.toml [project].version={project_version!r} != tag version={version!r}"
+          print(f"Tag {ref} validated against pyproject.toml [project].version")
+          PY
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Clean build artifacts
+        run: rm -rf dist/ build/ *.egg-info
+      - name: Build sdist and wheel
+        run: uv run --no-sync python -m build
+      - name: Validate with twine
+        run: uv run --no-sync twine check --strict dist/*
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-artifacts
+          path: dist/
+          retention-days: 1
+
+  publish:
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: pypi-artifacts
+          path: dist/
+      - name: Publish to PyPI via OIDC
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  release:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: pypi-artifacts
+          path: dist/
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes
+
+  smoke-test:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Smoke test install
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for attempt in $(seq 1 12); do
+            echo "Attempt $attempt: pip install hermes-brain==$VERSION"
+            if pip install --no-cache-dir "hermes-brain==$VERSION"; then
+              python -c "import notion_brain; print('Smoke test OK:', notion_brain.__version__)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timeout waiting for hermes-brain==$VERSION on PyPI after 120s" >&2
+          exit 1
