@@ -5,10 +5,10 @@ milestone_name: Distribution & Updates
 current_phase: 06
 status: completed
 stopped_at: Phase 06 complete — all phases complete
-last_updated: "2026-09-27T18:23:03.319Z"
-last_activity: 2026-09-27
-last_activity_desc: Phase 06 complete
-state_head: 80774ea273e822bc6179ccb8baccb5b09daf74e8
+last_updated: "2026-09-28T16:20:44.450Z"
+last_activity: 2026-09-28
+last_activity_desc: "Completed quick task 260928-mli: top-level permissions block on publish.yml (CodeQL hardening)"
+state_head: 56e467b7862862e639341a21cff5c54db051c0af
 progress:
   total_phases: 3
   completed_phases: 3
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-09-21)
 Phase: 06
 Plan: Not started
 Status: All phases complete
-Last activity: 2026-09-27 - Completed quick task 260927-p1q: made the unit test suite hermetic offline (network-deny conftest, wrong-mock fix, network marker)
+Last activity: 2026-09-28 - Completed quick task 260928-mli: added top-level `permissions: contents: read` to publish.yml to resolve the CodeQL "Workflow does not contain permissions" alerts on PR #57
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260927-p1q | Make the unit test suite hermetic offline (conftest autouse socket-deny + NOTION_API_KEY/HERMES_HOME neutralization; fix wrong mock in test_search_dispatches to patch store.query_database; neutralize init GitHub-refresh leak; register+deselect a network marker and mark the PyPI build test) | 2026-09-27 | 80774ea | [260927-p1q-make-the-hermes-brain-unit-test-suite-he](./quick/260927-p1q-make-the-hermes-brain-unit-test-suite-he/) |
+| 260928-mli | Add top-level permissions block to publish.yml (CodeQL hardening) | 2026-09-28 | 56e467b | [260928-mli-add-top-level-permissions-block-to-publi](./quick/260928-mli-add-top-level-permissions-block-to-publi/) |
 
 ## Deferred Items
 
