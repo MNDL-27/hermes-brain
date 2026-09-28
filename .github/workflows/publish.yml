@@ -9,6 +9,9 @@ concurrency:
   group: publish
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
