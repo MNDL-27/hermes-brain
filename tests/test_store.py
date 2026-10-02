@@ -253,3 +253,23 @@ class TestSecretRedactionCoverage:
     def test_multi_select_property_redacts_secrets(self):
         prop = multi_select_property(["secret: ghp_12345678901234567890"])
         assert prop == {"multi_select": [{"name": "[REDACTED_SECRET]"}]}
+
+    def test_search_page_by_title_redacts_secrets(self, monkeypatch):
+        import notion_brain.store as store_mod
+        captured = {}
+        def fake_request(method, path, json_body=None):
+            captured["json_body"] = json_body
+            return {"results": []}
+        monkeypatch.setattr(store_mod, "_request", fake_request)
+        store_mod.search_page_by_title("my token: ntn_12345678901234567890")
+        assert captured["json_body"]["query"] == "my [REDACTED_SECRET]"
+
+    def test_search_entries_redacts_secrets(self, monkeypatch):
+        import notion_brain.store as store_mod
+        captured = {}
+        def fake_request(method, path, json_body=None):
+            captured["json_body"] = json_body
+            return {"results": []}
+        monkeypatch.setattr(store_mod, "_request", fake_request)
+        store_mod.search_entries("sk-12345678901234567890 secret")
+        assert captured["json_body"]["query"] == "[REDACTED_SECRET] secret"
