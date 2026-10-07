@@ -2,12 +2,13 @@
 gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Distribution & Updates
-current_phase: 06
-status: completed
-stopped_at: Phase 06 complete — all phases complete
+milestone_status: archived
+current_phase: null
+status: milestone_complete
+stopped_at: Milestone v1.1 archived — ready for next milestone cycle
 last_updated: "2026-10-07T00:00:00Z"
 last_activity: 2026-10-07
-last_activity_desc: Phase 06 re-verified (digest refresh v1→v3, 5/5 CHK must-haves held, 102 tests passed across phases 4/5/6)
+last_activity_desc: v1.1 milestone archived (3 phases, 4 plans, 15/15 requirements verified)
 state_head: 16e7ee6
 progress:
   total_phases: 3
@@ -21,56 +22,43 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-21)
+See: .planning/PROJECT.md (updated 2026-10-07)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** Phase 06 — Cached Non-Blocking Auto-Update Check
+**Current focus:** Next milestone intake — `/gsd-new-milestone`
 
 ## Current Position
 
-Phase: 06
-Plan: Complete
-Status: All phases complete
-Last activity: 2026-10-07 — Phase 06 re-verified (digest refresh v1→v3)
+Milestone: v1.1 Distribution & Updates
+Status: ✅ SHIPPED + ARCHIVED 2026-10-07
+Phases: 4, 5, 6 (3/3 complete, 4/4 plans)
+Requirements: 15/15 verified
+Last activity: 2026-10-07 — v1.1 archived to `.planning/milestones/v1.1-ROADMAP.md` and `v1.1-REQUIREMENTS.md`
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (v1.1):**
 
-- Total plans completed: 7
-- Average duration: - min
-- Total execution time: 0.0 hours
+- Total plans completed: 4
+- Phases: 3 (4, 5, 6)
+- Timeline: 2026-09-21 → 2026-10-07 (16 days)
+- LOC: +1,522 / −121 across 12 source files
+- New tests: 58 (test_packaging 4 + test_update 26 + test_update_cache 20 + 8 cli contract rewrite)
 
-**By Phase:**
+**Cumulative across milestones:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1. Config Schema Test Infrastructure | 1 | - | - |
-| 2. Pre-Commit Quality Gates & Tooling Parity | 1 | - | - |
-| 3. Platform Portability & Installation Guard | 1 | - | - |
-| 4. Build Metadata Modernization & PyPI Publishing | - | - | - |
-| 5. CLI Update Drift Detection | - | - | - |
-| 6. Cached Non-Blocking Auto-Update Check | - | - | - |
-| 04 | 2 | - | - |
-| 05 | 1 | - | - |
-| 06 | 1 | - | - |
-
-**Recent Trend:**
-
-- Last 5 plans: -
-- Trend: Stable
-
-*Updated after each plan completion*
+- v1.0 + v1.1 = 6 phases, 7 plans, 25 requirements, 361 tests passing offline
 
 ## Accumulated Context
 
 ### Decisions
 
-All decisions logged in PROJECT.md Key Decisions table.
+All milestone decisions logged in PROJECT.md Key Decisions table (v1.0 + v1.1 sections).
 
 ### Pending Todos
 
-- One-time manual PyPI Trusted Publisher registration (owner + repo + `publish.yml` + environment `pypi`) must be documented in the maintainer runbook before the first `v*` tag push (research gap, Phase 4)
+- One-time manual PyPI Trusted Publisher registration (owner + repo + `publish.yml` + environment `pypi`) must be done in the maintainer runbook before the first `v*` tag push
+- Pre-existing test-suite hangs in `test_coverage_gaps`, `test_migration_privacy_blockers`, `test_provider` (unrelated to v1.1, deferred as TEST-HANGS in PROJECT.md)
 
 ### Blockers/Concerns
 
@@ -82,16 +70,20 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
-| *(none)* | | | | |
+| Update UX | UPD-06 — commit-level drift detection between formal tags | Deferred | v1.1 close | Next |
+| Update UX | UPD-07 — update banner links to release notes URL | Deferred | v1.1 close | Next |
+| Dev Tooling | TOOL-01 — optional pre-push git hook running `pytest -q` | Deferred | v1.1 close | Next |
+| Dev Tooling | TOOL-02 — scheduled GitHub Action for `pre-commit autoupdate` | Deferred | v1.1 close | Next |
+| Test Infra | TEST-HANGS — investigate 3 pre-existing test-suite hangs | Deferred | v1.1 close | Next |
 
 ## Session Continuity
 
 Last session: 2026-10-07T00:00:00Z
-Stopped at: Phase 06 complete — all phases complete
-Resume file: .planning/phases/06-cached-non-blocking-auto-update-check/06-VERIFICATION.md
+Stopped at: Milestone v1.1 archived
+Resume file: n/a (awaiting `/gsd-new-milestone` to define next cycle)
 
 ## Operator Next Steps
 
-- Archive milestone v1.1 with /gsd-complete-milestone
-- Start next milestone cycle with /gsd-new-milestone, OR
-- Hand off with /gsd-ship (PR + review + merge prep)
+- Run `/gsd-new-milestone` to start the next milestone cycle (questioning → research → requirements → roadmap)
+- OR hand off with `/gsd-ship` (PR + review + merge prep)
+- The first action in either path should be a `/clear` to drop the milestone-close context
