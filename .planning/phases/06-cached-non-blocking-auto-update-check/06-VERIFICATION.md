@@ -1,6 +1,6 @@
 ---
 phase: 06-cached-non-blocking-auto-update-check
-verified: 2026-09-27T00:00:00Z
+verified: 2026-10-07T00:00:00Z
 status: passed
 score: 5/5 must-haves verified
 covered_files:
@@ -11,9 +11,16 @@ covered_files:
   - notion_brain/provider.py
   - notion_brain/update_cache.py
   - tests/test_update_cache.py
-covered_digest: "v1:sha256:7c4205c60736090a5035bab001d6c7e784289e9863149ced1aade1820aaf452d"
+covered_digest: "v3:sha256:28eea200c9b5525c2bbfcf978d58d33afeee681be0174affb101fc1a9853dd4d"
 behavior_unverified: 0
 overrides_applied: 0
+re_verification:
+  previous_status: passed
+  previous_score: 5/5
+  reason: "Stale covered_digest. Commit a0c7390 (feat(06): wire update cache into provider init and health report) modified shared source (notion_brain/provider.py, notion_brain/bootstrap.py) after the phase-06 verifier last ran, so the prior digest (v1:sha256:7c4205c60736090a5035bab001d6c7e784289e9863149ced1aade1820aaf452d) no longer matched HEAD. Re-verified against the current codebase and regenerated the digest (now v3 format)."
+  gaps_closed: []
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 6: Cached Non-Blocking Auto-Update Check Verification Report
@@ -120,5 +127,21 @@ No gaps. All five success criteria (CHK-01..CHK-05) are verified against committ
 
 ---
 
-_Verified: 2026-09-27_
+## Re-verification (2026-10-07)
+
+**Re-verification:** Yes — digest refresh. Commit a0c7390 modified shared source after the prior verifier run.
+
+**Test results at HEAD a0c7390 (offline, -p no:cacheprovider):**
+- tests/test_update_cache.py + tests/characterization/test_provider_contract.py: 64 passed
+- tests/test_update.py + tests/characterization/test_cli_contract.py: 34 passed
+- tests/test_packaging.py: 4 passed
+- Total: 102 passed, 0 failed
+
+**All five must-haves re-confirmed against committed bytes at HEAD a0c7390. No regressions to Phase 4 or Phase 5 surfaces.**
+
+**Covered digest refreshed:** v1 → v3 (v3:sha256:28eea200c9b5525c2bbfcf978d58d33afeee681be0174affb101fc1a9853dd4d).
+
+---
+
+_Verified: 2026-10-07 (re-verification; original 2026-09-27)_
 _Verifier: Claude (gsd-verifier)_
