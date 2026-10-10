@@ -528,7 +528,7 @@ class NotionBrainProvider:
             logger.warning(
                 "Could not get database schema for %s: %s", database_id, S.redact_secrets(str(exc))
             )
-            raise
+            raise RuntimeError(f"Could not get database schema: {S.redact_secrets(str(exc))}") from None
 
         if "Domain" in schema_props:
             props["Domain"] = store.select_property(entry.domain)

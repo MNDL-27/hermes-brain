@@ -27,3 +27,8 @@
 **Vulnerability:** External APIs like Notion often echo back failing payloads or request metadata in their HTTP error responses. The `_request` function in `notion_brain/store.py` caught these JSON/text responses and raised them directly within a `RuntimeError`, meaning unredacted sensitive payload data (such as user credentials, content strings, or tokens) could leak into logs or stack traces. Additionally, the implicit exception chaining exposed the underlying requests exceptions.
 **Learning:** External API error responses must always be treated as untrusted and potentially containing sensitive data. Logging or raising raw API error messages, or relying on implicit exception chaining when handling requests, bypasses application-level secret redaction logic.
 **Prevention:** Always apply the application's standard secret redaction (e.g., `redact_secrets()`) to error messages parsed from external API responses before raising them. Use explicit `from None` when raising custom exceptions to sever the implicit exception chain and prevent raw requests exceptions from leaking in the traceback.
+
+## 2024-09-23 - Fix Data Leakage in Schema Fetch
+**Vulnerability:** The `_database_properties` function re-raised an unredacted exception when failing to fetch the database schema.
+**Learning:** Raw `raise` inside an exception block preserves the unredacted exception, leaking secrets to stack traces.
+**Prevention:** Catch the exception and raise a new `RuntimeError` with `S.redact_secrets(str(exc))` and `from None`.
