@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 # Set up path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -114,8 +116,10 @@ class TestToolDispatch:
 
     def test_search_dispatches(self):
         provider = self._make_initialized_provider()
-        with patch("notion_brain.store.search_entries") as mock_search:
-            mock_search.return_value = []
+        # _tool_search calls store.query_database (per-database search), not
+        # store.search_entries — patch the symbol it actually invokes.
+        with patch("notion_brain.store.query_database") as mock_query:
+            mock_query.return_value = []
             result = provider.handle_tool_call("notion_brain_search", {"query": "test"})
             data = json.loads(result)
             assert "result" in data
@@ -549,12 +553,16 @@ class TestExceptionLogRedaction:
         assert secret not in caplog.text
         assert "[REDACTED_SECRET]" in caplog.text
 
+    @patch("notion_brain.provider.update_cache.refresh")
     @patch("notion_brain.bootstrap.ensure_brain")
-    def test_initialize_error_redacts_secrets(self, mock_ensure, caplog):
+    def test_initialize_error_redacts_secrets(self, mock_ensure, mock_refresh, caplog):
         """provider.initialize() logs bootstrap exception with redaction."""
         from notion_brain import NotionBrainProvider
 
         caplog.set_level("ERROR", logger="notion_brain")
+        # Neutralize the init-time background update refresh so the daemon
+        # worker performs no real network (it would urlopen GitHub otherwise).
+        mock_refresh.return_value = None
         mock_ensure.side_effect = RuntimeError(f"db connection: {self.SECRET}")
         provider = NotionBrainProvider()
         provider.initialize("test-session", hermes_home="/tmp/test")
@@ -646,8 +654,18 @@ class TestExceptionLogRedaction:
         assert self.SECRET not in report
         assert "[REDACTED_SECRET]" in report
 
-    def test_handle_tool_call_error_redacts_secrets(self, caplog):
-        """Tool call error responses redact secrets before returning JSON to the caller."""
+    @pytest.mark.parametrize(
+        ("tool_name", "method_name", "args"),
+        [
+            ("notion_brain_search", "_tool_search", {"query": "test"}),
+            ("notion_brain_remember", "_tool_remember", {"title": "test", "content": "test"}),
+            ("notion_brain_task", "_tool_task", {"action": "list"}),
+            ("notion_brain_content", "_tool_content", {"action": "list"}),
+            ("notion_brain_research", "_tool_research", {"action": "list"}),
+        ],
+    )
+    def test_handle_tool_call_error_redacts_secrets(self, tool_name, method_name, args, caplog):
+        """Tool call error responses redact secrets before returning JSON across every tool branch."""
         import json
 
         from notion_brain import NotionBrainProvider
@@ -659,11 +677,77 @@ class TestExceptionLogRedaction:
         def failing_tool(*args, **kwargs):
             raise RuntimeError(f"tool error: {self.SECRET}")
 
-        with patch.object(provider, "_tool_search", side_effect=failing_tool):
-            result_json = provider.handle_tool_call("notion_brain_search", {"query": "test"})
+        with patch.object(provider, method_name, side_effect=failing_tool):
+            result_json = provider.handle_tool_call(tool_name, args)
 
         result = json.loads(result_json)
         assert result["error"] is True
         assert self.SECRET not in result["result"]
         assert "[REDACTED_SECRET]" in result["result"]
         self._assert_no_leak(caplog, self.SECRET)
+
+    def test_handle_tool_call_unknown_tool_redacts_secrets(self, caplog):
+        """Unknown tool error response redacts secrets before returning JSON."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+
+        caplog.set_level("WARNING", logger="notion_brain")
+        provider = NotionBrainProvider()
+        result_json = provider.handle_tool_call(f"unknown-{self.SECRET}", {})
+
+        result = json.loads(result_json)
+        assert result["error"] is True
+        assert self.SECRET not in result["result"]
+        assert "[REDACTED_SECRET]" in result["result"]
+
+    def test_direct_tools_error_branches_redact_secrets(self):
+        """Direct tool error branches redact secrets in returned strings."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+
+        provider = NotionBrainProvider()
+        provider._db_ids = {}
+
+        # 1. search unknown database
+        res = json.loads(
+            provider.handle_tool_call("notion_brain_search", {"database": self.SECRET})
+        )
+        assert self.SECRET not in res["result"]
+        assert "[REDACTED_SECRET]" in res["result"]
+
+        # 2. task unknown action
+        res = json.loads(
+            provider.handle_tool_call("notion_brain_task", {"action": f"act-{self.SECRET}"})
+        )
+        assert self.SECRET not in res["result"]
+        assert "[REDACTED_SECRET]" in res["result"]
+
+        # 3. content unknown action
+        res = json.loads(
+            provider.handle_tool_call("notion_brain_content", {"action": f"act-{self.SECRET}"})
+        )
+        assert self.SECRET not in res["result"]
+        assert "[REDACTED_SECRET]" in res["result"]
+
+        # 4. research unknown action
+        res = json.loads(
+            provider.handle_tool_call("notion_brain_research", {"action": f"act-{self.SECRET}"})
+        )
+        assert self.SECRET not in res["result"]
+        assert "[REDACTED_SECRET]" in res["result"]
+
+        # 5. task update with page_id not belonging to db
+        provider._db_ids = {"tasks": "tasks-db"}
+        with patch(
+            "notion_brain.store.get_page", return_value={"parent": {"database_id": "other-db"}}
+        ):
+            res = json.loads(
+                provider.handle_tool_call(
+                    "notion_brain_task",
+                    {"action": "update", "page_id": f"page-{self.SECRET}"},
+                )
+            )
+            assert self.SECRET not in res["result"]
+            assert "[REDACTED_SECRET]" in res["result"]

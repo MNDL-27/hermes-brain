@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [v1.0.4] — 2026-10-14
+
+### Fixed
+- `provider` tool-error path and unknown-tool handling now redact secrets before JSON serialization across all direct tool branches (`notion_brain_search`, `notion_brain_remember`, `notion_brain_task`, `notion_brain_content`, `notion_brain_research`) (FRE-11.1 / FRE-13)
+- Expanded regression coverage for secret redaction across all direct tool branches and direct error returns
+
 ## [v1.0.3] — 2026-09-01
 
 ### Fixed (audit wave 1 — 9 findings)

@@ -409,7 +409,7 @@ class NotionBrainProvider:
         if not handler:
             return json.dumps(
                 {
-                    "result": f"Unknown tool: {tool_name}",
+                    "result": S.redact_secrets(f"Unknown tool: {tool_name}"),
                     "error": True,
                 }
             )
@@ -420,9 +420,19 @@ class NotionBrainProvider:
                 text_result, extra = result
                 payload = {"result": text_result, "error": False, **extra}
                 return json.dumps(payload)
+            if isinstance(result, str) and (
+                result.startswith("Error")
+                or result.startswith("Unknown")
+                or result.startswith("No database")
+            ):
+                result = S.redact_secrets(result)
             return json.dumps({"result": result, "error": False})
         except Exception as exc:
-            logger.error("Tool call %s failed: %s", tool_name, S.redact_secrets(str(exc)))
+            logger.error(
+                "Tool call %s failed: %s",
+                S.redact_secrets(str(tool_name)),
+                S.redact_secrets(str(exc)),
+            )
             return json.dumps(
                 {
                     "result": S.redact_secrets(f"Tool error: {exc}"),
@@ -636,7 +646,7 @@ class NotionBrainProvider:
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
-                return f"No database found for: {database}"
+                return S.redact_secrets(f"No database found for: {database}")
 
             entries = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
             entries = _merge_disk_only(entries, disk_text)
@@ -794,7 +804,7 @@ class NotionBrainProvider:
             store.update_page(page_id, properties)
             return "Task completed."
 
-        return f"Unknown task action: {action}"
+        return S.redact_secrets(f"Unknown task action: {action}")
 
     def _validated_status(self, status: str, db_key: str) -> tuple[dict[str, Any], str | None]:
         """Build a Status payload validated against ``db_key``'s real options.
@@ -847,7 +857,9 @@ class NotionBrainProvider:
             return None
         actual = page.get("parent", {}).get("database_id")
         if actual and actual != db_id:
-            return f"Error: page {page_id} does not belong to {db_key} database"
+            return (
+                f"Error: page {S.redact_secrets(str(page_id))} does not belong to {db_key} database"
+            )
         return None
 
     def _tool_content(self, args: dict[str, Any]) -> str:
@@ -897,7 +909,7 @@ class NotionBrainProvider:
 
             try:
                 store.update_page(page_id, updates)
-                return f"Content updated for page ID: {page_id}"
+                return f"Content updated for page ID: {S.redact_secrets(str(page_id))}"
             except Exception as exc:
                 return f"Error updating content: {S.redact_secrets(str(exc))}"
 
@@ -957,7 +969,7 @@ class NotionBrainProvider:
 
             return "\n".join(lines)
 
-        return f"Unknown content action: {action}"
+        return S.redact_secrets(f"Unknown content action: {action}")
 
     def _tool_research(self, args: dict[str, Any]) -> str:
         """Manage research findings."""
@@ -1001,7 +1013,7 @@ class NotionBrainProvider:
 
             return "\n".join(lines)
 
-        return f"Unknown research action: {action}"
+        return S.redact_secrets(f"Unknown research action: {action}")
 
 
 # Registration
