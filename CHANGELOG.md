@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [v1.0.5] — 2026-10-14
+
+### Security
+- Centralized authorization and containment verification for mutable Notion operations (`store.verify_page_in_database`, `store.update_page`, `store.get_page`, `store.delete_page`) (FRE-11.3 / FRE-16 / API-02)
+- Added IDOR defense across `notion_brain_task`, `notion_brain_content`, and `notion_brain_research` update/publish/archive tools, rejecting operations on unverified, cross-database, or parent pages
+- Fail-closed security posture: any retrieval failure, parent mismatch, or missing container denies authorization with secret-redacted error messages
+- Added `update` action support to `notion_brain_research` tool and schema with containment enforcement
+- Added comprehensive IDOR regression test suite (`tests/regressions/test_authorization_idor.py`)
+
 ## [v1.0.4] — 2026-10-14
 
 ### Fixed

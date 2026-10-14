@@ -508,12 +508,16 @@ class NotionBrainProvider:
                 existing = store.search_page_by_title(entry.title, object_type="page")
             except Exception:
                 existing = None
-            if existing and existing.get("parent", {}).get("database_id") == target_db_id:
+            if (
+                existing
+                and store.normalize_id(existing.get("parent", {}).get("database_id"))
+                == store.normalize_id(target_db_id)
+            ):
                 existing_id = existing["id"]
 
         try:
             if existing_id:
-                store.update_page(existing_id, properties)
+                store.update_page(existing_id, properties, expected_database_id=target_db_id)
                 logger.debug("Updated entry in %s: %s", target_db_id, entry.title)
             else:
                 store.create_database_page(database_id=target_db_id, properties=properties)
@@ -785,7 +789,9 @@ class NotionBrainProvider:
                 if status_payload:
                     properties["Status"] = status_payload
 
-            store.update_page(page_id, properties)
+            store.update_page(
+                page_id, properties, expected_database_id=self._db_ids.get("tasks")
+            )
             return "Task updated."
 
         elif action == "complete":
@@ -799,7 +805,9 @@ class NotionBrainProvider:
             if status_err:
                 return status_err
             properties = {"Status": status_payload} if status_payload else {}
-            store.update_page(page_id, properties)
+            store.update_page(
+                page_id, properties, expected_database_id=self._db_ids.get("tasks")
+            )
             return "Task completed."
 
         return S.redact_secrets(f"Unknown task action: {action}")
@@ -838,23 +846,14 @@ class NotionBrainProvider:
     def _check_page_in_db(self, page_id: str, db_key: str) -> str | None:
         """Return an error string if page_id is not in the expected DB; else None.
 
-        Skips the check when the local cache has no db_id (not bootstrapped)
-        so the tool remains usable in degraded mode. Fetches the live page
-        and compares parent.database_id — prevents cross-database writes via
-        a guessed or leaked page_id.
+        Fails closed: any verification failure, containment mismatch, or API
+        error denies authorization.
         """
         db_id = self._db_ids.get(db_key)
         if not db_id:
             return None
-        try:
-            page = store.get_page(page_id)
-        except Exception as exc:
-            logger.debug(
-                "Could not verify page ownership for %s: %s", page_id, S.redact_secrets(str(exc))
-            )
-            return None
-        actual = page.get("parent", {}).get("database_id")
-        if actual and actual != db_id:
+        authorized, reason = store.verify_page_in_database(page_id, db_id)
+        if not authorized:
             return (
                 f"Error: page {S.redact_secrets(str(page_id))} does not belong to {db_key} database"
             )
@@ -906,8 +905,11 @@ class NotionBrainProvider:
                 return "Error: No fields provided for update."
 
             try:
-                store.update_page(page_id, updates)
+                db_id = self._db_ids.get("content")
+                store.update_page(page_id, updates, expected_database_id=db_id)
                 return f"Content updated for page ID: {S.redact_secrets(str(page_id))}"
+            except store.AuthorizationError as exc:
+                return f"Error: {S.redact_secrets(str(exc))}"
             except Exception as exc:
                 return f"Error updating content: {S.redact_secrets(str(exc))}"
 
@@ -926,8 +928,11 @@ class NotionBrainProvider:
                     return status_err
 
                 properties = {"Status": status_payload} if status_payload else {}
-                store.update_page(page_id, properties)
+                db_id = self._db_ids.get("content")
+                store.update_page(page_id, properties, expected_database_id=db_id)
                 return "Content successfully marked as published."
+            except store.AuthorizationError as exc:
+                return f"Error: {S.redact_secrets(str(exc))}"
             except Exception as exc:
                 return f"Error publishing content: {S.redact_secrets(str(exc))}"
 
@@ -945,8 +950,11 @@ class NotionBrainProvider:
                     return status_err
 
                 properties = {"Status": status_payload} if status_payload else {}
-                store.update_page(page_id, properties)
+                db_id = self._db_ids.get("content")
+                store.update_page(page_id, properties, expected_database_id=db_id)
                 return "Content successfully marked as archived."
+            except store.AuthorizationError as exc:
+                return f"Error: {S.redact_secrets(str(exc))}"
             except Exception as exc:
                 return f"Error archiving content: {S.redact_secrets(str(exc))}"
 
@@ -994,6 +1002,39 @@ class NotionBrainProvider:
             except RuntimeError as exc:
                 return f"Error: {S.redact_secrets(str(exc))}"
             return f"Research saved: {entry.title}"
+
+        elif action == "update":
+            page_id = args.get("page_id")
+            if not page_id:
+                return "Error: page_id is required for update"
+            if err := self._check_page_in_db(page_id, "research"):
+                return err
+
+            updates: dict[str, Any] = {}
+            if "title" in args:
+                updates["title"] = store.title_property(S.clean_title(args["title"]))
+            if "content" in args:
+                updates["Content"] = store.rich_text_property(args["content"])
+            if "tags" in args:
+                updates["Tags"] = store.multi_select_property(args["tags"])
+            if "status" in args:
+                status_payload, status_err = self._validated_status(args["status"], "research")
+                if status_err:
+                    return status_err
+                if status_payload:
+                    updates["Status"] = status_payload
+
+            if not updates:
+                return "Error: No fields provided for update."
+
+            try:
+                db_id = self._db_ids.get("research")
+                store.update_page(page_id, updates, expected_database_id=db_id)
+                return f"Research updated for page ID: {S.redact_secrets(str(page_id))}"
+            except store.AuthorizationError as exc:
+                return f"Error: {S.redact_secrets(str(exc))}"
+            except Exception as exc:
+                return f"Error updating research: {S.redact_secrets(str(exc))}"
 
         elif action == "list":
             db_id = self._db_ids.get("research")

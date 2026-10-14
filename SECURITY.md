@@ -21,7 +21,11 @@ This creates an encrypted, private report visible only to the maintainer. Do **n
 
 ## What this covers
 
-Secrets leaked into stored memory (Notion), tool call injection, provider credentials, cache files (`notion_brain.json`), and the bootstrap process. If your report concerns any of these, prioritize it.
+Secrets leaked into stored memory (Notion), tool call injection, provider credentials, cache files (`notion_brain.json`), the bootstrap process, and Insecure Direct Object Reference (IDOR) attacks on mutable Notion pages. If your report concerns any of these, prioritize it.
+
+### Object authorization policy
+
+Mutable Notion operations (`update_page`, `delete_page`, and provider tool actions on `tasks`, `content`, and `research`) require verified database containment. Operations targeting an unverified `page_id` or cross-database object are denied via `store.AuthorizationError` and fail closed. Any sensitive token embedded in arguments or errors is redacted before exposure.
 
 ## What does not apply
 

@@ -261,15 +261,99 @@ def create_database_page(
     return result
 
 
-def update_page(page_id: str, properties: dict[str, Any]) -> dict[str, Any]:
+class AuthorizationError(PermissionError):
+    """Raised when an operation targets an unauthorized or unverified Notion resource."""
+
+
+def normalize_id(identifier: str | None) -> str:
+    """Normalize a Notion UUID/ID by removing hyphens and lowercasing."""
+    if not identifier:
+        return ""
+    return str(identifier).replace("-", "").strip().lower()
+
+
+def verify_page_in_database(
+    page_id: str,
+    expected_database_id: str,
+) -> tuple[bool, str | None]:
+    """Verify that page_id exists and is contained within expected_database_id.
+
+    Fails closed: any error during page inspection denies authorization.
+    Returns (True, None) if authorized.
+    Returns (False, reason) if unauthorized or verification fails.
+    """
+    clean_page_id = str(page_id).strip() if page_id else ""
+    if not clean_page_id:
+        return False, "page_id is required"
+
+    clean_db_id = str(expected_database_id).strip() if expected_database_id else ""
+    if not clean_db_id:
+        return False, "expected_database_id is required"
+
+    try:
+        page = get_page(clean_page_id)
+    except Exception as exc:
+        return False, f"could not retrieve page: {redact_secrets(str(exc))}"
+
+    if not isinstance(page, dict):
+        return False, "invalid page payload returned by API"
+
+    parent = page.get("parent")
+    if not isinstance(parent, dict):
+        return False, "page has no parent structure"
+
+    actual_db_id = parent.get("database_id")
+    if not actual_db_id:
+        parent_type = parent.get("type", "unknown")
+        return False, f"page parent is '{parent_type}', not a database"
+
+    if normalize_id(actual_db_id) != normalize_id(clean_db_id):
+        return False, f"page belongs to database {actual_db_id}, expected {clean_db_id}"
+
+    return True, None
+
+
+def update_page(
+    page_id: str,
+    properties: dict[str, Any],
+    *,
+    expected_database_id: str | None = None,
+) -> dict[str, Any]:
+    """Update page properties in Notion.
+
+    If expected_database_id is provided, verifies containment before mutating.
+    Raises AuthorizationError if verification fails.
+    """
+    if expected_database_id is not None:
+        authorized, reason = verify_page_in_database(page_id, expected_database_id)
+        if not authorized:
+            raise AuthorizationError(
+                f"Authorization denied for page {redact_secrets(str(page_id))}: {reason}"
+            )
     result = _request("PATCH", f"/pages/{page_id}", {"properties": properties})
     assert isinstance(result, dict)
     return result
 
 
-def get_page(page_id: str) -> dict[str, Any]:
+def get_page(
+    page_id: str,
+    *,
+    expected_database_id: str | None = None,
+) -> dict[str, Any]:
+    """Fetch a page from Notion.
+
+    If expected_database_id is provided, verifies containment before returning.
+    Raises AuthorizationError if verification fails.
+    """
     result = _request("GET", f"/pages/{page_id}")
     assert isinstance(result, dict)
+    if expected_database_id is not None:
+        parent = result.get("parent")
+        actual_db_id = parent.get("database_id") if isinstance(parent, dict) else None
+        if not actual_db_id or normalize_id(actual_db_id) != normalize_id(expected_database_id):
+            raise AuthorizationError(
+                f"Authorization denied: page {redact_secrets(str(page_id))} does not belong to database {expected_database_id}"
+            )
     return result
 
 
@@ -317,8 +401,22 @@ def archive_database(database_id: str) -> dict[str, Any]:
     return result
 
 
-def delete_page(page_id: str) -> dict[str, Any]:
-    """Archive / soft-delete a page in Notion."""
+def delete_page(
+    page_id: str,
+    *,
+    expected_database_id: str | None = None,
+) -> dict[str, Any]:
+    """Archive / soft-delete a page in Notion.
+
+    If expected_database_id is provided, verifies containment before mutating.
+    Raises AuthorizationError if verification fails.
+    """
+    if expected_database_id is not None:
+        authorized, reason = verify_page_in_database(page_id, expected_database_id)
+        if not authorized:
+            raise AuthorizationError(
+                f"Authorization denied for page {redact_secrets(str(page_id))}: {reason}"
+            )
     result = _request("PATCH", f"/pages/{page_id}", {"archived": True})
     assert isinstance(result, dict)
     return result

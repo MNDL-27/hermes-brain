@@ -189,8 +189,8 @@ RESEARCH_SCHEMA: dict[str, Any] = {
         "properties": {
             "action": {
                 "type": "string",
-                "description": "save|list (default: save)",
-                "enum": ["save", "list"],
+                "description": "save|list|update (default: save)",
+                "enum": ["save", "list", "update"],
             },
             "title": {
                 "type": "string",
@@ -208,6 +208,10 @@ RESEARCH_SCHEMA: dict[str, Any] = {
             "status": {
                 "type": "string",
                 "description": "active|archived",
+            },
+            "page_id": {
+                "type": "string",
+                "description": "Notion page ID for update actions.",
             },
         },
         "required": ["action"],

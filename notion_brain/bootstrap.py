@@ -603,7 +603,7 @@ def wipe_database_rows(
                 continue
             if not dry_run:
                 try:
-                    store.delete_page(page_id)
+                    store.delete_page(page_id, expected_database_id=db_id)
                 except Exception as exc:
                     logger.warning(
                         "Could not delete page %s: %s", page_id, S.redact_secrets(str(exc))

@@ -176,7 +176,13 @@ class TestToolDispatch:
         """Status updates must validate against the DB's option set, not guess."""
         provider = self._make_initialized_provider()
         # Tasks DB schema only allows active/done/needs_review
-        with patch("notion_brain.store.get_database") as mock_get:
+        with (
+            patch(
+                "notion_brain.store.get_page",
+                return_value={"id": "page-1", "parent": {"database_id": "db-tasks-id"}},
+            ),
+            patch("notion_brain.store.get_database") as mock_get,
+        ):
             mock_get.return_value = {
                 "properties": {
                     "Status": {
@@ -203,7 +209,13 @@ class TestToolDispatch:
 
     def test_task_update_accepts_known_status(self):
         provider = self._make_initialized_provider()
-        with patch("notion_brain.store.get_database") as mock_get:
+        with (
+            patch(
+                "notion_brain.store.get_page",
+                return_value={"id": "page-1", "parent": {"database_id": "db-tasks-id"}},
+            ),
+            patch("notion_brain.store.get_database") as mock_get,
+        ):
             mock_get.return_value = {
                 "properties": {
                     "Status": {
@@ -344,7 +356,13 @@ class TestToolDispatch:
                 assert f"tag-{redacted}" in tag_names
 
             # 4. Test notion_brain_task update action redacts title
-            with patch("notion_brain.store.update_page") as mock_update:
+            with (
+                patch(
+                    "notion_brain.store.get_page",
+                    return_value={"id": "task-page-secret", "parent": {"database_id": "db-tasks-id"}},
+                ),
+                patch("notion_brain.store.update_page") as mock_update,
+            ):
                 mock_update.return_value = {"id": "task-page-secret"}
                 provider.handle_tool_call(
                     "notion_brain_task",

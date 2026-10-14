@@ -316,6 +316,20 @@ def test_page_body_text_breaks_on_non_dict(monkeypatch: pytest.MonkeyPatch) -> N
 # provider.py uncovered paths
 
 
+@pytest.fixture(autouse=True)
+def _mock_default_page_in_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fake_get_page(page_id: str, **kwargs: Any) -> dict[str, Any]:
+        if "mem" in str(page_id) or "existing" in str(page_id):
+            db_id = "mem-db"
+        elif "content" in str(page_id):
+            db_id = "content-db"
+        else:
+            db_id = "task-db"
+        return {"id": page_id, "parent": {"type": "database_id", "database_id": db_id}}
+
+    monkeypatch.setattr(store, "get_page", _fake_get_page)
+
+
 def _provider_with_dbs(**db_ids: str) -> NotionBrainProvider:
     p = NotionBrainProvider()
     p._db_ids = db_ids
@@ -354,7 +368,9 @@ def test_write_entry_raw_updates_existing_page(monkeypatch: pytest.MonkeyPatch) 
         },
     )
     updated: list[tuple[str, dict]] = []
-    monkeypatch.setattr(store, "update_page", lambda pid, props: updated.append((pid, props)))
+    monkeypatch.setattr(
+        store, "update_page", lambda pid, props, *a, **kw: updated.append((pid, props))
+    )
     provider._write_entry_raw("mem-db", entry)
     assert updated == [("existing-page", {"title": {"title": []}})]
 
@@ -395,8 +411,10 @@ def test_content_publish(monkeypatch: pytest.MonkeyPatch) -> None:
         "_validated_status",
         lambda status, db_key: ({"status": {"name": status}}, None),
     )
-    monkeypatch.setattr(store, "update_page", lambda pid, props: None)
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "publish", "page_id": "p1"})
+    monkeypatch.setattr(store, "update_page", lambda pid, props, *a, **k: None)
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "publish", "page_id": "content-p1"}
+    )
     assert "published" in resp
 
 
@@ -407,8 +425,10 @@ def test_content_archive(monkeypatch: pytest.MonkeyPatch) -> None:
         "_validated_status",
         lambda status, db_key: ({"status": {"name": status}}, None),
     )
-    monkeypatch.setattr(store, "update_page", lambda pid, props: None)
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "archive", "page_id": "p1"})
+    monkeypatch.setattr(store, "update_page", lambda pid, props, *a, **k: None)
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "archive", "page_id": "content-p1"}
+    )
     assert "archived" in resp
 
 
@@ -435,10 +455,12 @@ def test_content_list_with_entries(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_content_update_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = _provider_with_dbs(content="content-db")
     monkeypatch.setattr(
-        store, "update_page", lambda pid, props: (_ for _ in ()).throw(RuntimeError("nope"))
+        store,
+        "update_page",
+        lambda pid, props, *a, **k: (_ for _ in ()).throw(RuntimeError("nope")),
     )
     resp = provider.handle_tool_call(
-        "notion_brain_content", {"action": "update", "page_id": "p1", "body": "x"}
+        "notion_brain_content", {"action": "update", "page_id": "content-p1", "body": "x"}
     )
     assert "Error updating content" in resp
 
@@ -457,8 +479,10 @@ def test_task_complete(monkeypatch: pytest.MonkeyPatch) -> None:
         "_validated_status",
         lambda status, db_key: ({"status": {"name": status}}, None),
     )
-    monkeypatch.setattr(store, "update_page", lambda pid, props: None)
-    resp = provider.handle_tool_call("notion_brain_task", {"action": "complete", "page_id": "p1"})
+    monkeypatch.setattr(store, "update_page", lambda pid, props, *a, **k: None)
+    resp = provider.handle_tool_call(
+        "notion_brain_task", {"action": "complete", "page_id": "task-p1"}
+    )
     assert "completed" in resp
 
 
@@ -475,9 +499,9 @@ def test_task_update_with_status(monkeypatch: pytest.MonkeyPatch) -> None:
         "_validated_status",
         lambda status, db_key: ({"status": {"name": status}}, None),
     )
-    monkeypatch.setattr(store, "update_page", lambda pid, props: None)
+    monkeypatch.setattr(store, "update_page", lambda pid, props, *a, **k: None)
     resp = provider.handle_tool_call(
-        "notion_brain_task", {"action": "update", "page_id": "p1", "status": "done"}
+        "notion_brain_task", {"action": "update", "page_id": "task-p1", "status": "done"}
     )
     assert "Task updated" in resp
 
@@ -490,7 +514,7 @@ def test_task_update_with_invalid_status_returns_error(monkeypatch: pytest.Monke
         lambda status, db_key: ({}, "Error: status 'bogus' is not valid"),
     )
     resp = provider.handle_tool_call(
-        "notion_brain_task", {"action": "update", "page_id": "p1", "status": "bogus"}
+        "notion_brain_task", {"action": "update", "page_id": "task-p1", "status": "bogus"}
     )
     assert "not valid" in resp
 
@@ -502,7 +526,9 @@ def test_content_publish_invalid_status(monkeypatch: pytest.MonkeyPatch) -> None
         "_validated_status",
         lambda status, db_key: (None, "Error: not valid"),
     )
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "publish", "page_id": "p1"})
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "publish", "page_id": "content-p1"}
+    )
     assert "not valid" in resp
 
 
@@ -513,7 +539,9 @@ def test_content_archive_invalid_status(monkeypatch: pytest.MonkeyPatch) -> None
         "_validated_status",
         lambda status, db_key: (None, "Error: not valid"),
     )
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "archive", "page_id": "p1"})
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "archive", "page_id": "content-p1"}
+    )
     assert "not valid" in resp
 
 
@@ -525,9 +553,13 @@ def test_content_publish_exception(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda status, db_key: ({"status": {"name": status}}, None),
     )
     monkeypatch.setattr(
-        store, "update_page", lambda pid, props: (_ for _ in ()).throw(RuntimeError("boom"))
+        store,
+        "update_page",
+        lambda pid, props, *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
     )
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "publish", "page_id": "p1"})
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "publish", "page_id": "content-p1"}
+    )
     assert "Error publishing content" in resp
 
 
@@ -539,15 +571,21 @@ def test_content_archive_exception(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda status, db_key: ({"status": {"name": status}}, None),
     )
     monkeypatch.setattr(
-        store, "update_page", lambda pid, props: (_ for _ in ()).throw(RuntimeError("boom"))
+        store,
+        "update_page",
+        lambda pid, props, *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
     )
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "archive", "page_id": "p1"})
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "archive", "page_id": "content-p1"}
+    )
     assert "Error archiving content" in resp
 
 
 def test_content_update_no_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = _provider_with_dbs(content="content-db")
-    resp = provider.handle_tool_call("notion_brain_content", {"action": "update", "page_id": "p1"})
+    resp = provider.handle_tool_call(
+        "notion_brain_content", {"action": "update", "page_id": "content-p1"}
+    )
     assert "No fields provided" in resp
 
 
@@ -582,7 +620,9 @@ def test_task_complete_invalid_status(monkeypatch: pytest.MonkeyPatch) -> None:
         "_validated_status",
         lambda status, db_key: (None, "Error: not valid"),
     )
-    resp = provider.handle_tool_call("notion_brain_task", {"action": "complete", "page_id": "p1"})
+    resp = provider.handle_tool_call(
+        "notion_brain_task", {"action": "complete", "page_id": "task-p1"}
+    )
     assert "not valid" in resp
 
 
@@ -682,7 +722,7 @@ def test_delete_page_and_wipe_database_rows(
     )
     deleted_pages: list[str] = []
 
-    def _fake_delete(pid: str) -> dict:  # type: ignore[no-untyped-def]
+    def _fake_delete(pid: str, *args: Any, **kwargs: Any) -> dict:  # type: ignore[no-untyped-def]
         deleted_pages.append(pid)
         return {"id": pid, "archived": True}
 

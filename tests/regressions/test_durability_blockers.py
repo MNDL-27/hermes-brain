@@ -57,6 +57,10 @@ def test_content_update_calls_update_page_without_creating_duplicate() -> None:
     provider = _provider_with_databases(content="content-db")
 
     with (
+        patch(
+            "notion_brain.store.get_page",
+            return_value={"id": "content-page", "parent": {"database_id": "content-db"}},
+        ),
         patch("notion_brain.store.get_database", return_value={"properties": {}}),
         patch("notion_brain.store.update_page", return_value={"id": "content-page"}) as update_page,
         patch(
