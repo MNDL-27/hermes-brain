@@ -5,8 +5,34 @@ All notable changes to this project are documented in this file.
 ## [v1.0.4] — 2026-10-14
 
 ### Fixed
-- `provider` tool-error path and unknown-tool handling now redact secrets before JSON serialization across all direct tool branches (`notion_brain_search`, `notion_brain_remember`, `notion_brain_task`, `notion_brain_content`, `notion_brain_research`) (FRE-11.1 / FRE-13)
-- Expanded regression coverage for secret redaction across all direct tool branches and direct error returns
+
+- `provider` tool-error path and unknown-tool handling now redact secrets
+  before JSON serialization across all direct tool branches (FRE-11.1 / FRE-13)
+- **Search never used server-side title filter** (FRE-17 / FRE-11.4): `query_filter`
+  was undefined (referenced before assignment after a prior revert).  Server-side
+  filter removed entirely — Notion's `title.contains` is case-sensitive and a
+  `rich_text` filter on a title property is rejected.  All search now goes
+  through the single case-insensitive client-side title refinement path.
+- **Deterministic behavior across database/all-databases modes**: both paths
+  now call `query_database(..., filter_obj=None)` and apply the query
+  client-side after merging disk-only entries; `max_results` caps the final
+  result set in both modes.
+- **Pagination documentation**: `query_database` docstring now clarifies that
+  `page_size` is a per-request batch size, not a cap — pagination continues
+  until `has_more` is false.
+
+### Tests added (5 regressions)
+
+- `test_database_filtered_search_matches_case_insensitively` — query case
+  variation does not change result set; asserts no server-side filter sent.
+- `test_database_filtered_search_empty_query_returns_all_rows` — empty string
+  query returns every row, not none.
+- `test_all_databases_search_applies_same_query_semantics` — both modes return
+  the same matched results for a given query.
+- `test_search_limit_applies_after_query_refinement` — `max_results` caps
+  matched rows, not raw DB rows.
+- `test_database_filtered_search_max_results_capped_at_20` — caller-supplied
+  `max_results` above 20 is clamped.
 
 ## [v1.0.3] — 2026-09-01
 

@@ -140,6 +140,165 @@ def test_database_filtered_search_honors_query(
     assert [item["title"] for item in items] == ["Needle protocol"]
 
 
+def test_database_filtered_search_matches_case_insensitively(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Query case must not change results: 'NEEDLE' finds 'Needle protocol'."""
+    matching = _raw_page("matching-page", "Needle protocol")
+    unrelated = _raw_page("unrelated-page", "Quarterly lunch menu")
+    seen_request_bodies: list[dict[str, Any]] = []
+
+    def fake_request(
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if method != "POST" or path != "/databases/db-memory/query":
+            raise RuntimeError(f"unexpected fake Notion request: {method} {path}")
+        seen_request_bodies.append(deepcopy(json_body or {}))
+        return {"results": [matching, unrelated], "has_more": False, "next_cursor": None}
+
+    monkeypatch.setattr(store, "_request", fake_request)
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db-memory"}
+
+    response = provider.handle_tool_call(
+        "notion_brain_search",
+        {"query": "NEEDLE", "database": "memory", "max_results": 8},
+    )
+    items = json.loads(response)["items"]
+
+    assert [item["title"] for item in items] == ["Needle protocol"]
+    # No server-side title filter may be attached (the shared filter path).
+    assert "filter" not in seen_request_bodies[0]
+
+
+def test_database_filtered_search_empty_query_returns_all_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Empty query must return every row, not none."""
+    matching = _raw_page("matching-page", "Needle protocol")
+    unrelated = _raw_page("unrelated-page", "Quarterly lunch menu")
+
+    def fake_request(
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if method != "POST" or path != "/databases/db-memory/query":
+            raise RuntimeError(f"unexpected fake Notion request: {method} {path}")
+        return {"results": [matching, unrelated], "has_more": False, "next_cursor": None}
+
+    monkeypatch.setattr(store, "_request", fake_request)
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db-memory"}
+
+    response = provider.handle_tool_call(
+        "notion_brain_search",
+        {"query": "", "database": "memory", "max_results": 8},
+    )
+    items = json.loads(response)["items"]
+
+    assert [item["title"] for item in items] == ["Needle protocol", "Quarterly lunch menu"]
+
+
+def test_all_databases_search_applies_same_query_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """All-databases mode must honor the query exactly like filtered mode."""
+    in_memory = _raw_page("mem-page", "Needle protocol")
+    in_tasks = _raw_page("task-page", "Quarterly lunch menu")
+    seen_paths: list[str] = []
+
+    def fake_request(
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if method != "POST" or not path.startswith("/databases/"):
+            raise RuntimeError(f"unexpected fake Notion request: {method} {path}")
+        seen_paths.append(path)
+        if path == "/databases/db-memory/query":
+            return {"results": [in_memory], "has_more": False, "next_cursor": None}
+        if path == "/databases/db-tasks/query":
+            return {"results": [in_tasks], "has_more": False, "next_cursor": None}
+        raise RuntimeError(f"unexpected database path: {path}")
+
+    monkeypatch.setattr(store, "_request", fake_request)
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db-memory", "tasks": "db-tasks"}
+
+    response = provider.handle_tool_call(
+        "notion_brain_search",
+        {"query": "needle", "max_results": 8},
+    )
+    items = json.loads(response)["items"]
+
+    assert [item["title"] for item in items] == ["Needle protocol"]
+    assert sorted(seen_paths) == [
+        "/databases/db-memory/query",
+        "/databases/db-tasks/query",
+    ]
+
+
+def test_search_limit_applies_after_query_refinement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """max_results caps matched rows, independent of database count."""
+    pages = [_raw_page(f"page-{i}", f"Needle record {i}") for i in range(5)]
+    pages.append(_raw_page("page-other", "Quarterly lunch menu"))
+
+    def fake_request(
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if method != "POST" or not path.startswith("/databases/"):
+            raise RuntimeError(f"unexpected fake Notion request: {method} {path}")
+        return {"results": pages, "has_more": False, "next_cursor": None}
+
+    monkeypatch.setattr(store, "_request", fake_request)
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db-memory", "tasks": "db-tasks"}
+
+    response = provider.handle_tool_call(
+        "notion_brain_search",
+        {"query": "needle", "max_results": 2},
+    )
+    items = json.loads(response)["items"]
+
+    assert [item["title"] for item in items] == ["Needle record 0", "Needle record 1"]
+
+
+def test_database_filtered_search_max_results_capped_at_20(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """max_results is clamped to 20 no matter what the caller passes."""
+    seen_page_sizes: list[int] = []
+
+    def fake_request(
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if method != "POST" or path != "/databases/db-memory/query":
+            raise RuntimeError(f"unexpected fake Notion request: {method} {path}")
+        assert isinstance(json_body, dict)
+        seen_page_sizes.append(json_body.get("page_size", 0))
+        return {"results": [], "has_more": False, "next_cursor": None}
+
+    monkeypatch.setattr(store, "_request", fake_request)
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db-memory"}
+
+    provider.handle_tool_call(
+        "notion_brain_search",
+        {"query": "needle", "database": "memory", "max_results": 500},
+    )
+
+    assert seen_page_sizes == [20]
+
+
 def test_query_database_returns_all_paginated_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

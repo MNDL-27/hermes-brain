@@ -190,6 +190,13 @@ def query_database(
 
     Walks cursor pagination so databases with more than 100 rows are returned
     completely instead of being truncated after the first batch.
+
+    ``page_size`` is the per-request Notion page size (capped at 100), not a
+    limit on total rows: pagination continues until ``has_more`` is false, so
+    every matching row is returned.  ``filter_obj`` is forwarded verbatim —
+    callers that want query semantics must apply them client-side (Notion
+    ``title.contains`` is case-sensitive and rejects ``rich_text`` filters on
+    title properties).
     """
     results: list[dict[str, Any]] = []
     cursor: str | None = None

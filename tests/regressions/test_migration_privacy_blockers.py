@@ -130,6 +130,7 @@ def test_health_is_read_only_when_schema_mismatches(
     mutation_attempts: list[str] = []
 
     monkeypatch.setattr(bootstrap.store, "get_api_key", lambda: "synthetic-test-key")
+    monkeypatch.setattr(bootstrap.store, "get_page", lambda page_id: {"id": page_id})
     monkeypatch.setattr(
         bootstrap.store,
         "get_database",
@@ -219,6 +220,7 @@ def test_all_major_write_paths_apply_the_same_secret_policy(
         return {"id": f"page-{path}"}
 
     monkeypatch.setattr(bootstrap.store, "create_database_page", capture_write)
+    monkeypatch.setattr(bootstrap.store, "search_page_by_title", lambda *args, **kwargs: None)
 
     def invoke(path: str, operation: Any) -> None:
         current_path["name"] = path
@@ -330,6 +332,7 @@ def test_write_failure_logs_exclude_user_content_and_detected_secrets(
         raise RuntimeError("synthetic backend rejected payload: " + payload)
 
     monkeypatch.setattr(bootstrap.store, "create_database_page", fail_write)
+    monkeypatch.setattr(bootstrap.store, "search_page_by_title", lambda *args, **kwargs: None)
 
     messages: list[str] = []
 

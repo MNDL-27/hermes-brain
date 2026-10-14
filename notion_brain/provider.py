@@ -633,43 +633,41 @@ class NotionBrainProvider:
         if self._hermes_home:
             disk_text = bootstrap.read_memory_from_disk(self._hermes_home)
 
-        # Title properties are Notion type "title", not "rich_text".
-        # Using rich_text here never matches (400 or silent 0 rows).
-        query_filter: dict[str, Any] | None = None
-        if query:
-            query_filter = {
-                "property": "title",
-                "title": {"contains": query},
-            }
-
+        # Deterministic search: the Notion database-query endpoint cannot be
+        # trusted to filter titles for us — a ``title.contains`` filter is
+        # case-sensitive, and a ``rich_text`` filter on a title property is
+        # rejected outright.  Both modes therefore share ONE filter path: fetch
+        # every row (``query_database`` walks cursor pagination to exhaustion)
+        # and apply the case-insensitive title match client-side below, so a
+        # query narrows results identically with and without ``database``.
         if database:
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
                 return S.redact_secrets(f"No database found for: {database}")
 
-            entries = store.query_database(db_id, page_size=max_results, filter_obj=query_filter)
+            entries = store.query_database(db_id, page_size=max_results)
             entries = _merge_disk_only(entries, disk_text)
         else:
             # Search all databases
             all_entries: list[dict] = []
             for db_id in self._db_ids.values():
                 try:
-                    results = store.query_database(
-                        db_id, page_size=max_results, filter_obj=query_filter
-                    )
+                    results = store.query_database(db_id, page_size=max_results)
                     all_entries.extend(results)
                 except Exception:
                     pass
-            all_entries = _merge_disk_only(all_entries, disk_text)
-            entries = all_entries[:max_results]
+            entries = _merge_disk_only(all_entries, disk_text)
 
-        # Client-side title refinement when a query is present — Notion's
-        # "contains" is case-sensitive and only matches the title property,
-        # so we keep results whose displayed title actually mentions the query.
+        # Case-insensitive title refinement — the single place a query is
+        # applied, for both the database-filtered and all-databases modes.
         if query:
             needle = query.lower()
             entries = [e for e in entries if needle in (e.get("title") or "").lower()]
+
+        # ``max_results`` caps the returned rows regardless of mode, so the
+        # limit does not depend on how many databases were scanned.
+        entries = entries[:max_results]
 
         # Format results
         if not entries:

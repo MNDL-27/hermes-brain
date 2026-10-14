@@ -75,6 +75,8 @@ def test_offline_build_and_twine_check(tmp_path: Path) -> None:
             sys.executable,
             "-m",
             "build",
+            "--installer",
+            "uv",
             "--sdist",
             "--wheel",
             "--outdir",
