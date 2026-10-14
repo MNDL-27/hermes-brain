@@ -62,6 +62,19 @@ def _coerce_str_list(value: Any) -> list[str]:
     return [str(value)]
 
 
+def _redact_payload(value: Any) -> Any:
+    """Recursively redact secrets from tool-result payloads before JSON serialization."""
+    if isinstance(value, str):
+        return S.redact_secrets(value)
+    if isinstance(value, dict):
+        return {k: _redact_payload(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_payload(item) for item in value)
+    return value
+
+
 class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
@@ -418,15 +431,15 @@ class NotionBrainProvider:
             result = handler(arguments)
             if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
                 text_result, extra = result
-                payload = {"result": text_result, "error": False, **extra}
-                return json.dumps(payload)
-            if isinstance(result, str) and (
-                result.startswith("Error")
-                or result.startswith("Unknown")
-                or result.startswith("No database")
-            ):
-                result = S.redact_secrets(result)
-            return json.dumps({"result": result, "error": False})
+                payload: dict[str, Any] = {
+                    "result": text_result,
+                    "error": False,
+                    **extra,
+                }
+            else:
+                payload = {"result": result, "error": False}
+            # ponytail: recursive redaction covers strings inside result, extra, and nested lists/dicts.
+            return json.dumps(_redact_payload(payload))
         except Exception as exc:
             logger.error(
                 "Tool call %s failed: %s",

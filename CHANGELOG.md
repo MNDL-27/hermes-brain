@@ -17,6 +17,9 @@ All notable changes to this project are documented in this file.
 
 - `provider` tool-error path and unknown-tool handling now redact secrets
   before JSON serialization across all direct tool branches (FRE-11.1 / FRE-13)
+- `provider` success-path payloads now pass through recursive `_redact_payload()`
+  at the JSON serialization boundary — secrets inside tuples, `extra` dicts, and
+  nested lists/dicts are redacted (replaces the fragile `startswith` heuristic) (FRE-13)
 - **Search never used server-side title filter** (FRE-17 / FRE-11.4): `query_filter`
   was undefined (referenced before assignment after a prior revert).  Server-side
   filter removed entirely — Notion's `title.contains` is case-sensitive and a
@@ -42,6 +45,8 @@ All notable changes to this project are documented in this file.
   matched rows, not raw DB rows.
 - `test_database_filtered_search_max_results_capped_at_20` — caller-supplied
   `max_results` above 20 is clamped.
+- Expanded regression coverage for secret redaction across all direct tool
+  branches, direct error returns, and nested payloads (FRE-13)
 
 ## [v1.0.3] — 2026-09-01
 

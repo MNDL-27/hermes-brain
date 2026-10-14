@@ -769,3 +769,22 @@ class TestExceptionLogRedaction:
             )
             assert self.SECRET not in res["result"]
             assert "[REDACTED_SECRET]" in res["result"]
+
+    def test_tuple_extra_and_nested_payload_redacts_secrets(self):
+        """Tool responses with tuples or nested payloads redact secrets in all values."""
+        import json
+
+        from notion_brain import NotionBrainProvider
+
+        provider = NotionBrainProvider()
+        with patch.object(
+            provider,
+            "_tool_search",
+            return_value=("output: " + self.SECRET, {"meta": "token: " + self.SECRET}),
+        ):
+            res = json.loads(provider.handle_tool_call("notion_brain_search", {"query": "test"}))
+            assert res["error"] is False
+            assert self.SECRET not in res["result"]
+            assert "[REDACTED_SECRET]" in res["result"]
+            assert self.SECRET not in res["meta"]
+            assert "[REDACTED_SECRET]" in res["meta"]
