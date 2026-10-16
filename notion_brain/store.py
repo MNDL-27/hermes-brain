@@ -113,7 +113,7 @@ def _request(method: str, path: str, json_body: dict | None = None) -> dict[str,
 
 def search_page_by_title(title: str, object_type: str = "page") -> dict[str, Any] | None:
     """Find the first page whose title matches exactly (case-insensitive)."""
-    body: dict[str, Any] = {"query": title, "filter": {"value": object_type, "property": "object"}}
+    body: dict[str, Any] = {"query": redact_secrets(title), "filter": {"value": object_type, "property": "object"}}
     data = _request("POST", "/search", body)
     if not isinstance(data, dict):
         return None
@@ -156,7 +156,7 @@ def search_all_databases() -> list[dict[str, Any]]:
 
 def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
     """Search Notion and return results with extracted metadata + body text."""
-    body: dict[str, Any] = {"query": query, "page_size": min(page_size, 100)}
+    body: dict[str, Any] = {"query": redact_secrets(query), "page_size": min(page_size, 100)}
     data = _request("POST", "/search", body)
     if not isinstance(data, dict):
         return []
