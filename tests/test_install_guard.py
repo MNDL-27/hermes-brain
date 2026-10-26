@@ -64,3 +64,10 @@ def test_linux_uname_continues_past_guard(
     assert "macOS detected" not in combined
     # Must not produce false-positive package manager errors
     assert "Unknown package manager" not in combined or result.returncode == 0
+
+
+def test_validate_notion_token_sends_token_parameter() -> None:
+    """SEC-REG: validate_notion_token interpolates $token into Bearer auth header."""
+    content = INSTALL_SCRIPT.read_text(encoding="utf-8")
+    expected = '-H "Authorization: Bearer ' + "$" + 'token" \\'
+    assert expected in content, "install.sh must pass $token in Authorization header"

@@ -28,6 +28,7 @@
 | AUD-RELIABLE-07 | P1 | Database-filtered search can ignore the query | `notion_brain/provider.py` (handle_tool_call → search) | FIXED | Wave 2 |
 | AUD-SEC-02 | P0 | Redaction does not cover every write path | `notion_brain/provider.py`, `notion_brain/store.py` | FIXED | Wave 1 |
 | AUD-PKG-01 | P2 | Built wheel does not provide verified Hermes plugin discovery | `plugin.yaml`, `scripts/install.sh` | ACCEPTED_RISK | Wave 3 |
+| SEC-FRE-141 | HIGH(proposed) | install.sh validate_notion_token sends literal "Bearer ***" — token validation broken (watch-agent audit, 2026-10-15) | `scripts/install.sh:261` | FALSE_POSITIVE | FRE-141 |
 | AUD-LINT-01 | P1 | Ruff fails on production code | repo-wide | FIXED | Wave 2 |
 | AUD-LINT-02 | P1 | Mypy fails on production and test code | repo-wide | FIXED | Wave 2 |
 | AUD-COV-01 | P2 | Branch-aware package coverage is 67%, below 80% release gate | tests/ | FIXED | Wave 3 |

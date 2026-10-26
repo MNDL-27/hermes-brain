@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [v1.0.6] — 2026-10-26
+
+### Security
+- Closed FRE-141 (false positive): audited `scripts/install.sh` `validate_notion_token` — the `Authorization: Bearer $token` header is wired correctly; the "Bearer ***" literal reported by the watch agent was terminal-output redaction of its own logs, not the script source.
+- Added regression test `test_validate_notion_token_sends_token_parameter` (tests/test_install_guard.py) asserting the installed script interpolates `$token` into the Bearer header, guarding against future restore/regression.
+
 ## [v1.0.5] — 2026-10-14
 
 ### Security
