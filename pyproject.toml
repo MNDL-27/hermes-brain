@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-brain"
-version = "1.0.6"
+version = "1.0.7"
 description = "Persistent long-term memory for the Hermes AI agent ecosystem — turns Notion into a structured brain that never forgets."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.15"
 classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3.11",
@@ -33,14 +33,14 @@ notion_brain = "notion_brain"
 
 [project.optional-dependencies]
 dev = [
-    "build==1.5.0",
-    "mypy==2.3.0",
+    "build>=1.2.0",
+    "mypy>=1.14.0",
     "pre-commit>=4.1.0",
-    "pytest==9.1.1",
-    "pytest-cov==7.1.0",
-    "ruff==0.16.0",
-    "twine==6.2.0",
-    "cryptography>=50.0.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.9.0",
+    "twine>=5.0.0",
+    "cryptography>=42.0.0",
 ]
 
 [tool.setuptools.packages.find]

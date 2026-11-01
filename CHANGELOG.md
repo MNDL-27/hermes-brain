@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [v1.0.7] — 2026-11-01
+
+### Fixed
+- **Python 3.14 compatibility**: widen `requires-python` from `<3.14` to `<3.15` and relax dev-dependency pins from exact `==` to `>=` ranges so plugin admission does not conflict with Hermes core workspace pins.
+- **Option schema matching**: `_database_schema_matches` now accepts user-added options in Notion select/status fields via `.issubset()` instead of strict equality (`!=`), preventing spurious `MISMATCH` reports and destructive database resets when custom options like `Daily Work` or `Social Content` exist.
+
 ## [v1.0.6] — 2026-10-26
 
 ### Security
