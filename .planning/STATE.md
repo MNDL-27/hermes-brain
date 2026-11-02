@@ -75,6 +75,16 @@ Items acknowledged and deferred at milestone close, most recent first:
 | Dev Tooling | TOOL-01 — optional pre-push git hook running `pytest -q` | Deferred | v1.1 close | Next |
 | Dev Tooling | TOOL-02 — scheduled GitHub Action for `pre-commit autoupdate` | Deferred | v1.1 close | Next |
 | Test Infra | TEST-HANGS — investigate 3 pre-existing test-suite hangs | Deferred | v1.1 close | Next |
+| Retrieval | RET-01 — prefetch hydrates non-empty summary text | Queued | v1.2 | v1.3 |
+| Cache | RET-02 — local SQLite read-through cache mirror (<5ms) | Queued | v1.2 | v1.3 |
+| Budget | RET-03 — 800-token two-lane injection cap | Queued | v1.2 | v1.3 |
+| Supersession | SUP-01 — subject_key schema + conflict detection | Queued | v1.2 | v1.3 |
+| Supersession | SUP-02 — non-destructive active->superseded flip | Queued | v1.2 | v1.3 |
+| Supersession | SUP-03 — audit timeline + recall-as-of | Queued | v1.2 | v1.3 |
+| Adapter | ADAPT-01 — pluggable StorageAdapter protocol | Queued | v1.2 | v1.3 |
+| Adapter | ADAPT-02 — NotionAdapter refactor (free tier) | Queued | v1.2 | v1.3 |
+| Freemium | ADAPT-03 — license entitlement check / fallback | Queued | v1.2 | v1.3 |
+| Freemium | ADAPT-04 — ObsidianVaultAdapter premium scaffold | Queued | v1.2 | v1.3 |
 
 ## Session Continuity
 

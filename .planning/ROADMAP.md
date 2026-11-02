@@ -5,6 +5,7 @@
 - ✅ **v1.0 Release Polish** — Phases 1-3 (shipped 2026-09-21)
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
 - 🚧 **v1.2 Update UX & Tooling Polish** — Phases 7-8 (defined 2026-10-08, in progress)
+- 📋 **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (defined 2026-11-02 from competitive research)
 
 ## Phases
 
@@ -36,6 +37,14 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 
 - [ ] **Phase 7: Update UX — Commit-Level Drift + Release-Notes Link** - Git-clone installs behind `main` by N commits learn about it from `notion_brain update` and the cached auto-update check; the printed link lands on the release notes page
 - [ ] **Phase 8: Developer Tooling & Test Reliability** - Opt-in pre-push pytest hook, weekly `pre-commit autoupdate` workflow, and the three TEST-HANGS files cleared
+
+### v1.3 Brain Architecture & Freemium Foundation (Phases 9-11)
+
+**Milestone goal:** Evolve hermes-brain from a naive Notion REST caller into a competitive, metabolic memory engine. Fix the prefetch schema blind spot, add a local-first SQLite read-through cache to decouple turn latency from Notion API limits, implement subject_key supersession to eliminate truth contradictions, cap injection at 800 tokens (two-lane architecture), and lay the foundation for the Obsidian adapter gated for premium users while free users remain Notion-only.
+
+- [ ] **Phase 9: Retrieval Correctness & Local Read-Through Cache** - Fix prefetch to read summary/body without schema misses; add local SQLite cache mirror so prefetch is <2ms and offline-resilient; introduce two-lane token-budgeted prompt injection (max 800 tokens)
+- [ ] **Phase 10: Event-Driven Supersession & Truth Integrity** - Add `Subject Key` tracking across Memory rows; incoming facts mark older conflicting facts as `status: superseded` rather than accumulating contradictions; historical versions remain auditable
+- [ ] **Phase 11: Storage Adapter Abstraction & Freemium Gate** - Refactor backend behind a pluggable `StorageAdapter` interface (NotionAdapter = default/free; ObsidianVaultAdapter = premium stub with license entitlement verification)
 
 ## Phase Details
 
@@ -71,6 +80,37 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 Plans:
 - [ ] 08-01-PLAN.md — commit TEST-HANGS hermetic infra + audit suite-count in PROJECT/STATE/REQUIREMENTS
 - [ ] 08-02-PLAN.md — opt-in `scripts/pre-push` hook + `.github/workflows/pre-commit-autoupdate.yml` (TOOL-01, TOOL-02)
+
+---
+
+### Phase 9: Retrieval Correctness & Local Read-Through Cache
+
+**Goal**: Fix the prefetch schema blind spot so memories actually display their text summaries, back the memory store with a local SQLite read-through cache (`<2ms` cold start, zero Notion latency on turn 0), and enforce an 800-token two-lane injection budget.
+**Depends on**: v1.2 (Phase 8)
+**Requirements**: RET-01 (prefetch text hydration), RET-02 (SQLite local cache mirror), RET-03 (two-lane 800-token context cap)
+**Success Criteria**:
+  1. `provider.py` prefetch surfaces non-empty summary text for every retrieved row by reading either a `Summary` property or the page body blocks.
+  2. A local SQLite cache (`~/.hermes/brain_cache.db`) mirrors active memory rows; prefetch executes in `<5ms` offline with zero network calls.
+  3. Context injection is hard-capped at 800 tokens split between Lane 1 (pinned/critical, 400 tok) and Lane 2 (dynamic context, 400 tok).
+
+### Phase 10: Event-Driven Supersession & Truth Integrity
+
+**Goal**: Implement `subject_key` logical slots so new facts supersede old conflicting facts rather than piling up contradictory memories.
+**Depends on**: Phase 9
+**Requirements**: SUP-01 (subject_key schema & detection), SUP-02 (non-destructive status flipping: active -> superseded), SUP-03 (historical timeline / recall-as-of)
+**Success Criteria**:
+  1. Updating a fact on the same subject (e.g. `device.daily_phone` from S24 to S21 FE) marks the older row `Status: Superseded` in Notion.
+  2. Queries filter to `Status: Active` by default so the agent never hallucinates from contradictory historical state.
+
+### Phase 11: Storage Adapter Abstraction & Freemium Gate
+
+**Goal**: Decouple the memory engine from Notion REST into a pluggable `StorageAdapter` hierarchy, enabling the free tier (Notion-only) and laying the premium entitlement path for an Obsidian Vault adapter.
+**Depends on**: Phase 10
+**Requirements**: ADAPT-01 (`StorageAdapter` protocol), ADAPT-02 (NotionAdapter refactor), ADAPT-03 (Premium entitlement / license check stub), ADAPT-04 (ObsidianAdapter architecture)
+**Success Criteria**:
+  1. Core agent memory operations (`search`, `remember`, `supersede`, `prefetch`) call a generic `StorageAdapter` interface.
+  2. Free tier defaults to `NotionAdapter`.
+  3. Attempting to select `ObsidianAdapter` checks an entitlement token/license; if unentitled, it gracefully explains the upgrade requirement and falls back to Notion.
 
 ---
 
