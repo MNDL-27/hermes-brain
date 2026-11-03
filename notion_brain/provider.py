@@ -175,11 +175,30 @@ class NotionBrainProvider:
                 if not entries:
                     return ""
 
+                # One body fetch per page id for this prefetch run.
+                hydrated_bodies: dict[str, str] = {}
                 lines: list[str] = []
                 for entry in entries[:10]:
                     title = entry.get("title", "Untitled")
-                    content = entry.get("properties", {}).get("Content", "")
-                    kind = entry.get("properties", {}).get("Kind", "note")
+                    props = entry.get("properties", {}) or {}
+                    content = props.get("Content", "")
+                    kind = props.get("Kind", "note")
+                    if not content:
+                        page_id = entry.get("id") or ""
+                        if page_id:
+                            if page_id not in hydrated_bodies:
+                                try:
+                                    hydrated_bodies[page_id] = (
+                                        store.page_body_text(page_id) or ""
+                                    )
+                                except Exception as exc:
+                                    logger.warning(
+                                        "NotionBrainProvider prefetch body hydration failed for %s: %s",
+                                        page_id,
+                                        S.redact_secrets(str(exc)),
+                                    )
+                                    hydrated_bodies[page_id] = ""
+                            content = hydrated_bodies[page_id]
                     safe_title = S.redact_secrets(title)
                     safe_content = S.redact_secrets(content[:200])
                     lines.append(f"- [{kind}] {safe_title}: {safe_content}")

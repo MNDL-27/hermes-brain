@@ -528,17 +528,9 @@ def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bo
         expected_opts = spec.get(expected_type, {}).get("options")
         if expected_opts is not None:
             actual_opts = current.get(expected_type, {}).get("options", [])
-            want_names = {o.get("name") for o in expected_opts}
-            have_names = {o.get("name") for o in actual_opts}
-            # For 'status' fields, enforce exact match to detect zombie options
-            # (which Notion PATCH cannot delete, per FRE-16 / reset_databases design).
-            # For 'select' fields (e.g. Domain), allow extra user-defined options via issubset.
-            if expected_type == "status":
-                if want_names != have_names:
-                    return False
-            else:
-                if not want_names.issubset(have_names):
-                    return False
+            # Notion must contain all expected options; extra user-added options are allowed
+            if not {o.get("name") for o in expected_opts}.issubset({o.get("name") for o in actual_opts}):
+                return False
     return True
 
 
