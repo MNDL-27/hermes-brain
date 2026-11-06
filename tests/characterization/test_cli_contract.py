@@ -186,7 +186,8 @@ def test_update_command_detects_drift_without_mutating(
     mutating_calls: list[list[str]] = []
 
     def fail_on_mutating_subprocess(cmd, *args, **kwargs):
-        # Allow `pip show` (read-only install-mode probe); block everything else.
+        # Allow read-only probes: `pip show` (install mode) and git
+        # rev-parse/rev-list (commit drift). Block fetch/pull/checkout/install.
         cmd_list = list(cmd) if cmd else []
         is_pip_show = (
             len(cmd_list) >= 4
@@ -194,7 +195,15 @@ def test_update_command_detects_drift_without_mutating(
             and "show" in cmd_list
             and "install" not in cmd_list
         )
-        if is_pip_show:
+        readonly_git = {"rev-parse", "rev-list", "status", "show", "describe"}
+        mutating_git = {"fetch", "pull", "checkout", "reset", "clean", "commit", "push", "merge", "rebase"}
+        is_readonly_git = (
+            bool(cmd_list)
+            and "git" in cmd_list[0]
+            and any(arg in readonly_git for arg in cmd_list)
+            and not any(arg in mutating_git for arg in cmd_list)
+        )
+        if is_pip_show or is_readonly_git:
             res = subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="")
             return res
         mutating_calls.append(cmd_list)

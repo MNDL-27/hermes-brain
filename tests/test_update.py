@@ -277,17 +277,24 @@ def _patch_check(current_ver: str, latest: str | None) -> None:
     """Monkeypatch check_for_update to return a deterministic result."""
     from notion_brain import update as u
 
-    def _stub(*, repo_dir=None):
+    def _stub(*, repo_dir=None, drift_type=None):
         drift = bool(latest) and latest != current_ver
+        dtype = drift_type or ("version" if drift else "none")
         return {
             "current": current_ver,
             "latest": latest,
             "drift": drift,
+            "drift_type": dtype,
+            "behind_commits": 3 if dtype in ("commit", "both") else 0,
+            "ahead_commits": 0,
             "install_mode": "unknown",
-            "upgrade_command": "pip install --upgrade hermes-brain==" + latest if drift else "",
+            "upgrade_command": (
+                "git -C <repo_dir> pull --ff-only" if dtype == "commit"
+                else ("pip install --upgrade hermes-brain==" + latest if drift else "")
+            ),
             "release_url": (
                 f"https://github.com/MNDL-27/hermes-brain/releases/tag/v{latest}"
-                if drift and latest
+                if latest
                 else ""
             ),
             "error": None,
@@ -361,6 +368,9 @@ def test_cmd_update_no_flags_does_not_invoke_pip_or_git(capsys, monkeypatch):
             "current": "1.0.3",
             "latest": "1.2.3",
             "drift": True,
+            "drift_type": "version",
+            "behind_commits": 0,
+            "ahead_commits": 0,
             "install_mode": "uv",
             "upgrade_command": "uv pip install --upgrade hermes-brain==1.2.3",
             "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.2.3",
@@ -372,3 +382,250 @@ def test_cmd_update_no_flags_does_not_invoke_pip_or_git(capsys, monkeypatch):
     rc = cli.main(["update"])
     assert rc == 2
     assert captured.get("called") is True
+
+# ---------- Commit drift (UPD-06) ----------
+
+
+def _fake_subprocess_run(branch: str = "main",
+                         rev_list: subprocess.CompletedProcess | None = None,
+                         rev_parse_head: subprocess.CompletedProcess | None = None):
+    """Deterministic rev-parse / rev-list mocks; never touches the network."""
+    if rev_list is None:
+        rev_list = subprocess.CompletedProcess([], 0, "1\t3\n", "")
+    if rev_parse_head is None:
+        rev_parse_head = subprocess.CompletedProcess([], 0, "deadbeef" + "0" * 32 + "\n", "")
+
+    def _run(args, *_a, **_kw):
+        argv = list(args)
+        joined = " ".join(argv)
+        if "rev-parse" in joined and "--abbrev-ref" in joined and "HEAD" in joined:
+            return subprocess.CompletedProcess(argv, 0, branch + "\n", "")
+        if "rev-list" in joined and "left-right" in joined:
+            return rev_list
+        if "rev-parse" in joined and joined.endswith("HEAD"):
+            return rev_parse_head
+        raise AssertionError(f"unexpected subprocess call: {joined}")
+
+    return _run
+
+
+def test_detect_git_drift_local_rev_list_behind_3(tmp_path):
+    run = _fake_subprocess_run()
+    with patch.object(subprocess, "run", side_effect=run):
+        drift = update_mod.detect_git_drift(tmp_path)
+    assert drift["branch"] == "main"
+    assert drift["skipped"] is False
+    assert drift["behind_commits"] == 3
+    assert drift["ahead_commits"] == 1
+    assert drift["error"] is None
+
+
+def test_detect_git_drift_compare_fallback_when_origin_missing(tmp_path):
+    # local rev-list fails (missing/stale origin tracking branch) -> API compare fallback
+    rev_list_fail = subprocess.CompletedProcess([], 128, "", "unknown revision")
+    run = _fake_subprocess_run(rev_list=rev_list_fail)
+    payload = json.dumps({"ahead_by": 2, "behind_by": 7}).encode()
+
+    class _Resp:
+        def read(self):
+            return payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    appended: list[str] = []
+
+    def _urlopen(req, timeout=None):
+        appended.append(getattr(req, "full_url", str(req)))
+        return _Resp()
+
+    with (
+        patch.object(subprocess, "run", side_effect=run),
+        patch.object(update_mod._urllib_request, "urlopen", side_effect=_urlopen),
+    ):
+        drift = update_mod.detect_git_drift(tmp_path)
+    assert drift["behind_commits"] == 7
+    assert drift["ahead_commits"] == 2
+    assert drift["error"] is None
+    assert appended and "/compare/deadbeef" in appended[0]
+    assert appended[0].endswith("...main")
+
+
+def test_detect_git_drift_non_main_branch_skips(tmp_path):
+    run = _fake_subprocess_run(branch="feature/x")
+    with patch.object(subprocess, "run", side_effect=run) as mock_run:
+        drift = update_mod.detect_git_drift(tmp_path)
+    assert drift["skipped"] is True
+    assert drift["behind_commits"] == 0
+    # git rev-list must NOT be attempted on non-main branches
+    calls = [" ".join(map(str, c.args[0])) for c in mock_run.call_args_list]
+    assert not any("rev-list" in c for c in calls)
+
+
+def test_detect_git_drift_api_failure_degrades_silently(tmp_path):
+    rev_list_fail = subprocess.CompletedProcess([], 128, "", "unknown revision")
+    run = _fake_subprocess_run(rev_list=rev_list_fail)
+
+    def _boom(*_a, **_kw):
+        raise OSError("offline")
+
+    with (
+        patch.object(subprocess, "run", side_effect=run),
+        patch.object(update_mod._urllib_request, "urlopen", side_effect=_boom),
+    ):
+        drift = update_mod.detect_git_drift(tmp_path)
+    assert drift["behind_commits"] == 0
+    assert drift["error"]
+
+
+def test_check_for_update_commit_only_drift(tmp_path, monkeypatch):
+    from notion_brain import bootstrap
+
+    monkeypatch.setattr(bootstrap, "_find_latest_tag", lambda: "1.0.3")
+    run = _fake_subprocess_run()  # branch=main behind 3
+    monkeypatch.setattr(subprocess, "run", run)
+    result = update_mod.check_for_update(repo_dir=tmp_path)
+    assert result["drift"] is True
+    assert result["drift_type"] == "commit"
+    assert result["behind_commits"] == 3
+    assert result["ahead_commits"] == 1
+    assert result["latest"] == "1.0.3"
+    assert result["release_url"].endswith("/releases/tag/v1.0.3")
+    assert result["upgrade_command"] == f"git -C {tmp_path} pull --ff-only"
+
+
+def test_check_for_update_both_drift_prefers_version(tmp_path, monkeypatch):
+    from notion_brain import bootstrap
+
+    monkeypatch.setattr(bootstrap, "_find_latest_tag", lambda: "9.9.9")
+    run = _fake_subprocess_run()
+    monkeypatch.setattr(subprocess, "run", run)
+    result = update_mod.check_for_update(repo_dir=tmp_path)
+    assert result["drift"] is True
+    assert result["drift_type"] == "both"
+    assert result["behind_commits"] == 3
+    assert "pip install" in result["upgrade_command"] or "uv pip" in result["upgrade_command"]
+    assert result["release_url"].endswith("/releases/tag/v9.9.9")
+
+
+def test_check_for_update_version_drift_only_when_origin_clean(tmp_path, monkeypatch):
+    from notion_brain import bootstrap
+
+    monkeypatch.setattr(bootstrap, "_find_latest_tag", lambda: "9.9.9")
+    run = _fake_subprocess_run(rev_list=subprocess.CompletedProcess([], 0, "0\t0\n", ""))
+    monkeypatch.setattr(subprocess, "run", run)
+    result = update_mod.check_for_update(repo_dir=tmp_path)
+    assert result["drift"] is True
+    assert result["drift_type"] == "version"
+    assert result["behind_commits"] == 0
+
+
+def test_cmd_update_check_exits_0_on_commit_only_drift(capsys, monkeypatch):
+    from notion_brain import update as u
+
+    def _stub(*, repo_dir=None):
+        return {
+            "current": "1.0.3",
+            "latest": "1.0.3",
+            "drift": True,
+            "drift_type": "commit",
+            "behind_commits": 3,
+            "ahead_commits": 0,
+            "install_mode": "git_clone",
+            "upgrade_command": "git -C <rd> pull --ff-only",
+            "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.0.3",
+            "error": None,
+        }
+
+    monkeypatch.setattr(u, "check_for_update", _stub)
+    rc = cli.main(["update", "--check"])
+    assert rc == 0
+
+
+def test_cmd_update_check_exits_2_on_version_and_both_drift(capsys, monkeypatch):
+    from notion_brain import update as u
+
+    for dtype in ("version", "both"):
+        def _stub(*, repo_dir=None, _dtype=dtype):
+            return {
+                "current": "1.0.3",
+                "latest": "9.9.9",
+                "drift": True,
+                "drift_type": _dtype,
+                "behind_commits": 2 if _dtype == "both" else 0,
+                "ahead_commits": 0,
+                "install_mode": "git_clone",
+                "upgrade_command": "pip install --upgrade hermes-brain==9.9.9",
+                "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v9.9.9",
+                "error": None,
+            }
+
+        monkeypatch.setattr(u, "check_for_update", _stub)
+        assert cli.main(["update", "--check"]) == 2
+
+
+def test_cmd_update_check_json_exits_0_on_commit_drift(capsys, monkeypatch):
+    from notion_brain import update as u
+
+    def _stub(*, repo_dir=None):
+        return {
+            "current": "1.0.3",
+            "latest": "1.0.3",
+            "drift": True,
+            "drift_type": "commit",
+            "behind_commits": 3,
+            "ahead_commits": 1,
+            "install_mode": "git_clone",
+            "upgrade_command": "git -C <rd> pull --ff-only",
+            "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.0.3",
+            "error": None,
+        }
+
+    monkeypatch.setattr(u, "check_for_update", _stub)
+    rc = cli.main(["update", "--check", "--json"])
+    assert rc == 0
+    parsed = json.loads(capsys.readouterr().out)
+    assert parsed["drift"] is True
+    assert parsed["drift_type"] == "commit"
+    assert parsed["behind_commits"] == 3
+    assert parsed["release_url"].endswith("/releases/tag/v1.0.3")
+
+
+def test_format_human_shows_commit_drift_and_release(capsys):
+    result = {
+        "current": "1.0.3",
+        "latest": "1.0.3",
+        "drift": True,
+        "drift_type": "commit",
+        "behind_commits": 3,
+        "ahead_commits": 0,
+        "install_mode": "git_clone",
+        "upgrade_command": "git -C /rd pull --ff-only",
+        "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.0.3",
+        "error": None,
+    }
+    out = update_mod.format_human(result)
+    assert "behind 3 commits on main" in out
+    assert "release:   https://github.com/MNDL-27/hermes-brain/releases/tag/v1.0.3" in out
+    assert "git -C /rd pull --ff-only" in out
+
+
+def test_release_url_canonical_for_resolved_tag():
+    sample = {
+        "current": "1.0.3",
+        "latest": "1.2.3",
+        "drift": True,
+        "drift_type": "version",
+        "behind_commits": 0,
+        "ahead_commits": 0,
+        "install_mode": "uv",
+        "upgrade_command": "uv pip install --upgrade hermes-brain==1.2.3",
+        "release_url": "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.2.3",
+        "error": None,
+    }
+    out = update_mod.format_human(sample)
+    assert "release:   https://github.com/MNDL-27/hermes-brain/releases/tag/v1.2.3" in out
+

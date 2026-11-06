@@ -193,11 +193,11 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_update(check_only: bool = False, json_output: bool = False) -> int:
-    """Detect drift between installed and latest GitHub release (UPD-01..UPD-05).
+    """Detect drift between installed and latest GitHub release (UPD-01..UPD-07).
 
     Detect+instruct only. Never runs `pip install`, `git pull`, or any other
-    mutation. Exit codes: 0 = no drift, 2 = drift available. JSON mode
-    serializes the structured payload to stdout.
+    mutation. Exit codes: 0 = no drift or commit-only drift, 2 = version tag
+    drift present. JSON mode serializes the structured payload to stdout.
     """
     from . import update as update_mod
 
@@ -208,7 +208,7 @@ def _cmd_update(check_only: bool = False, json_output: bool = False) -> int:
         print(update_mod.format_json(result))
     else:
         print(update_mod.format_human(result))
-    return 2 if result.get("drift") else 0
+    return 2 if result.get("drift_type") in ("version", "both") else 0
 
 
 def _repo_dir() -> Path:

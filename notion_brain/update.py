@@ -1,7 +1,8 @@
 """Update drift detection and per-environment upgrade-command generation.
 
 Public surface: `parse_semver`, `compare_versions`, `detect_install_mode`,
-`build_upgrade_command`, `check_for_update`, `format_human`, `format_json`.
+`build_upgrade_command`, `detect_git_drift`, `check_for_update`, `format_human`,
+`format_json`.
 
 Strictly detect+instruct. Never runs `pip install`, `git pull`, or any other
 mutation of the running environment — see UPD-05 in REQUIREMENTS.md.
@@ -13,6 +14,7 @@ import json
 import re
 import subprocess
 import sys
+import urllib.request as _urllib_request
 from pathlib import Path
 from typing import Any
 
@@ -130,11 +132,122 @@ def build_upgrade_command(
     return f"pip install --upgrade hermes-brain=={target_version}"
 
 
+def _git(repo_dir: Path, *args: str, timeout: float = 10.0) -> tuple[int, str, str]:
+    """Run a read-only git command non-interactively. Never mutates the repo."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo_dir), *args],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+
+
+def _compare_via_github(local_sha: str, timeout: float = 3.0) -> dict[str, Any] | None:
+    """Query the unauthenticated compare endpoint. Returns parsed JSON or None."""
+    try:
+        from . import __version__ as current_ver
+    except Exception:
+        current_ver = "1.0.3"
+    try:
+        req = _urllib_request.Request(
+            f"https://api.github.com/repos/{_REPO_DEFAULT}/compare/{local_sha}...main",
+            headers={
+                "User-Agent": f"hermes-brain/{current_ver}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+        with _urllib_request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return None
+
+
+def detect_git_drift(repo_dir: Path | None = None) -> dict[str, Any]:
+    """Detect commit-level drift between local ``main`` and ``origin/main``.
+
+    Read-only. Only computed on the ``main`` branch; feature branches and
+    detached HEAD report ``{"skipped": True}`` and never error. Tries local
+    ``git rev-list`` first, falling back to the GitHub Compare API
+    (``compare/{sha}...main``) when the tracking ref is absent or un-fetched.
+    Never runs ``git fetch``/``git pull``.
+
+    Returns: {"branch", "skipped", "behind_commits", "ahead_commits", "error"}.
+    """
+    result: dict[str, Any] = {
+        "branch": None,
+        "skipped": False,
+        "behind_commits": 0,
+        "ahead_commits": 0,
+        "error": None,
+    }
+    if repo_dir is None:
+        result["skipped"] = True
+        result["error"] = "no repo_dir provided"
+        return result
+    try:
+        rc_branch, branch_out, _ = _git(repo_dir, "rev-parse", "--abbrev-ref", "HEAD")
+    except Exception as exc:  # git missing / timed out — degrade, never raise
+        result["skipped"] = True
+        result["error"] = f"git: {type(exc).__name__}"
+        return result
+    result["branch"] = branch_out if rc_branch == 0 else None
+    if rc_branch != 0 or branch_out != "main":
+        result["skipped"] = True  # non-main branch or detached HEAD: skip, not an error
+        return result
+
+    counts_out: str | None = None
+    try:
+        rc_counts, out, _ = _git(repo_dir, "rev-list", "--left-right", "--count",
+                                 "HEAD...origin/main")
+        if rc_counts == 0 and out:
+            counts_out = out
+    except Exception:
+        counts_out = None
+
+    if counts_out is not None:
+        try:
+            left, right = (int(part) for part in counts_out.split())
+            result["ahead_commits"] = left
+            result["behind_commits"] = right
+            return result
+        except ValueError:
+            pass  # fall through to the API compare path
+
+    # Fallback: GitHub Compare API (read-only) when origin/main is unavailable.
+    try:
+        rc_sha, sha, _ = _git(repo_dir, "rev-parse", "HEAD")
+    except Exception:
+        rc_sha, sha = 1, ""
+    if rc_sha != 0 or not sha:
+        result["skipped"] = True
+        result["error"] = "local sha unavailable"
+        return result
+
+    data = _compare_via_github(sha)
+    if data is not None:
+        try:
+            result["ahead_commits"] = int(data.get("ahead_by", 0))
+            result["behind_commits"] = int(data.get("behind_by", 0))
+            return result
+        except (TypeError, ValueError):
+            pass
+    result["error"] = "compare lookup failed"  # offline/rate-limited: omit, don't raise
+    return result
+
+
 def check_for_update(*, repo_dir: Path | None = None) -> dict[str, Any]:
     """Detect drift between installed and latest release.
 
-    Returns a dict with: `current`, `latest`, `drift`, `install_mode`,
-    `upgrade_command`, `release_url`, `error`. Never mutates the environment.
+    Returns a dict with: `current`, `latest`, `drift`, `drift_type`,
+    `behind_commits`, `ahead_commits`, `install_mode`, `upgrade_command`,
+    `release_url`, `error`. Never mutates the environment. `drift` is True when
+    either version or commit-only drift exists; `drift_type` is one of
+    "version", "commit", "both", or "none". `release_url` is set whenever a net
+    tag resolves (canonical /releases/tag/v{latest} link). Never raises.
     """
     from . import __version__ as current_ver
     from . import bootstrap
@@ -143,6 +256,9 @@ def check_for_update(*, repo_dir: Path | None = None) -> dict[str, Any]:
         "current": current_ver,
         "latest": None,
         "drift": False,
+        "drift_type": "none",
+        "behind_commits": 0,
+        "ahead_commits": 0,
         "install_mode": "unknown",
         "upgrade_command": "",
         "release_url": "",
@@ -152,22 +268,49 @@ def check_for_update(*, repo_dir: Path | None = None) -> dict[str, Any]:
         latest = bootstrap._find_latest_tag()
     except Exception as exc:  # noqa: BLE001 — surfacing as field, not raising
         result["error"] = f"network: {type(exc).__name__}"
-        return result
+        latest = None
 
+    version_drift = False
     if latest:
         result["latest"] = latest
         try:
-            result["drift"] = compare_versions(latest, current_ver) > 0
+            version_drift = compare_versions(latest, current_ver) > 0
         except ValueError:
-            result["drift"] = latest != current_ver
+            version_drift = latest != current_ver
+        result["release_url"] = (
+            f"https://github.com/{_REPO_DEFAULT}/releases/tag/v{latest}"
+        )
+
+    commit_behind = 0
+    if repo_dir is not None:
+        try:
+            git_drift = detect_git_drift(repo_dir)
+        except Exception as exc:  # noqa: BLE001 — omit commit drift, never raise
+            git_drift = {"behind_commits": 0, "ahead_commits": 0,
+                         "error": type(exc).__name__, "skipped": False}
+        result["behind_commits"] = int(git_drift.get("behind_commits") or 0)
+        result["ahead_commits"] = int(git_drift.get("ahead_commits") or 0)
+        commit_behind = result["behind_commits"]
+        if git_drift.get("error") and result["error"] is None:
+            result["error"] = f"commit-drift: {git_drift['error']}"
+
+    commit_drift = commit_behind > 0
+    result["drift"] = version_drift or commit_drift
+    if version_drift and commit_drift:
+        result["drift_type"] = "both"
+    elif version_drift:
+        result["drift_type"] = "version"
+    elif commit_drift:
+        result["drift_type"] = "commit"
 
     mode = detect_install_mode(repo_dir=repo_dir)
     result["install_mode"] = mode
-    if result["drift"] and result["latest"]:
+    if version_drift and result["latest"]:
         result["upgrade_command"] = build_upgrade_command(mode, result["latest"], repo_dir=repo_dir)
-        result["release_url"] = (
-            f"https://github.com/{_REPO_DEFAULT}/releases/tag/v{result['latest']}"
-        )
+    elif commit_drift:
+        # Instruct-only (UPD-05): the command is printed, never executed here.
+        rd = str(repo_dir) if repo_dir else "<repo_dir>"
+        result["upgrade_command"] = f"git -C {rd} pull --ff-only"
     return result
 
 
@@ -177,14 +320,26 @@ def format_human(result: dict[str, Any]) -> str:
     cur = result.get("current", "?")
     latest = result.get("latest")
     mode = result.get("install_mode", "unknown")
-    lines.append(f"installed: {cur}")
+    behind = int(result.get("behind_commits") or 0)
+    ahead = int(result.get("ahead_commits") or 0)
+    if behind and ahead:
+        lines.append(f"installed: {cur} (behind {behind}, ahead {ahead} commits on main)")
+    elif behind:
+        lines.append(f"installed: {cur} (behind {behind} commits on main)")
+    elif ahead:
+        lines.append(f"installed: {cur} (ahead {ahead} commits on main)")
+    else:
+        lines.append(f"installed: {cur}")
     if latest is None:
         if result.get("error"):
             lines.append(f"latest:    unknown ({result['error']})")
         else:
             lines.append("latest:    unknown")
     elif result.get("drift"):
-        lines.append(f"latest:    {latest}  (UPDATE AVAILABLE)")
+        if result.get("drift_type") == "commit":
+            lines.append(f"latest:    {latest}  (up to date)")
+        else:
+            lines.append(f"latest:    {latest}  (UPDATE AVAILABLE)")
     else:
         lines.append(f"latest:    {latest}  (up to date)")
     lines.append(f"install:   {mode}")
