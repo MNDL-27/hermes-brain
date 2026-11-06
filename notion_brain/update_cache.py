@@ -152,6 +152,14 @@ def refresh(
 
     payload = dict(result)
     payload["checked_at"] = int(time.time())
+    # Persist the commit-drift signal explicitly so the cached banner and
+    # health report can report "behind N commits" without any network call
+    # (UPD-06/UPD-07). Fields are always present, even when the drift check
+    # was skipped or failed, so consumers never need a None check.
+    payload.setdefault("drift_type", "none")
+    payload.setdefault("behind_commits", 0)
+    payload.setdefault("ahead_commits", 0)
+    payload.setdefault("release_url", "")
     try:
         save_cache(hermes_home, payload)
     except OSError:
