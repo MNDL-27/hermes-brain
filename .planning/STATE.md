@@ -1,21 +1,16 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.1
-milestone_name: Distribution & Updates
-milestone_status: archived
-current_phase: null
-status: milestone_complete
-stopped_at: Milestone v1.1 archived — ready for next milestone cycle
-last_updated: "2026-10-07T00:00:00Z"
-last_activity: 2026-10-07
-last_activity_desc: v1.1 milestone archived (3 phases, 4 plans, 15/15 requirements verified)
-state_head: 16e7ee6
+milestone: v1.2
+milestone_name: Update UX & Tooling Polish
+status: planning
+last_updated: "2026-11-06T10:53:19.680Z"
+last_activity: 2026-11-06
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,15 +20,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-07)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** Next milestone intake — `/gsd-new-milestone`
+**Current focus:** v1.2 Phase 7 execution (UPD-06/07 commit drift) — then Phase 8, then v1.3 Phases 9-11, then v1.4 Phases 12-15.
 
 ## Current Position
 
-Milestone: v1.1 Distribution & Updates
-Status: ✅ SHIPPED + ARCHIVED 2026-10-07
-Phases: 4, 5, 6 (3/3 complete, 4/4 plans)
-Requirements: 15/15 verified
-Last activity: 2026-10-07 — v1.1 archived to `.planning/milestones/v1.1-ROADMAP.md` and `v1.1-REQUIREMENTS.md`
+Phase: 7 — Update UX: Commit-Level Drift + Release-Notes Link
+Plan: 07-01 (in flight via fleet dispatch T-012)
+Status: Executing
+Last activity: 2026-11-06 — v1.4 milestone artifacts written; Phase 7 dispatched to fleet
+
+## Execution Order (user-confirmed 2026-11-06)
+
+v1.2 Phase 7 → Phase 8 → v1.3 Phase 9 → 10 → 11 → v1.4 Phase 12 → 13 → 14 → 15. No skipping.
+
+## Baseline Test State (2026-11-06)
+
+Full offline suite: **401 passed, 1 deselected** via `.venv/bin/python -m pytest -q` (project venv, Python 3.12).
+
+⚠ Canonical test command is `.venv/bin/python -m pytest -q`. Do NOT use `uv run --no-sync pytest` on this host: `PYTHONPATH` points at the Hermes installs venv (Python 3.14) which carries a stale editable `notion_brain` snapshot (`plugin-sources/hermes-brain-*/notion_brain`); tests that run before any `sys.path.insert` import that stale copy, it wins the `sys.modules` cache, and 11 unrelated tests then fail with `AttributeError: module 'notion_brain.update' has no attribute 'detect_git_drift'`. Confirmed: same tree, same tests, 401/401 green under `.venv/bin/python -m pytest` with and without `PYTHONPATH` set.
+
+The previous single failure (`test_database_schema_mismatch_detects_zombie_status_options`) is fixed: `_database_schema_matches` is now type-aware — `status` fields compare option-name sets with strict equality (zombie status options must force reset), `select`/`multi_select` accept a superset of user-added options. New test `test_database_schema_allows_user_added_select_options` covers the select-superset path.
+
 
 ## Performance Metrics
 
@@ -47,7 +54,7 @@ Last activity: 2026-10-07 — v1.1 archived to `.planning/milestones/v1.1-ROADMA
 
 **Cumulative across milestones:**
 
-- v1.0 + v1.1 = 6 phases, 7 plans, 25 requirements, 361 tests passing offline
+- v1.0 + v1.1 = 6 phases, 7 plans, 25 requirements; offline suite audited 2026-11-06: 401 passed, 1 deselected (prior baseline 361)
 
 ## Accumulated Context
 

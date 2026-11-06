@@ -1,28 +1,58 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v1.1 — Distribution & Updates",
+  "milestone": "v1.2 — Update UX & Tooling Polish",
   "phases": [
     {
-      "number": "4",
-      "name": "Build Metadata Modernization & PyPI Publishing",
-      "status": "complete"
+      "number": "7",
+      "name": "Update UX — Commit-Level Drift + Release-Notes Link",
+      "status": "pending"
     },
     {
-      "number": "5",
-      "name": "CLI Update Drift Detection",
-      "status": "complete"
+      "number": "8",
+      "name": "Developer Tooling & Test Reliability",
+      "status": "pending"
     },
     {
-      "number": "6",
-      "name": "Cached Non-Blocking Auto-Update Check",
-      "status": "complete"
+      "number": "9",
+      "name": "Retrieval Correctness & Local Read-Through Cache",
+      "status": "pending"
+    },
+    {
+      "number": "10",
+      "name": "Event-Driven Supersession & Truth Integrity",
+      "status": "pending"
+    },
+    {
+      "number": "11",
+      "name": "Storage Adapter Abstraction & Freemium Gate",
+      "status": "pending"
+    },
+    {
+      "number": "12",
+      "name": "Core Semantic Catalog",
+      "status": "pending"
+    },
+    {
+      "number": "13",
+      "name": "User-Gated Certification Flow",
+      "status": "pending"
+    },
+    {
+      "number": "14",
+      "name": "Graph Provenance & Relational Recall",
+      "status": "pending"
+    },
+    {
+      "number": "15",
+      "name": "Answerability Gate & Contradiction Detection",
+      "status": "pending"
     }
   ],
   "next": {
-    "command": "/gsd:new-milestone",
-    "label": "Start a new milestone",
-    "reason": "All phases complete — start a new milestone"
+    "command": "/gsd-discuss-phase",
+    "label": "Discuss the first phase",
+    "reason": "Project initialized — plan your first phase"
   },
-  "updated_at": "2026-09-29T21:43:43.125Z"
+  "updated_at": "2026-11-06T10:53:19.686Z"
 }

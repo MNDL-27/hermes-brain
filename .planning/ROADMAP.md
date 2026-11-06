@@ -6,6 +6,7 @@
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
 - 🚧 **v1.2 Update UX & Tooling Polish** — Phases 7-8 (defined 2026-10-08, in progress)
 - 📋 **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (defined 2026-11-02 from competitive research)
+- 📋 **v1.4 Semantic Brain Layer** — Phases 12-15 (defined 2026-11-06 from NVIDIA Auto-Ontology architecture study + user decisions)
 
 ## Phases
 
@@ -45,6 +46,15 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 - [ ] **Phase 9: Retrieval Correctness & Local Read-Through Cache** - Fix prefetch to read summary/body without schema misses; add local SQLite cache mirror so prefetch is <2ms and offline-resilient; introduce two-lane token-budgeted prompt injection (max 800 tokens)
 - [ ] **Phase 10: Event-Driven Supersession & Truth Integrity** - Add `Subject Key` tracking across Memory rows; incoming facts mark older conflicting facts as `status: superseded` rather than accumulating contradictions; historical versions remain auditable
 - [ ] **Phase 11: Storage Adapter Abstraction & Freemium Gate** - Refactor backend behind a pluggable `StorageAdapter` interface (NotionAdapter = default/free; ObsidianVaultAdapter = premium stub with license entitlement verification)
+
+### v1.4 Semantic Brain Layer (Phases 12-15)
+
+**Milestone goal:** Borrow NVIDIA Auto Ontology's semantic context layer architecture: shift from raw note/table search to a deterministic Semantic Catalog, add User-Certified vs Inferred truth tiers, expose rich Graph Provenance across facts, and guard against hallucinations with an Answerability Gate.
+
+- [ ] **Phase 12: Core Semantic Catalog** - Provider-neutral catalog model for Terms (synonyms/descriptions), Entities, and Relations; deterministically maps terms to backing store locations without LLM in the read path
+- [ ] **Phase 13: User-Gated Certification Flow** - Distinguish `inferred` vs `certified` status; user confirmation promotes; retrieval prefers certified facts; certified corrections immediately supersede contradictory inferred memories
+- [ ] **Phase 14: Graph Provenance & Relational Recall** - Return provenance (source/session/timestamp/status) per memory; replace binary supersession with explicit `supersedes` relation edges; graph traversal for related memories
+- [ ] **Phase 15: Answerability Gate & Contradiction Detection** - Pre-retrieval catalog coverage check; return deterministic "no certified memory" when uncovered; surface contradictory candidates as explicit conflicts rather than picking arbitrarily
 
 ## Phase Details
 
@@ -111,6 +121,46 @@ Plans:
   1. Core agent memory operations (`search`, `remember`, `supersede`, `prefetch`) call a generic `StorageAdapter` interface.
   2. Free tier defaults to `NotionAdapter`.
   3. Attempting to select `ObsidianAdapter` checks an entitlement token/license; if unentitled, it gracefully explains the upgrade requirement and falls back to Notion.
+
+### Phase 12: Core Semantic Catalog
+
+**Goal**: Create provider-neutral, deterministic semantic definitions that map user vocabulary to memory entities, relationships, and backing store locations.
+**Depends on**: Phase 11
+**Requirements**: CAT-01, CAT-02, CAT-03
+**Success Criteria**:
+  1. Core catalog types represent terms, synonyms, entities, relations, and provider-neutral storage references.
+  2. Deterministic catalog APIs resolve terms and enumerate entities/relations without LLM calls in the retrieval path.
+  3. Notion and Obsidian adapters map catalog references to their respective storage locations.
+
+### Phase 13: User-Gated Certification Flow
+
+**Goal**: Make user-confirmed knowledge more trusted than agent inference, without letting agents self-certify.
+**Depends on**: Phase 12
+**Requirements**: CERT-01, CERT-02, CERT-03
+**Success Criteria**:
+  1. Agent-written memories default to inferred; explicit user confirmation is the only promotion path to certified.
+  2. Retrieval ranks certified over inferred facts at equal recency and surfaces certification status.
+  3. Certified corrections supersede conflicting inferred facts while retaining historical records.
+
+### Phase 14: Graph Provenance & Relational Recall
+
+**Goal**: Make every recalled fact auditable and traverse explicit memory relationships, including supersession history.
+**Depends on**: Phase 13
+**Requirements**: PROV-01, PROV-02, PROV-03
+**Success Criteria**:
+  1. Recall results expose source, session, timestamp, and truth status for each fact.
+  2. Supersession writes an explicit relation edge while preserving historical recall.
+  3. Related facts can be traversed by typed relation edges, with tests proving path and cycle handling.
+
+### Phase 15: Answerability Gate & Contradiction Detection
+
+**Goal**: Fail explicitly when the semantic catalog cannot ground a query; report contradictory candidates rather than arbitrarily selecting a truth.
+**Depends on**: Phase 14
+**Requirements**: ANS-01, ANS-02
+**Success Criteria**:
+  1. Catalog coverage check runs before fuzzy recall and returns deterministic unsupported-term output when coverage is zero.
+  2. Multiple active conflicting values for one subject are returned as a conflict, not silently ranked into a single answer.
+  3. Provenance and certification are included in supported, unsupported, and conflict responses.
 
 ---
 

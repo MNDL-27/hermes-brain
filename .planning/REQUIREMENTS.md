@@ -46,6 +46,33 @@ Requirements derived from the competitive memory-landscape research (`.planning/
 - [ ] **ADAPT-03**: A premium entitlement check (license token) gates non-free storage adapters; unentitled selection falls back to Notion with an upgrade notice.
 - [ ] **ADAPT-04**: An `ObsidianVaultAdapter` premium adapter (markdown + SQLite index inside the user's vault) is specified and scaffolded behind the entitlement check; free tier remains Notion-only.
 
+## v1.4 Requirements (Defined 2026-11-06 — queued behind v1.3)
+
+Requirements derived from the Auto Ontology semantic-layer architecture study (github.com/NVIDIA/auto-ontology) and user-confirmed decisions of 2026-11-06. Builds on v1.3's StorageAdapter (ADAPT-01..04), local cache (RET-02), and supersession (SUP-01..03).
+
+### Semantic Catalog (CAT)
+
+- [ ] **CAT-01**: A provider-neutral semantic catalog model (Terms with description/synonyms, typed Entities, Relations) lives in core, independent of any StorageAdapter; both NotionAdapter and ObsidianVaultAdapter map the catalog into their backing store.
+- [ ] **CAT-02**: The catalog is queryable deterministically (`resolve_term`, `list_entities`, `get_relations`) without LLM inference in the read path.
+- [ ] **CAT-03**: Terms can map to concrete storage locations (Notion database/property, Obsidian note/section) so retrieval resolves through definitions instead of raw fuzzy search.
+
+### Certification (CERT)
+
+- [ ] **CERT-01**: Memories carry a truth status `inferred` (agent-written) vs `certified` (user-confirmed); retrieval prefers certified facts over inferred ones at equal recency.
+- [ ] **CERT-02**: Only user confirmation promotes inferred → certified; agents may flag/suggest certification candidates but can never self-certify.
+- [ ] **CERT-03**: A certified correction supersedes conflicting inferred rows immediately (integrates with SUP-02 status flipping).
+
+### Provenance & Graph (PROV)
+
+- [ ] **PROV-01**: Every recalled fact returns provenance: source (agent/session), timestamp, and current status/certification level.
+- [ ] **PROV-02**: Supersession is stored as an explicit relation edge (`supersedes`) rather than only a status flag, keeping the historical chain auditable (extends SUP-03).
+- [ ] **PROV-03**: Related entities are reachable by graph traversal (e.g. "decisions affecting project X") via stored links, not just text similarity.
+
+### Answerability Gate (ANS)
+
+- [ ] **ANS-01**: Before fuzzy retrieval, a coverage check resolves the question's entities/terms against the catalog; zero coverage yields a deterministic "no certified memory for X" answer instead of a near-miss recall.
+- [ ] **ANS-02**: Conflicting candidates (same subject, both active, divergent values) are surfaced as a contradiction instead of silently returning one row.
+
 ## Traceability
 
 | Requirement | Phase | Status |
@@ -65,6 +92,17 @@ Requirements derived from the competitive memory-landscape research (`.planning/
 | ADAPT-02 | Phase 11 | Defined |
 | ADAPT-03 | Phase 11 | Defined |
 | ADAPT-04 | Phase 11 | Defined |
+| CAT-01 | Phase 12 | Defined |
+| CAT-02 | Phase 12 | Defined |
+| CAT-03 | Phase 12 | Defined |
+| CERT-01 | Phase 13 | Defined |
+| CERT-02 | Phase 13 | Defined |
+| CERT-03 | Phase 13 | Defined |
+| PROV-01 | Phase 14 | Defined |
+| PROV-02 | Phase 14 | Defined |
+| PROV-03 | Phase 14 | Defined |
+| ANS-01 | Phase 15 | Defined |
+| ANS-02 | Phase 15 | Defined |
 
 **Coverage:**
 - v1.2 requirements: 5 total

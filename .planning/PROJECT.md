@@ -8,7 +8,7 @@ hermes-brain replaces local flat markdown memory files (`MEMORY.md` / `USER.md`)
 
 Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
 
-## Current Milestone: v1.1 Distribution & Updates ✅ SHIPPED 2026-10-07
+## Current Milestone: v1.2 Update UX & Tooling Polish 🚧 IN PROGRESS (execution started 2026-11-06)
 
 **Goal:** Provide automated PyPI distribution pipelines, CLI update command, and non-blocking remote GitHub commit/tag update checking for hermes-brain contributors and end-users.
 
@@ -20,7 +20,12 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 - ✓ `$HERMES_HOME/.update_cache.json` with atomic writes (tempfile + `os.replace`, `0o600`), synchronous <1ms startup read, background TTL refresh on existing sync worker — v1.1 (CHK-01..03, CHK-05)
 - ✓ `health_report()` reads cache instead of performing synchronous network update check — v1.1 (CHK-04)
 
-**Next Milestone Goals:** TBD via `/gsd-new-milestone` — candidate areas: commit-level drift (UPD-06), release-notes banner link (UPD-07), pre-push hook + scheduled autoupdate (TOOL-01/02), three pre-existing test-suite hangs (`test_coverage_gaps`, `test_migration_privacy_blockers`, `test_provider`).
+**Queued milestones (user-confirmed execution order 2026-11-06: v1.2 → v1.3 → v1.4, no skipping):**
+- **v1.2 Update UX & Tooling Polish** (Phases 7-8) — UPD-06/07 commit drift + release URL; TOOL-01/02 pre-push hook + autoupdate workflow; TEST-HANGS fixes.
+- **v1.3 Brain Architecture & Freemium Foundation** (Phases 9-11) — RET-01..03 local SQLite cache + two-lane 800-token injection; SUP-01..03 subject-key supersession; ADAPT-01..04 `StorageAdapter` with Notion (free) and Obsidian Vault (premium) adapters.
+- **v1.4 Semantic Brain Layer** (Phases 12-15) — CAT-01..03 provider-neutral semantic catalog; CERT-01..03 user-gated certification (`inferred` vs `certified`); PROV-01..03 graph provenance and `supersedes` relation edges; ANS-01/02 answerability gate and contradiction detection. Architecture borrowed from NVIDIA Auto Ontology (Apache-2.0): semantic catalog → certification → relation-based supersession → answer with provenance.
+
+**Next Milestone Goals:** v1.4 requirements CAT/CERT/PROV/ANS defined in REQUIREMENTS.md; roadmap phases 12-15 added.
 
 ## Requirements
 
@@ -65,7 +70,7 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 - **Ecosystem**: Python 3.11–3.13 plugin package for Hermes Agent ecosystem (`hermes-agent`).
 - **Storage Layer**: Notion REST API (`api.notion.com/v1`) using internal integration tokens (`NOTION_API_KEY`).
 - **Quality Gates**: Ruff linting and formatting, Mypy strict type checking, Pytest test suite with branch coverage tracking, and local pre-commit hooks (7 hooks) mirroring the CI `quality-debt` job.
-- **Current State (v1.1 shipped 2026-10-07)**: v1.0 baseline 303 tests + 58 new tests (v1.1) = 361 tests passing offline; PEP 639 metadata clean on 3.11/3.12/3.13; tag-triggered OIDC publish workflow operational; `notion_brain update` drift detection + per-mode upgrade commands; cached non-blocking auto-update check.
+- **Current State (v1.1 shipped 2026-10-07; suite audited 2026-11-06)**: full offline suite 401 passed, 1 deselected (`tests/test_packaging.py::test_offline_build_and_twine_check`); prior v1.1 planning baseline was 303 + 58 = 361; PEP 639 metadata clean on 3.11/3.12/3.13; tag-triggered OIDC publish workflow operational; `notion_brain update` drift detection + per-mode upgrade commands; cached non-blocking auto-update check.
 - **Distribution**: `hermes-brain` wheel/sdist builds clean via `python -m build` + `twine check` (PEP 639 SPDX, setuptools>=77.0.3). PyPI publishing via GitHub Actions OIDC trusted publishing (no static token). Manual `docs/RELEASES.md` twine fallback maintained.
 - **Update UX**: Remote version source of truth is the GitHub repository (latest tag/commit via public API), chosen over PyPI JSON API so git-installed users also get update notifications without PyPI lag. Detection is read-only; users run the printed upgrade command themselves. Cached status loads in <1ms on startup, refreshes in the background on the existing sync worker.
 
