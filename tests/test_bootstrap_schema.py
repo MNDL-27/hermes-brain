@@ -36,6 +36,12 @@ def test_database_schema_mismatch_detects_zombie_status_options():
     assert not bootstrap._database_schema_matches(db, bootstrap._PROPS["memory"])
 
 
+def test_database_schema_allows_user_added_select_options():
+    db = _notion_db_from_expected(bootstrap._PROPS["memory"])
+    db["properties"]["Domain"]["select"]["options"].append({"name": "user-added"})
+    assert bootstrap._database_schema_matches(db, bootstrap._PROPS["memory"])
+
+
 def test_database_schema_mismatch_detects_missing_property():
     db = _notion_db_from_expected(bootstrap._PROPS["memory"])
     # remove a required property

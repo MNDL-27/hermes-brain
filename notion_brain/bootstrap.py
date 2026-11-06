@@ -528,8 +528,15 @@ def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bo
         expected_opts = spec.get(expected_type, {}).get("options")
         if expected_opts is not None:
             actual_opts = current.get(expected_type, {}).get("options", [])
-            # Notion must contain all expected options; extra user-added options are allowed
-            if not {o.get("name") for o in expected_opts}.issubset({o.get("name") for o in actual_opts}):
+            expected_names = {o.get("name") for o in expected_opts}
+            actual_names = {o.get("name") for o in actual_opts}
+            # Notion PATCH cannot delete status options, so a leftover
+            # (zombie) name is a real mismatch and must force a reset.
+            # select/multi_select may keep extra options the user added.
+            if expected_type == "status":
+                if expected_names != actual_names:
+                    return False
+            elif not expected_names.issubset(actual_names):
                 return False
     return True
 
