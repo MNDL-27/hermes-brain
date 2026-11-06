@@ -47,6 +47,21 @@ pytest --cov=. --cov-report=term-missing
 pytest tests/test_extract.py -v
 ```
 
+## Local pre-push tests (opt-in)
+
+Optionally, install a hermes-brain pre-push git hook that runs the same offline pytest suite CI runs before each push.
+
+```bash
+cp scripts/pre-push .git/hooks/pre-push
+chmod +x .git/hooks/pre-push
+```
+
+Skip the hook once: `HERMES_BRAIN_SKIP_PRE_PUSH=1 git push ...`
+
+Why opt-in: the hook never mutates your environment (no `pip install`, no `git pull`, no `uv sync`), mirrors the CI `test` job contract (`timeout 300 uv run --no-sync pytest -q`), and blocks the push on any failing test or hang. Removable anytime: `rm .git/hooks/pre-push` to uninstall.
+
+Install is a per-clone, per-contributor choice — clone never auto-registers the hook.
+
 ## Code Quality
 
 ```bash

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# hermes-brain pre-push hook (opt-in).
+#
+# Runs the full offline pytest suite before `git push`. Blocks the push on
+# any failing test or pre-existing hang. Honors the same offline contract as
+# the CI `test` job: hermetic tests, network-marked tests deselected.
+#
+# Install: cp scripts/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+# Skip once: HERMES_BRAIN_SKIP_PRE_PUSH=1 git push ...
+
+set -euo pipefail
+
+skip="${HERMES_BRAIN_SKIP_PRE_PUSH:-0}"
+if [[ "$skip" != "0" ]]; then
+    echo "hermes-brain: pre-push hook skipped (HERMES_BRAIN_SKIP_PRE_PUSH set)"
+    exit 0
+fi
+
+echo "hermes-brain pre-push: running offline pytest suite (timeout 300s)..."
+
+# (1) Fail fast on hangs: 5-minute wall-clock cap. The CI `test` job is
+# hermetic (no live Notion credentials, network-marked tests deselected via
+# addopts), so 300s is ~30x the empirical full-suite time. If a regression
+# reintroduces a hang, this fails the push in minutes instead of letting CI
+# time out.
+# (2) `uv run --no-sync` matches CI: same locked deps, same Python version.
+# Falls back to `python -m pytest` when uv is not on PATH.
+# (3) `pytest -q` matches the CI `test` job exactly: same addopts, same
+# network-marker deselection. There is no custom pytest config here.
+if command -v uv >/dev/null 2>&1; then
+    if timeout 300 uv run --no-sync pytest -q; then
+        :
+    else
+        echo "" >&2
+        echo "hermes-brain pre-push: tests failed — push blocked." >&2
+        echo "  Re-run failing tests: uv run --no-sync pytest -q -k <pattern>" >&2
+        echo "  Bypass once:         HERMES_BRAIN_SKIP_PRE_PUSH=1 git push" >&2
+        exit 1
+    fi
+else
+    if command -v python3 >/dev/null 2>&1; then
+        PYTHON_BIN=python3
+    else
+        PYTHON_BIN=python
+    fi
+    if timeout 300 "$PYTHON_BIN" -m pytest -q; then
+        :
+    else
+        echo "" >&2
+        echo "hermes-brain pre-push: tests failed — push blocked." >&2
+        echo "  Re-run failing tests: $PYTHON_BIN -m pytest -q -k <pattern>" >&2
+        echo "  Bypass once:         HERMES_BRAIN_SKIP_PRE_PUSH=1 git push" >&2
+        exit 1
+    fi
+fi
+
+echo "hermes-brain pre-push: all offline tests passed."

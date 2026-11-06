@@ -1,0 +1,90 @@
+# File: .github/workflows/pre-commit-autoupdate.yml
+# Weekly maintenance PR for .pre-commit-config.yaml rev-pins (TOOL-02).
+# Opens a PR via peter-evans/create-pull-request@v6 when a diff exists;
+# otherwise prints a summary and exits cleanly with zero PR creation.
+# Rev-pin PR requires human approval (no auto-merge).
+
+name: Pre-commit autoupdate
+
+on:
+  schedule:
+    # Mondays 06:17 UTC — outside US/EU business hours to minimize PR-spam.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:  # allow maintainers to force-run
+
+concurrency:
+  group: pre-commit-autoupdate
+  cancel-in-progress: true
+
+# Workflow-level least-privilege: read-only by default. The autoupdate job
+# below overrides with the narrow write scopes it needs.
+permissions:
+  contents: read
+
+jobs:
+  autoupdate:
+    runs-on: ubuntu-latest
+    # Time-box the job: 10 minutes is ample for `pre-commit autoupdate`.
+    timeout-minutes: 10
+    permissions:
+      contents: write       # push the autoupdate branch
+      pull-requests: write  # open the maintenance PR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # peter-evans needs full history for branch ops
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install pre-commit
+        run: uv tool install pre-commit
+
+      - name: Run pre-commit autoupdate
+        # Mutates .pre-commit-config.yaml in place with the latest rev-pins.
+        # Exit code 0 even when there are no changes.
+        run: pre-commit autoupdate
+
+      - name: Check for diff
+        id: check
+        run: |
+          if git diff --exit-code -- .pre-commit-config.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No pre-commit hook updates available. Nothing to open."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Hook updates available — opening maintenance PR."
+          fi
+
+      - name: Print summary
+        run: |
+          if [ "${{ steps.check.outputs.changed }}" = "true" ]; then
+            echo "Summary: hook rev-pin updates detected; a maintenance PR will now be opened. No auto-merge is configured — human review required."
+          else
+            echo "Summary: zero hook updates available this week; no PR created; exiting clean."
+          fi
+
+      - name: Open maintenance PR
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(pre-commit): autoupdate hook rev-pins"
+          title: "🤖 pre-commit autoupdate — weekly maintenance"
+          body: |
+            Automated weekly `pre-commit autoupdate` run.
+
+            - **Updated rev-pins:** see `.pre-commit-config.yaml` diff
+            - **CI status:** see checks below
+            - **Merge policy:** squash-merge after CI green; keep human review
+          branch: pre-commit-autoupdate
+          branch-suffix: timestamp
+          delete-branch: true
+          signoff: true
