@@ -38,7 +38,7 @@ v1.2 Phase 7 → Phase 8 → v1.3 Phase 9 → 10 → 11 → v1.4 Phase 12 → 13
 
 Full offline suite: **401 passed, 1 deselected** via `.venv/bin/python -m pytest -q` (project venv, Python 3.12).
 
-v1.2 closeout observation (2026-11-07): **451 passed, 1 deselected, 1 warning in 5.41s** via `.venv/bin/python -m pytest -q`. This working tree includes v1.3/v1.4 implementation changes, so this count is a tree-wide observation and not a v1.2-only baseline. The three TEST-HANGS files complete in the full offline run; one existing network-marked test remains deselected.
+v1.2 closeout observation (2026-11-07): **407 passed, 1 deselected, 1 warning in 7.77s** via `.venv/bin/python -m pytest -q`. The v1.2-only suite baseline is now isolated because the Phase 9-15 work was moved to branch `feature/metabolic-brain-v1.3-1.5` (commit `0c44a70`), while this branch (`c42ac35`) carries only v1.2. The three TEST-HANGS files complete in the full offline run; one existing network-marked test remains deselected.
 
 ⚠ Canonical test command is `.venv/bin/python -m pytest -q`. Do NOT use `uv run --no-sync pytest` on this host: `PYTHONPATH` points at the Hermes installs venv (Python 3.14) which carries a stale editable `notion_brain` snapshot (`plugin-sources/hermes-brain-*/notion_brain`); tests that run before any `sys.path.insert` import that stale copy, it wins the `sys.modules` cache, and 11 unrelated tests then fail with `AttributeError: module 'notion_brain.update' has no attribute 'detect_git_drift'`. Confirmed: same tree, same tests, 401/401 green under `.venv/bin/python -m pytest` with and without `PYTHONPATH` set.
 
@@ -58,7 +58,7 @@ The previous single failure (`test_database_schema_mismatch_detects_zombie_statu
 **Cumulative across milestones:**
 
 - v1.0 + v1.1 = 6 phases, 7 plans, 25 requirements; offline suite audited 2026-11-06: 401 passed, 1 deselected (prior baseline 361)
-- v1.2 = 2 phases, 4 plans, 5 requirements completed 2026-11-07; observed full-tree suite: 451 passed, 1 deselected (1 warning, 5.41s). The v1.2-only suite baseline was not isolated because v1.3/v1.4 implementation changes are present in this working tree.
+- v1.2 = 2 phases, 4 plans, 5 requirements completed 2026-11-07; isolated v1.2-only suite baseline: 407 passed, 1 deselected (1 warning, 7.77s). Phase 9-15 work was moved to branch `feature/metabolic-brain-v1.3-1.5` (commit `0c44a70`); this branch (`c42ac35`) carries only v1.2.
 
 ## Accumulated Context
 
