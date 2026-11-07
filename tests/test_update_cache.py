@@ -309,6 +309,67 @@ def test_health_report_does_not_call_check_for_update(tmp_path: Path, monkeypatc
     assert "UPDATE AVAILABLE" in report
 
 
+def _stub_health_report_offline(tmp_path: Path, monkeypatch) -> None:
+    """Parent cache + store stub so health_report never leaves the process."""
+    (tmp_path / "notion_brain.json").write_text('{"parent_page_id": "fake-parent"}')
+
+    def _trip(*args, **kwargs):
+        raise AssertionError("health_report must not call _check_for_update")
+
+    monkeypatch.setattr(bootstrap, "_check_for_update", _trip)
+    monkeypatch.setattr(
+        bootstrap.store, "get_page", lambda pid: {"title": "Fake Parent", "url": "x"}
+    )
+
+
+def test_health_report_commit_only_drift_shows_behind_and_release(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """UPD-06/07: commit-only cache drift prints behind N and the canonical URL."""
+    release = "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.0.3"
+    update_cache.save_cache(
+        tmp_path,
+        {
+            "current": "1.0.3",
+            "latest": "1.0.3",
+            "drift": True,
+            "drift_type": "commit",
+            "behind_commits": 3,
+            "release_url": release,
+            "checked_at": 1,
+        },
+    )
+    _stub_health_report_offline(tmp_path, monkeypatch)
+    report = bootstrap.health_report(tmp_path)
+    assert "behind 3 commits" in report
+    assert release in report
+    assert "UPDATE AVAILABLE" not in report
+
+
+def test_health_report_both_drift_keeps_version_banner_and_commit_detail(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """Both drift keeps the version banner and adds behind N plus release URL."""
+    release = "https://github.com/MNDL-27/hermes-brain/releases/tag/v1.2.3"
+    update_cache.save_cache(
+        tmp_path,
+        {
+            "current": "1.0.3",
+            "latest": "1.2.3",
+            "drift": True,
+            "drift_type": "both",
+            "behind_commits": 5,
+            "release_url": release,
+            "checked_at": 1,
+        },
+    )
+    _stub_health_report_offline(tmp_path, monkeypatch)
+    report = bootstrap.health_report(tmp_path)
+    assert "UPDATE AVAILABLE" in report
+    assert "behind 5 commits" in report
+    assert release in report
+
+
 def test_health_report_unknown_when_cache_missing(tmp_path: Path, monkeypatch, capsys) -> None:
     """Missing cache → 'latest: unknown', no network call."""
     (tmp_path / "notion_brain.json").write_text('{"parent_page_id": "fake-parent"}')

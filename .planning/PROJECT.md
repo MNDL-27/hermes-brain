@@ -48,11 +48,11 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 
 ### Active
 
-- [ ] **UPD-06**: Commit-level drift detection between formal tags so git-clone users see "behind N commits" alerts
-- [ ] **UPD-07**: Update banner links directly to release notes URL
-- [ ] **TOOL-01**: Optional pre-push git hook running `pytest -q` before remote push
-- [ ] **TOOL-02**: Scheduled GitHub Action for automated `pre-commit autoupdate` verification
-- [ ] **TEST-HANGS**: Investigate and resolve the three pre-existing test-suite hangs (`test_coverage_gaps`, `test_migration_privacy_blockers`, `test_provider`) blocking full-suite runs
+- [x] **UPD-06**: Commit-level drift detection between formal tags so git-clone users see "behind N commits" alerts
+- [x] **UPD-07**: Update banner links directly to release notes URL
+- [x] **TOOL-01**: Optional pre-push git hook running `pytest -q` before remote push
+- [x] **TOOL-02**: Scheduled GitHub Action for automated `pre-commit autoupdate` verification
+- [x] **TEST-HANGS**: Investigate and resolve the three pre-existing test-suite hangs (`test_coverage_gaps`, `test_migration_privacy_blockers`, `test_provider`) blocking full-suite runs
 
 ### Out of Scope
 

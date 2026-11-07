@@ -26,6 +26,7 @@ _STATUS_OPTIONS = [
     {"name": "active", "color": "blue"},
     {"name": "done", "color": "green"},
     {"name": "needs_review", "color": "yellow"},
+    {"name": "Superseded", "color": "gray"},
 ]
 
 _NOTION_TYPE_MAP: dict[str, dict[str, Any]] = {
@@ -175,6 +176,16 @@ _PROPS: dict[str, dict[str, Any]] = {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
+        "Subject Key": {"rich_text": {}},
+        "Superseded Page ID": {"rich_text": {}},
+        "Truth": {
+            "select": {
+                "options": [
+                    {"name": "inferred", "color": "gray"},
+                    {"name": "certified", "color": "green"},
+                ]
+            }
+        },
         "Kind": {
             "select": {
                 "options": [
@@ -678,7 +689,19 @@ def health_report(hermes_home: str | Path) -> str:
     cache = update_cache.load_cache(hermes_home)
     if cache and cache.get("drift"):
         latest = cache.get("latest") or "?"
-        lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+        drift_type = cache.get("drift_type") or ""
+        # Version-only (and legacy caches with no drift_type) keep the
+        # generic banner. Commit-only and both add cached behind-count
+        # and release URL; this read stays local (UPD-06/UPD-07).
+        if drift_type != "commit":
+            lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+        if drift_type in ("commit", "both"):
+            behind = int(cache.get("behind_commits") or 0)
+            release_url = cache.get("release_url") or ""
+            detail = f"behind {behind} commits"
+            if release_url:
+                detail = f"{detail} {release_url}"
+            lines.append(detail)
     elif cache and cache.get("latest"):
         lines.append(f"version: {cur} (latest: {cache.get('latest')})")
     else:
@@ -761,6 +784,18 @@ def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> Non
     """
     actual = db.get("properties") or {}
     missing = {pname: spec for pname, spec in expected.items() if pname not in actual}
+    current_status = actual.get("Status") or {}
+    expected_status = expected.get("Status", {}).get("status", {}).get("options")
+    if expected_status is not None and current_status.get("type") == "status":
+        actual_options = current_status.get("status", {}).get("options", [])
+        actual_names = {o.get("name") for o in actual_options if isinstance(o, dict)}
+        expected_names = {o.get("name") for o in expected_status}
+        if actual_names.issubset(expected_names) and actual_names != expected_names:
+            missing["Status"] = {
+                "status": {
+                    "options": [o for o in expected_status if o.get("name") not in actual_names]
+                }
+            }
     if not missing:
         return
     try:

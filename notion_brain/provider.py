@@ -15,10 +15,12 @@ import json
 import logging
 import queue
 import threading
+from datetime import date
 from pathlib import Path
 from typing import Any
 
-from . import bootstrap, extract, helpers, store, update_cache
+from . import bootstrap, brain_cache, extract, helpers, injection, store, update_cache
+from . import catalog as semantic_catalog
 from . import schema as S
 from .helpers import _merge_disk_only, _safe_select_value
 from .schemas import ALL_TOOL_SCHEMAS
@@ -140,7 +142,10 @@ class NotionBrainProvider:
                 # Store as local fallback; prefetch() will use it
                 self._prefetch_cache = "<!-- memory-context from disk -->\n" + combined[:4000]
             if self._db_ids:
-                self._trigger_auto_disk_sync()
+                # Pass the snapshot read for this initialization to the worker.
+                # A delayed worker must not re-read through module globals after
+                # another provider (or test) has installed different state.
+                self._trigger_auto_disk_sync(mem_text, user_text)
 
     def system_prompt_block(self) -> str:
         return (
@@ -167,22 +172,20 @@ class NotionBrainProvider:
                 return ""
 
             try:
-                entries = store.query_database(
-                    self._db_ids["memory"],
-                    sorts=[{"property": "Last Seen", "direction": "descending"}],
-                    page_size=10,
-                )
+                entries = self._prefetch_entries()
                 if not entries:
                     return ""
 
+                contradictions = self._contradictions(entries)
+
                 # One body fetch per page id for this prefetch run.
                 hydrated_bodies: dict[str, str] = {}
-                lines: list[str] = []
+                tagged: list[tuple[str, str]] = []
                 for entry in entries[:10]:
                     title = entry.get("title", "Untitled")
                     props = entry.get("properties", {}) or {}
-                    content = props.get("Content", "")
-                    kind = props.get("Kind", "note")
+                    content = props.get("Content") or props.get("Summary") or ""
+                    kind = str(props.get("Kind") or "note")
                     if not content:
                         page_id = entry.get("id") or ""
                         if page_id:
@@ -199,11 +202,22 @@ class NotionBrainProvider:
                                     )
                                     hydrated_bodies[page_id] = ""
                             content = hydrated_bodies[page_id]
-                    safe_title = S.redact_secrets(title)
-                    safe_content = S.redact_secrets(content[:200])
-                    lines.append(f"- [{kind}] {safe_title}: {safe_content}")
+                    safe_title = S.redact_secrets(str(title))
+                    safe_content = S.redact_secrets(str(content)[:200])
+                    provenance = self._provenance(entry)
+                    tag = f"[fact:{provenance['truth']}:{provenance['source_agent']}]"
+                    tagged.append((kind, f"- [{kind}] {safe_title}: {safe_content} {tag}"))
 
-                safe_lines = S.redact_secrets("\n".join(lines))
+                safe_lines = S.redact_secrets(injection.render_injection(tagged))
+                if contradictions:
+                    conflict_lines = ["CONTRADICTION: active memories disagree for the same subject key."]
+                    for conflict in contradictions:
+                        for item in conflict["entries"]:
+                            conflict_lines.append(
+                                f"- {item['subject_key']}: {item['value']} "
+                                f"(timestamp: {item['timestamp']}; certification: {item['certification']})"
+                            )
+                    safe_lines = S.redact_secrets(safe_lines + "\n" + "\n".join(conflict_lines))
                 self._prefetch_cache = safe_lines
                 return self._prefetch_cache
             except Exception as exc:
@@ -259,10 +273,12 @@ class NotionBrainProvider:
                 )
                 self._sync_thread.start()
 
-    def _trigger_auto_disk_sync(self) -> None:
+    def _trigger_auto_disk_sync(self, mem_text: str = "", user_text: str = "") -> None:
         """Queue a background task to sync local disk memory files to Notion."""
         with self._sync_lock:
-            self._sync_queue.put((self._sync_disk_memories, (), {}))
+            self._sync_queue.put(
+                (self._sync_disk_memories, (mem_text, user_text), {})
+            )
             if self._sync_thread is None or not self._sync_thread.is_alive():
                 self._sync_thread = threading.Thread(
                     target=self._worker_loop,
@@ -283,13 +299,15 @@ class NotionBrainProvider:
                 )
                 self._sync_thread.start()
 
-    def _sync_disk_memories(self) -> None:
+    def _sync_disk_memories(self, mem_text: str | None = None, user_text: str | None = None) -> None:
         """Read local disk memories and persist them to Notion if modified."""
         if not self._hermes_home or not self._db_ids:
             return
 
-        mem_text = bootstrap.read_memory_from_disk(self._hermes_home)
-        user_text = bootstrap.read_user_from_disk(self._hermes_home)
+        if mem_text is None:
+            mem_text = bootstrap.read_memory_from_disk(self._hermes_home)
+        if user_text is None:
+            user_text = bootstrap.read_user_from_disk(self._hermes_home)
         combined = "\n".join(filter(None, [mem_text, user_text])).strip()
         if not combined:
             return
@@ -431,7 +449,10 @@ class NotionBrainProvider:
     def handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> str:
         handlers = {
             "notion_brain_search": self._tool_search,
+            "notion_brain_check_answerable": self._tool_check_answerable,
+            "notion_brain_search_terms": self._tool_search_terms,
             "notion_brain_remember": self._tool_remember,
+            "notion_brain_certify": self._tool_certify,
             "notion_brain_task": self._tool_task,
             "notion_brain_content": self._tool_content,
             "notion_brain_research": self._tool_research,
@@ -547,18 +568,85 @@ class NotionBrainProvider:
             ):
                 existing_id = existing["id"]
 
+        page_id = existing_id
         try:
             if existing_id:
                 store.update_page(existing_id, properties, expected_database_id=target_db_id)
                 logger.debug("Updated entry in %s: %s", target_db_id, entry.title)
             else:
-                store.create_database_page(database_id=target_db_id, properties=properties)
+                created = store.create_database_page(
+                    database_id=target_db_id, properties=properties
+                )
+                page_id = str((created or {}).get("id") or "")
                 logger.debug("Stored entry in %s: %s", target_db_id, entry.title)
         except Exception:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
             raise RuntimeError("Failed to save entry to Notion") from None
+        else:
+            self._mirror_memory_cache(page_id, entry, target_db_id)
+            if self._hermes_home and page_id and entry.entities:
+                graph = semantic_catalog.Catalog().load()
+                for entity_name in entry.entities:
+                    clean_entity = S.redact_secrets(entity_name)
+                    graph.add_entity(semantic_catalog.Entity(name=clean_entity))
+                    graph.add_relation(semantic_catalog.Relation(
+                        subject=clean_entity, predicate="related", object=page_id,
+                        relation_type="edge",
+                    ))
+                graph.save(Path(self._hermes_home) / "brain_catalog.json")
+
+    def _prefetch_entries(self) -> list[dict[str, Any]]:
+        """Read active memory rows from the local cache, else Notion.
+
+        The cache is consulted only after ``initialize`` set a hermes home,
+        so callers that never configure one keep the Notion path and never
+        touch ``~/.hermes``. A present cache file is a hit even when it
+        holds no active rows. A missing or unreadable cache falls through
+        to Notion.
+        """
+        if self._hermes_home:
+            cached = brain_cache.list_active(self._hermes_home, limit=10)
+            if cached is not None:
+                cached.sort(key=self._truth_recency_key, reverse=True)
+                return cached
+        entries = store.query_database(
+            self._db_ids["memory"],
+            sorts=[{"property": "Last Seen", "direction": "descending"}],
+            page_size=10,
+        )
+        entries.sort(key=self._truth_recency_key, reverse=True)
+        return entries
+
+    def _mirror_memory_cache(
+        self, page_id: str, entry: S.BrainEntry, database_id: str
+    ) -> None:
+        """Write-through the Memory row after Notion accepts it.
+
+        Failures are logged and swallowed so a cache problem never fails
+        the Notion write. Non-memory databases are not mirrored.
+        """
+        memory_id = self._db_ids.get("memory") or ""
+        if not self._hermes_home or not page_id or not memory_id:
+            return
+        if store.normalize_id(database_id) != store.normalize_id(memory_id):
+            return
+        try:
+            brain_cache.upsert_active(
+                self._hermes_home or None,
+                page_id=page_id,
+                title=entry.title,
+                kind=entry.kind,
+                content=entry.content,
+                status=entry.status,
+                last_seen=date.today().isoformat(),
+                truth=entry.truth,
+            )
+        except Exception as exc:
+            logger.warning(
+                "NotionBrainProvider cache mirror failed: %s", S.redact_secrets(str(exc))
+            )
 
     def _database_properties(self, database_id: str, entry: S.BrainEntry) -> dict[str, Any]:
         """Build Notion properties from a BrainEntry."""
@@ -578,6 +666,10 @@ class NotionBrainProvider:
 
         if "Domain" in schema_props:
             props["Domain"] = store.select_property(entry.domain)
+        if "Truth" in schema_props and store.normalize_id(database_id) == store.normalize_id(self._db_ids.get("memory", "")):
+            props["Truth"] = store.select_property(entry.truth)
+        if "Subject Key" in schema_props and entry.metadata.get("subject_key"):
+            props["Subject Key"] = store.rich_text_property(str(entry.metadata["subject_key"]))
         if "Status" in schema_props:
             status_payload = self._status_property(entry.status, schema_props)
             if status_payload:
@@ -660,6 +752,9 @@ class NotionBrainProvider:
 
     def _tool_search(self, args: dict[str, Any]) -> str | tuple[str, dict[str, Any]]:
         """Search across brain databases, honoring the query when provided."""
+        action = str(args.get("action") or "search").lower()
+        if action == "related":
+            return self._tool_related(args)
         query = (args.get("query") or "").strip()
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
@@ -701,13 +796,16 @@ class NotionBrainProvider:
             needle = query.lower()
             entries = [e for e in entries if needle in (e.get("title") or "").lower()]
 
+        entries.sort(key=self._truth_recency_key, reverse=True)
+        contradictions = self._contradictions(entries)
+
         # ``max_results`` caps the returned rows regardless of mode, so the
         # limit does not depend on how many databases were scanned.
         entries = entries[:max_results]
 
         # Format results
         if not entries:
-            return ("No results found.", {"items": []})
+            return ("No results found.", {"items": [], "contradiction": contradictions})
 
         lines: list[str] = []
         structured_items: list[dict[str, Any]] = []
@@ -715,7 +813,8 @@ class NotionBrainProvider:
             title = entry.get("title", "Untitled")
             content = entry.get("properties", {}).get("Content", "")[:200]
             kind = entry.get("properties", {}).get("Kind", "note")
-            lines.append(f"- [{kind}] {title}: {content}")
+            provenance = self._provenance(entry)
+            lines.append(f"- [{kind}] {title}: {content} [fact:{provenance['truth']}:{provenance['source_agent']}]")
             structured_items.append(
                 {
                     "title": title,
@@ -723,10 +822,159 @@ class NotionBrainProvider:
                     "kind": kind,
                     "id": entry.get("id"),
                     "properties": entry.get("properties", {}),
+                    "provenance": provenance,
                 }
             )
 
-        return ("\n".join(lines), {"items": structured_items})
+        return ("\n".join(lines), {"items": structured_items, "contradiction": contradictions})
+
+    @staticmethod
+    def _contradictions(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for entry in entries:
+            props = entry.get("properties", {}) or {}
+            subject = str(props.get("Subject Key") or "")
+            if not subject or str(props.get("Status") or "active").casefold() != "active":
+                continue
+            value = str(props.get("Content") or props.get("Summary") or "")
+            if value:
+                grouped.setdefault(subject, []).append({
+                    "subject_key": S.redact_secrets(subject),
+                    "value": S.redact_secrets(value),
+                    "timestamp": S.redact_secrets(str(entry.get("created_time") or entry.get("created_at") or "")),
+                    "certification": S.redact_secrets(str(props.get("Truth") or "inferred").casefold()),
+                })
+        conflicts = []
+        for subject, items in grouped.items():
+            if len({item["value"] for item in items}) > 1:
+                conflicts.append({"subject_key": S.redact_secrets(subject), "entries": items})
+        return conflicts
+
+    def _tool_check_answerable(self, args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        query = S.redact_secrets(str(args.get("query") or ""))
+        result = semantic_catalog.check_answerable(query)
+        if result["coverage"] == 0.0:
+            missing = ", ".join(result["missing_terms"])
+            message = f"No known semantic terms for {query} were found in the catalog; unable to verify answerability. Missing terms: {missing}."
+        else:
+            message = f"Catalog term coverage: {result['coverage']:.2f}."
+        return message, result
+
+    def _tool_search_terms(self, args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        query = S.redact_secrets(str(args.get("query") or ""))
+        terms = semantic_catalog.Catalog().load().search_terms(query)
+        return ("\n".join(terms) if terms else "No glossary terms found.", {"terms": terms})
+
+    @staticmethod
+    def _provenance(entry: dict[str, Any]) -> dict[str, str]:
+        props = entry.get("properties", {}) or {}
+        status = str(props.get("Status") or "active").lower()
+        return {
+            "source_agent": S.redact_secrets(str(props.get("Source Agent") or "hermes")),
+            "session_id": S.redact_secrets(str(props.get("Source Session") or "")),
+            "created_at": S.redact_secrets(str(entry.get("created_time") or entry.get("created_at") or "")),
+            "truth": str(props.get("Truth") or "inferred").lower() if str(props.get("Truth") or "inferred").lower() in {"certified", "inferred"} else "inferred",
+            "status": "superseded" if status == "superseded" else "active",
+        }
+
+    def _tool_related(self, args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        start = S.redact_secrets(str(args.get("start_id") or args.get("query") or "").strip())
+        if not start:
+            return ("A memory id or name is required.", {"items": []})
+        graph = semantic_catalog.Catalog().load()
+        resolved = start
+        db_id = self._db_ids.get("memory")
+        rows = store.query_database(db_id, page_size=100) if db_id else []
+        exact = next((r for r in rows if str(r.get("id", "")).lower() == start.lower() or str(r.get("title", "")).lower() == start.lower()), None)
+        if exact:
+            resolved = str(exact.get("id") or start)
+        ids = graph.graph_traverse(resolved, predicate=args.get("predicate"), max_depth=min(int(args.get("max_depth", 3)), 10))
+        id_set = {i.lower() for i in ids}
+        items = []
+        for row in rows:
+            if str(row.get("id") or "").lower() in id_set:
+                props = row.get("properties", {}) or {}
+                items.append({"id": row.get("id"), "title": row.get("title"), "content": props.get("Content", ""), "provenance": self._provenance(row)})
+        return ("\n".join(f"- {i['title']}: {i['content']}" for i in items) or "No related memories found.", {"items": items})
+
+    @staticmethod
+    def _truth_recency_key(entry: dict[str, Any]) -> tuple[str, int]:
+        props = entry.get("properties", {}) or {}
+        recency = str(props.get("Last Seen") or entry.get("last_edited_time") or entry.get("created_time") or "")
+        return recency, int(str(props.get("Truth") or "inferred").lower() == "certified")
+
+    def _tool_certify(self, args: dict[str, Any]) -> str:
+        """Certify one memory only when the orchestrator supplies explicit confirmation."""
+        if args.get("user_confirmed") is not True:
+            return "Error: user_confirmed=true is required"
+        db_id = self._db_ids.get("memory")
+        if not db_id:
+            return "Error: Memory database is unavailable"
+        memory_id = S.redact_secrets(str(args.get("memory_id") or "").strip())
+        title = S.clean_title(str(args.get("title") or "").strip()) if args.get("title") else ""
+        rows = store.query_database(db_id, page_size=100)
+        row = next((item for item in rows if memory_id and store.normalize_id(str(item.get("id"))) == store.normalize_id(memory_id)), None)
+        if row is None and title:
+            row = next((item for item in rows if str(item.get("title", "")).casefold() == title.casefold()), None)
+        if row is None:
+            return "Error: memory not found"
+        properties = row.get("properties", {}) or {}
+        page_id = str(row.get("id") or "")
+        try:
+            store.update_page(page_id, {"Truth": store.select_property("certified")}, expected_database_id=db_id)
+            if self._hermes_home:
+                brain_cache.upsert_active(
+                    self._hermes_home, page_id=page_id,
+                    title=str(row.get("title") or "Untitled"),
+                    kind=str(properties.get("Kind") or "note"),
+                    content=str(properties.get("Content") or ""),
+                    status=str(properties.get("Status") or "active"),
+                    last_seen=str(properties.get("Last Seen") or ""), truth="certified",
+                )
+            subject_key = str(properties.get("Subject Key") or "")
+            if subject_key:
+                for older in rows:
+                    older_props = older.get("properties", {}) or {}
+                    if (str(older.get("id")) == page_id or
+                        str(older_props.get("Subject Key") or "") != subject_key or
+                        str(older_props.get("Status") or "active").lower() != "active" or
+                        str(older_props.get("Truth") or "inferred").lower() != "inferred"):
+                        continue
+                    status = self._status_property("Superseded", store.get_database(db_id).get("properties", {}), strict=True)
+                    if status:
+                        store.update_page(str(older.get("id") or ""), {"Status": status}, expected_database_id=db_id)
+                        predecessor_id = str(older.get("id") or "")
+                        db_props = store.get_database(db_id).get("properties", {})
+                        if "Superseded Page ID" in db_props:
+                            store.update_page(
+                                page_id,
+                                {"Superseded Page ID": store.rich_text_property(predecessor_id)},
+                                expected_database_id=db_id,
+                            )
+                        graph = semantic_catalog.Catalog().load()
+                        graph.add_relation(semantic_catalog.Relation(
+                            subject=page_id, predicate="supersedes", object=predecessor_id,
+                            relation_type="edge",
+                        ))
+                        catalog_target = (
+                            Path(self._hermes_home) / "brain_catalog.json"
+                            if self._hermes_home else None
+                        )
+                        graph.save(catalog_target)
+                        if self._hermes_home:
+                            brain_cache.upsert_active(
+                                self._hermes_home, page_id=str(older.get("id") or ""),
+                                title=str(older.get("title") or "Untitled"),
+                                kind=str(older_props.get("Kind") or "note"),
+                                content=str(older_props.get("Content") or ""),
+                                status="Superseded",
+                                last_seen=str(older_props.get("Last Seen") or ""),
+                                truth="inferred",
+                            )
+        except Exception as exc:
+            logger.warning("Certification update failed: %s", S.redact_secrets(str(exc)))
+            return "Error: certification update failed"
+        return f"Certified: {S.redact_secrets(str(row.get('title') or 'memory'))}"
 
     def _tool_remember(self, args: dict[str, Any]) -> str:
         """Explicitly remember something."""
@@ -754,6 +1002,7 @@ class NotionBrainProvider:
             tags=[S.redact_secrets(t) for t in tags],
             entities=[S.redact_secrets(e) for e in entities],
             source_session_id=self._session_id,
+            metadata={"subject_key": S.redact_secrets(str(args.get("subject_key") or "")).strip()},
         ).normalized()
 
         try:

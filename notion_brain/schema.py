@@ -88,7 +88,7 @@ def clear_custom_domains() -> None:
     _CUSTOM_METADATA.clear()
 
 
-STATUSES = {"active", "done", "needs_review"}
+STATUSES = {"active", "done", "needs_review", "Superseded"}
 CONFIDENCES = {"high", "medium", "low"}
 
 _SECRET_PATTERNS = [
@@ -123,6 +123,7 @@ class BrainEntry:
     tags: list[str] = field(default_factory=list)
     entities: list[str] = field(default_factory=list)
     source_session_id: str = ""
+    truth: str = "inferred"
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def normalized(self) -> BrainEntry:
@@ -139,6 +140,7 @@ class BrainEntry:
             tags=dedupe_strings(self.tags),
             entities=dedupe_strings(self.entities),
             source_session_id=self.source_session_id,
+            truth=self.truth if self.truth in {"inferred", "certified"} else "inferred",
             metadata=dict(self.metadata or {}),
         )
 

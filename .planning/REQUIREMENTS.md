@@ -11,17 +11,17 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Update UX (UPD)
 
-- [ ] **UPD-06**: Commit-level drift detection between formal tags so git-clone installs see "behind N commits" alerts even when `__version__` is unchanged.
-- [ ] **UPD-07**: `notion_brain update` and the cached auto-update check render the link as the canonical release-notes URL `https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z`, copy-pasteable and derived from the same tag the drift check resolves.
+- [x] **UPD-06**: Commit-level drift detection between formal tags so git-clone installs see "behind N commits" alerts even when `__version__` is unchanged.
+- [x] **UPD-07**: `notion_brain update` and the cached auto-update check render the link as the canonical release-notes URL `https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z`, copy-pasteable and derived from the same tag the drift check resolves.
 
 ### Developer Tooling (TOOL)
 
-- [ ] **TOOL-01**: An optional pre-push git hook runs `pytest -q` before remote push. Installation is opt-in; the hook fails fast on any failing test or pre-existing hang with the same gating the CI `test` job uses.
-- [ ] **TOOL-02**: A scheduled GitHub Actions workflow runs `pre-commit autoupdate` on a cron basis (e.g. weekly) and consumes the resulting hook-config update — via PR, workflow summary, or `git.autoUpdate` artifact — without manual intervention.
+- [x] **TOOL-01**: An optional pre-push git hook runs `pytest -q` before remote push. Installation is opt-in; the hook fails fast on any failing test or pre-existing hang with the same gating the CI `test` job uses.
+- [x] **TOOL-02**: A scheduled GitHub Actions workflow runs `pre-commit autoupdate` on a cron basis (e.g. weekly) and consumes the resulting hook-config update — via PR, workflow summary, or `git.autoUpdate` artifact — without manual intervention.
 
 ### Test Reliability (TEST)
 
-- [ ] **TEST-HANGS**: Investigate and resolve the three pre-existing offline test-suite hangs accepted as v1.1 known gaps — `test_coverage_gaps`, `test_migration_privacy_blockers`, and `test_provider` — so the full offline `pytest` run finishes within the existing CI timeout and remains a usable release gate. Pre-existing hangs must be **fixed**, not silently `@pytest.mark.skip`ed.
+- [x] **TEST-HANGS**: Investigate and resolve the three pre-existing offline test-suite hangs accepted as v1.1 known gaps — `test_coverage_gaps`, `test_migration_privacy_blockers`, and `test_provider` — so the full offline `pytest` run finishes within the existing CI timeout and remains a usable release gate. Pre-existing hangs must be **fixed**, not silently `@pytest.mark.skip`ed.
 
 ## v1.3 Requirements (Defined 2026-11-02 — queued behind v1.2)
 
@@ -77,11 +77,11 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UPD-06 | Phase 7 | Pending |
-| UPD-07 | Phase 7 | Pending |
-| TOOL-01 | Phase 8 | Pending |
-| TOOL-02 | Phase 8 | Pending |
-| TEST-HANGS | Phase 8 | Pending |
+| UPD-06 | Phase 7 | Completed |
+| UPD-07 | Phase 7 | Completed |
+| TOOL-01 | Phase 8 | Completed |
+| TOOL-02 | Phase 8 | Completed |
+| TEST-HANGS | Phase 8 | Completed |
 | RET-01 | Phase 9 | Defined |
 | RET-02 | Phase 9 | Defined |
 | RET-03 | Phase 9 | Defined |
@@ -106,6 +106,7 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 **Coverage:**
 - v1.2 requirements: 5 total
+- Shipped and verified: 5 (completed 2026-11-07)
 - Mapped to phases: 5 ✓
 - Dropped: 0
 - Adjusted: 0
@@ -124,4 +125,4 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ---
 *Requirements defined: 2026-10-08 (selected from `v1.1-REQUIREMENTS.md` §Future Requirements UPD-06/07, TOOL-01/02 and v1.1 `MILESTONES.md` known-gap #1).*
-*Last updated: 2026-10-08 — milestone intake accepted (Paperclip interaction `5246bf23`).*
+*Last updated: 2026-11-07 — v1.2 requirements closeout.*

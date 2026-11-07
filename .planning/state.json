@@ -6,12 +6,12 @@
     {
       "number": "7",
       "name": "Update UX — Commit-Level Drift + Release-Notes Link",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "number": "8",
       "name": "Developer Tooling & Test Reliability",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "number": "9",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-discuss-phase",
-    "label": "Discuss the first phase",
-    "reason": "Project initialized — plan your first phase"
+    "command": "/gsd-discuss-phase 9",
+    "label": "Discuss Phase 9: Retrieval Correctness & Local Read-Through Cache",
+    "reason": "v1.2 complete — begin planning the next phase"
   },
-  "updated_at": "2026-11-06T10:53:19.686Z"
+  "updated_at": "2026-11-07T07:51:05Z"
 }

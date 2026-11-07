@@ -16,6 +16,7 @@ SEARCH_SCHEMA: dict[str, Any] = {
     "parameters": {
         "type": "object",
         "properties": {
+            "action": {"type": "string", "enum": ["search", "related"], "description": "search (default) or related graph traversal."},
             "query": {
                 "type": "string",
                 "description": "What to search for (e.g. 'database migration plan', 'Sarah preferences').",
@@ -31,9 +32,24 @@ SEARCH_SCHEMA: dict[str, Any] = {
                 "type": "integer",
                 "description": "Max results to return (default 8, max 20).",
             },
+            "start_id": {"type": "string", "description": "Starting memory id or name for action=related."},
+            "predicate": {"type": "string", "description": "Optional relation predicate filter for related."},
+            "max_depth": {"type": "integer", "description": "Maximum relation hops for related (default 3, maximum 10)."},
         },
         "required": ["query"],
     },
+}
+
+CHECK_ANSWERABLE_SCHEMA: dict[str, Any] = {
+    "name": "notion_brain_check_answerable",
+    "description": "Check query term coverage against the semantic catalog before retrieval.",
+    "parameters": {"type": "object", "properties": {"query": {"type": "string", "description": "Question or query to check."}}, "required": ["query"]},
+}
+
+SEARCH_TERMS_SCHEMA: dict[str, Any] = {
+    "name": "notion_brain_search_terms",
+    "description": "Search the semantic catalog glossary (terms and entities), without searching raw notes.",
+    "parameters": {"type": "object", "properties": {"query": {"type": "string", "description": "Glossary term or entity to find."}}, "required": ["query"]},
 }
 
 REMEMBER_SCHEMA: dict[str, Any] = {
@@ -78,8 +94,30 @@ REMEMBER_SCHEMA: dict[str, Any] = {
                 "items": {"type": "string"},
                 "description": "Relevant people/companies/projects mentioned.",
             },
+            "subject_key": {
+                "type": "string",
+                "description": "Optional logical fact slot used to supersede older facts.",
+            },
         },
         "required": ["title", "content"],
+    },
+}
+
+CERTIFY_SCHEMA: dict[str, Any] = {
+    "name": "notion_brain_certify",
+    "description": (
+        "Promote a memory to certified only after explicit user confirmation. "
+        "The caller must set user_confirmed=true only after the user confirms the fact."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "memory_id": {"type": "string", "description": "Notion memory page ID."},
+            "title": {"type": "string", "description": "Exact memory title when ID is unavailable."},
+            "user_confirmed": {"type": "boolean", "enum": [True]},
+        },
+        "required": ["user_confirmed"],
+        "anyOf": [{"required": ["memory_id"]}, {"required": ["title"]}],
     },
 }
 
@@ -220,7 +258,10 @@ RESEARCH_SCHEMA: dict[str, Any] = {
 
 ALL_TOOL_SCHEMAS = [
     SEARCH_SCHEMA,
+    CHECK_ANSWERABLE_SCHEMA,
+    SEARCH_TERMS_SCHEMA,
     REMEMBER_SCHEMA,
+    CERTIFY_SCHEMA,
     TASK_SCHEMA,
     CONTENT_SCHEMA,
     RESEARCH_SCHEMA,
