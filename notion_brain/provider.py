@@ -794,11 +794,64 @@ class NotionBrainProvider:
                     pass
             entries = _merge_disk_only(all_entries, disk_text)
 
-        # Case-insensitive title refinement — the single place a query is
-        # applied, for both the database-filtered and all-databases modes.
+        # Resolve catalog terms deterministically before refining rows. Catalog
+        # failures are intentionally non-fatal: ordinary search remains intact.
+        definitions: list[dict[str, Any]] = []
+        expanded_needles: set[str] = set()
         if query:
-            needle = query.lower()
-            entries = [e for e in entries if needle in (e.get("title") or "").lower()]
+            try:
+                if catalog is None:
+                    catalog = semantic_catalog.Catalog().load(
+                        Path(self._hermes_home) / "brain_catalog.json"
+                    )
+                query_tokens = {token.casefold() for token in query.split() if token}
+                matches: dict[str, Any] = {}
+                for definition in catalog._terms.values():
+                    names = [definition.name, *definition.synonyms]
+                    if query_tokens & {name.casefold() for name in names if name}:
+                        matches[definition.name.casefold()] = definition
+                        expanded_needles.update(names)
+                for entity_definition in catalog._entities.values():
+                    names = [entity_definition.name]
+                    if query_tokens & {name.casefold() for name in names if name}:
+                        matches[entity_definition.name.casefold()] = entity_definition
+                        expanded_needles.update(names)
+                if matches:
+                    from . import adapters
+                    notion_adapter = adapters.NotionAdapter(hermes_home=self._hermes_home)
+                    import os
+                    vault_path = os.environ.get("HERMES_OBSIDIAN_VAULT", "").strip()
+                    obsidian_adapter = adapters.ObsidianVaultAdapter(vault_path) if vault_path else None
+                    for definition in matches.values():
+                        resolved: list[str] = []
+                        for ref in definition.storage_refs:
+                            adapter_name = str(ref.adapter_name).casefold()
+                            locator = None
+                            if adapter_name.startswith("notion"):
+                                locator = notion_adapter.resolve_storage_ref(ref)
+                            elif adapter_name.startswith("obsidian") and obsidian_adapter is not None:
+                                locator = obsidian_adapter.resolve_storage_ref(ref)
+                            if locator is not None:
+                                safe_locator = S.redact_secrets(str(locator))
+                                if safe_locator not in resolved:
+                                    resolved.append(safe_locator)
+                        definitions.append({
+                            "name": S.redact_secrets(str(definition.name)),
+                            "description": S.redact_secrets(str(definition.description)),
+                            "storage_refs": resolved,
+                        })
+            except Exception:
+                definitions = []
+                expanded_needles.clear()
+
+        # Case-insensitive title/content refinement, including catalog aliases.
+        if query:
+            needles = {query.casefold(), *(needle.casefold() for needle in expanded_needles)}
+            entries = [
+                e for e in entries
+                if any(needle in (str(e.get("title") or "") + " " + str((e.get("properties") or {}).get("Content") or "")).casefold()
+                       for needle in needles)
+            ]
 
         entries.sort(key=self._truth_recency_key, reverse=True)
         contradictions = self._contradictions(entries)
@@ -809,7 +862,10 @@ class NotionBrainProvider:
 
         # Format results
         if not entries:
-            return ("No results found.", {"items": [], "contradiction": contradictions})
+            payload = {"items": [], "contradiction": contradictions}
+            if definitions:
+                payload["definitions"] = definitions
+            return ("No results found.", payload)
 
         lines: list[str] = []
         structured_items: list[dict[str, Any]] = []
@@ -830,7 +886,10 @@ class NotionBrainProvider:
                 }
             )
 
-        return ("\n".join(lines), {"items": structured_items, "contradiction": contradictions})
+        payload = {"items": structured_items, "contradiction": contradictions}
+        if definitions:
+            payload["definitions"] = definitions
+        return ("\n".join(lines), payload)
 
     @staticmethod
     def _contradictions(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
