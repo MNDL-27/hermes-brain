@@ -5,8 +5,8 @@
 - ✅ **v1.0 Release Polish** — Phases 1-3 (shipped 2026-09-21)
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
 - ✅ **v1.2 Update UX & Tooling Polish** — Phases 7-8 (shipped 2026-11-07)
-- 📋 **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (defined 2026-11-02 from competitive research)
-- 📋 **v1.4 Semantic Brain Layer** — Phases 12-15 (defined 2026-11-06 from NVIDIA Auto-Ontology architecture study + user decisions)
+- ✅ **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (defined 2026-11-02 from competitive research; shipped 2026-11-07)
+- ✅ **v1.4 Semantic Brain Layer** — Phases 12-15 (defined 2026-11-06 from NVIDIA Auto-Ontology architecture study + user decisions; shipped 2026-11-07)
 
 ## Phases
 
@@ -43,18 +43,18 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 
 **Milestone goal:** Evolve hermes-brain from a naive Notion REST caller into a competitive, metabolic memory engine. Fix the prefetch schema blind spot, add a local-first SQLite read-through cache to decouple turn latency from Notion API limits, implement subject_key supersession to eliminate truth contradictions, cap injection at 800 tokens (two-lane architecture), and lay the foundation for the Obsidian adapter gated for premium users while free users remain Notion-only.
 
-- [ ] **Phase 9: Retrieval Correctness & Local Read-Through Cache** - Fix prefetch to read summary/body without schema misses; add local SQLite cache mirror so prefetch is <2ms and offline-resilient; introduce two-lane token-budgeted prompt injection (max 800 tokens)
-- [ ] **Phase 10: Event-Driven Supersession & Truth Integrity** - Add `Subject Key` tracking across Memory rows; incoming facts mark older conflicting facts as `status: superseded` rather than accumulating contradictions; historical versions remain auditable
-- [ ] **Phase 11: Storage Adapter Abstraction & Freemium Gate** - Refactor backend behind a pluggable `StorageAdapter` interface (NotionAdapter = default/free; ObsidianVaultAdapter = premium stub with license entitlement verification)
+- [x] **Phase 9: Retrieval Correctness & Local Read-Through Cache** — completed 2026-11-07 (`7b78b98`) - Fix prefetch to read summary/body without schema misses; add local SQLite cache mirror so prefetch is <2ms and offline-resilient; introduce two-lane token-budgeted prompt injection (max 800 tokens)
+- [x] **Phase 10: Event-Driven Supersession & Truth Integrity** — completed 2026-11-07 (`7ceaafb`) - Add `Subject Key` tracking across Memory rows; incoming facts mark older conflicting facts as `status: superseded` rather than accumulating contradictions; historical versions remain auditable
+- [x] **Phase 11: Storage Adapter Abstraction & Freemium Gate** — completed 2026-11-07 (`71e7122`) - Refactor backend behind a pluggable `StorageAdapter` interface (NotionAdapter = default/free; ObsidianVaultAdapter = premium stub with license entitlement verification)
 
 ### v1.4 Semantic Brain Layer (Phases 12-15)
 
 **Milestone goal:** Borrow NVIDIA Auto Ontology's semantic context layer architecture: shift from raw note/table search to a deterministic Semantic Catalog, add User-Certified vs Inferred truth tiers, expose rich Graph Provenance across facts, and guard against hallucinations with an Answerability Gate.
 
-- [ ] **Phase 12: Core Semantic Catalog** - Provider-neutral catalog model for Terms (synonyms/descriptions), Entities, and Relations; deterministically maps terms to backing store locations without LLM in the read path
-- [ ] **Phase 13: User-Gated Certification Flow** - Distinguish `inferred` vs `certified` status; user confirmation promotes; retrieval prefers certified facts; certified corrections immediately supersede contradictory inferred memories
-- [ ] **Phase 14: Graph Provenance & Relational Recall** - Return provenance (source/session/timestamp/status) per memory; replace binary supersession with explicit `supersedes` relation edges; graph traversal for related memories
-- [ ] **Phase 15: Answerability Gate & Contradiction Detection** - Pre-retrieval catalog coverage check; return deterministic "no certified memory" when uncovered; surface contradictory candidates as explicit conflicts rather than picking arbitrarily
+- [x] **Phase 12: Core Semantic Catalog** — completed 2026-11-07 (`da6b1d4`) - Provider-neutral catalog model for Terms (synonyms/descriptions), Entities, and Relations; deterministically maps terms to backing store locations without LLM in the read path
+- [x] **Phase 13: User-Gated Certification Flow** — completed 2026-11-07 (`700221c`) - Distinguish `inferred` vs `certified` status; user confirmation promotes; retrieval prefers certified facts; certified corrections immediately supersede contradictory inferred memories
+- [x] **Phase 14: Graph Provenance & Relational Recall** — completed 2026-11-07 (`c5e829e`) - Return provenance (source/session/timestamp/status) per memory; replace binary supersession with explicit `supersedes` relation edges; graph traversal for related memories
+- [x] **Phase 15: Answerability Gate & Contradiction Detection** — completed 2026-11-07 (`6208569`) - Pre-retrieval catalog coverage check; return deterministic "no certified memory" when uncovered; surface contradictory candidates as explicit conflicts rather than picking arbitrarily
 
 ## Phase Details
 
@@ -103,6 +103,8 @@ Plans:
   2. A local SQLite cache (`~/.hermes/brain_cache.db`) mirrors active memory rows; prefetch executes in `<5ms` offline with zero network calls.
   3. Context injection is hard-capped at 800 tokens split between Lane 1 (pinned/critical, 400 tok) and Lane 2 (dynamic context, 400 tok).
 
+**Plans**: landed in commit(s) `7b78b98` — completed 2026-11-07
+
 ### Phase 10: Event-Driven Supersession & Truth Integrity
 
 **Goal**: Implement `subject_key` logical slots so new facts supersede old conflicting facts rather than piling up contradictory memories.
@@ -111,6 +113,8 @@ Plans:
 **Success Criteria**:
   1. Updating a fact on the same subject (e.g. `device.daily_phone` from S24 to S21 FE) marks the older row `Status: Superseded` in Notion.
   2. Queries filter to `Status: Active` by default so the agent never hallucinates from contradictory historical state.
+
+**Plans**: landed in commit(s) `7ceaafb` — completed 2026-11-07
 
 ### Phase 11: Storage Adapter Abstraction & Freemium Gate
 
@@ -122,6 +126,8 @@ Plans:
   2. Free tier defaults to `NotionAdapter`.
   3. Attempting to select `ObsidianAdapter` checks an entitlement token/license; if unentitled, it gracefully explains the upgrade requirement and falls back to Notion.
 
+**Plans**: landed in commit(s) `71e7122` — completed 2026-11-07
+
 ### Phase 12: Core Semantic Catalog
 
 **Goal**: Create provider-neutral, deterministic semantic definitions that map user vocabulary to memory entities, relationships, and backing store locations.
@@ -131,6 +137,8 @@ Plans:
   1. Core catalog types represent terms, synonyms, entities, relations, and provider-neutral storage references.
   2. Deterministic catalog APIs resolve terms and enumerate entities/relations without LLM calls in the retrieval path.
   3. Notion and Obsidian adapters map catalog references to their respective storage locations.
+
+**Plans**: landed in commit(s) `da6b1d4` — completed 2026-11-07
 
 ### Phase 13: User-Gated Certification Flow
 
@@ -142,6 +150,8 @@ Plans:
   2. Retrieval ranks certified over inferred facts at equal recency and surfaces certification status.
   3. Certified corrections supersede conflicting inferred facts while retaining historical records.
 
+**Plans**: landed in commit(s) `700221c` — completed 2026-11-07
+
 ### Phase 14: Graph Provenance & Relational Recall
 
 **Goal**: Make every recalled fact auditable and traverse explicit memory relationships, including supersession history.
@@ -152,6 +162,8 @@ Plans:
   2. Supersession writes an explicit relation edge while preserving historical recall.
   3. Related facts can be traversed by typed relation edges, with tests proving path and cycle handling.
 
+**Plans**: landed in commit(s) `c5e829e` — completed 2026-11-07
+
 ### Phase 15: Answerability Gate & Contradiction Detection
 
 **Goal**: Fail explicitly when the semantic catalog cannot ground a query; report contradictory candidates rather than arbitrarily selecting a truth.
@@ -161,6 +173,8 @@ Plans:
   1. Catalog coverage check runs before fuzzy recall and returns deterministic unsupported-term output when coverage is zero.
   2. Multiple active conflicting values for one subject are returned as a conflict, not silently ranked into a single answer.
   3. Provenance and certification are included in supported, unsupported, and conflict responses.
+
+**Plans**: landed in commit(s) `6208569` — completed 2026-11-07
 
 ---
 
