@@ -184,6 +184,22 @@ def clean_title(title: str) -> str:
     return text[:120] or "Untitled"
 
 
+def infer_subject_key(title: str, content: str) -> str:
+    """Infer a stable logical slot from common fact phrasing, without a model."""
+    text = f"{title} {content}".lower()
+    patterns = (
+        (r"\b(?:daily|primary|current)\s+phone\b|\bphone\s+(?:is|:)", "device.daily_phone"),
+        (r"\b(?:engine|engine displacement|engine cc)\b", "preferences.engine_cc"),
+        (r"\b(?:car|vehicle)\s+(?:is|:)|\bmy car\b", "vehicle.car"),
+        (r"\b(?:home|lives?)\s+(?:in|at)\b|\blocation\b", "personal.location"),
+        (r"\b(?:prefers?|preference|favorite|favourite)\b", "preferences.general"),
+    )
+    for pattern, key in patterns:
+        if re.search(pattern, text):
+            return key
+    return ""
+
+
 def dedupe_strings(values: list[str] | tuple[str, ...] | None) -> list[str]:
     seen = set()
     out: list[str] = []

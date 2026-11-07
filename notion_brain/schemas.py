@@ -16,7 +16,7 @@ SEARCH_SCHEMA: dict[str, Any] = {
     "parameters": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["search", "related"], "description": "search (default) or related graph traversal."},
+            "action": {"type": "string", "enum": ["search", "related", "timeline"], "description": "search (default), related graph traversal, or subject history timeline."},
             "query": {
                 "type": "string",
                 "description": "What to search for (e.g. 'database migration plan', 'Sarah preferences').",
@@ -33,10 +33,11 @@ SEARCH_SCHEMA: dict[str, Any] = {
                 "description": "Max results to return (default 8, max 20).",
             },
             "start_id": {"type": "string", "description": "Starting memory id or name for action=related."},
+            "subject_key": {"type": "string", "description": "Required for action=timeline; logical fact slot to list newest first."},
             "predicate": {"type": "string", "description": "Optional relation predicate filter for related."},
             "max_depth": {"type": "integer", "description": "Maximum relation hops for related (default 3, maximum 10)."},
         },
-        "required": ["query"],
+        "required": [],
     },
 }
 

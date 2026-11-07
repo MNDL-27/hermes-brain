@@ -23,7 +23,7 @@ from . import schema as S
 logger = logging.getLogger(__name__)
 
 CACHE_FILENAME = "brain_cache.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Kinds that belong in the pinned lane (identity, warnings, decisions).
 PINNED_KINDS = frozenset(
@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS memory_rows (
     status TEXT NOT NULL DEFAULT 'active',
     last_seen TEXT NOT NULL DEFAULT '',
     truth TEXT NOT NULL DEFAULT 'inferred',
+    subject_key TEXT NOT NULL DEFAULT '',
     updated_at REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_memory_rows_active_seen
@@ -96,6 +97,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> bool:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(memory_rows)")}
     if "truth" not in columns:
         conn.execute("ALTER TABLE memory_rows ADD COLUMN truth TEXT NOT NULL DEFAULT 'inferred'")
+        conn.commit()
+    if "subject_key" not in columns:
+        conn.execute("ALTER TABLE memory_rows ADD COLUMN subject_key TEXT NOT NULL DEFAULT ''")
         conn.commit()
     row = conn.execute("SELECT value FROM schema_meta WHERE key = 'version'").fetchone()
     if row is None:
@@ -146,7 +150,7 @@ def list_active(
             return None
         rows = conn.execute(
             """
-            SELECT page_id, title, kind, content, status, last_seen, truth
+            SELECT page_id, title, kind, content, status, last_seen, truth, subject_key
             FROM memory_rows
             WHERE status = 'active'
             ORDER BY last_seen DESC, truth = 'certified' DESC, updated_at DESC, page_id ASC
@@ -169,6 +173,7 @@ def list_active(
                 "Status": row["status"] or "active",
                 "Last Seen": row["last_seen"] or "",
                 "Truth": row["truth"] or "inferred",
+                **({"Subject Key": row["subject_key"]} if row["subject_key"] else {}),
             },
         }
         for row in rows
@@ -185,6 +190,7 @@ def upsert_active(
     status: str = "active",
     last_seen: str = "",
     truth: str = "inferred",
+    subject_key: str = "",
 ) -> bool:
     """Insert or replace one memory row. Returns False on a cache failure.
 
@@ -196,6 +202,7 @@ def upsert_active(
         return False
     safe_title = S.redact_secrets(title or "")
     safe_content = S.redact_secrets(content or "")
+    safe_subject_key = S.redact_secrets(subject_key or "").strip()
     safe_kind = (kind or "note").strip()[:80] or "note"
     safe_status = (status or "active").strip().lower() or "active"
     seen = last_seen or ""
@@ -212,8 +219,8 @@ def upsert_active(
         conn.execute(
             """
             INSERT INTO memory_rows (
-                page_id, title, kind, content, status, last_seen, updated_at, truth
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                page_id, title, kind, content, status, last_seen, updated_at, truth, subject_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(page_id) DO UPDATE SET
                 title = excluded.title,
                 kind = excluded.kind,
@@ -221,9 +228,11 @@ def upsert_active(
                 status = excluded.status,
                 last_seen = excluded.last_seen,
                 updated_at = excluded.updated_at,
-                truth = excluded.truth
+                truth = excluded.truth,
+                subject_key = CASE WHEN excluded.subject_key = ''
+                    THEN memory_rows.subject_key ELSE excluded.subject_key END
             """,
-            (pid, safe_title, safe_kind, safe_content, safe_status, seen, time.time(), truth if truth in {"inferred", "certified"} else "inferred"),
+            (pid, safe_title, safe_kind, safe_content, safe_status, seen, time.time(), truth if truth in {"inferred", "certified"} else "inferred", safe_subject_key),
         )
         conn.commit()
     except sqlite3.Error as exc:

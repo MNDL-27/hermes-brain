@@ -586,6 +586,7 @@ class NotionBrainProvider:
             raise RuntimeError("Failed to save entry to Notion") from None
         else:
             self._mirror_memory_cache(page_id, entry, target_db_id)
+            self._supersede_matching_active(page_id, entry, target_db_id)
             if self._hermes_home and page_id and entry.entities:
                 graph = semantic_catalog.Catalog().load()
                 for entity_name in entry.entities:
@@ -642,6 +643,7 @@ class NotionBrainProvider:
                 status=entry.status,
                 last_seen=date.today().isoformat(),
                 truth=entry.truth,
+                subject_key=str(entry.metadata.get("subject_key") or ""),
             )
         except Exception as exc:
             logger.warning(
@@ -755,6 +757,8 @@ class NotionBrainProvider:
         action = str(args.get("action") or "search").lower()
         if action == "related":
             return self._tool_related(args)
+        if action == "timeline":
+            return self._tool_timeline(args)
         query = (args.get("query") or "").strip()
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
@@ -897,6 +901,82 @@ class NotionBrainProvider:
                 items.append({"id": row.get("id"), "title": row.get("title"), "content": props.get("Content", ""), "provenance": self._provenance(row)})
         return ("\n".join(f"- {i['title']}: {i['content']}" for i in items) or "No related memories found.", {"items": items})
 
+    def _tool_timeline(self, args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        subject_key = S.redact_secrets(str(args.get("subject_key") or "")).strip()
+        if not subject_key:
+            return ("A subject_key is required for timeline.", {"items": []})
+        db_id = self._db_ids.get("memory")
+        if not db_id:
+            return ("Memory database is unavailable.", {"items": []})
+        rows = store.query_database(db_id, page_size=100)
+        matching = [
+            row for row in rows
+            if str((row.get("properties") or {}).get("Subject Key") or "").strip() == subject_key
+        ]
+        matching.sort(
+            key=lambda row: str(
+                (row.get("properties") or {}).get("Last Seen")
+                or row.get("last_edited_time") or row.get("created_time") or ""
+            ),
+            reverse=True,
+        )
+        items = []
+        for row in matching:
+            props = row.get("properties") or {}
+            timestamp = str(
+                props.get("Last Seen") or row.get("last_edited_time") or row.get("created_time") or ""
+            )
+            items.append({
+                "id": row.get("id", ""),
+                "title": row.get("title", "Untitled"),
+                "content": props.get("Content") or props.get("Summary") or "",
+                "subject_key": subject_key,
+                "status": str(props.get("Status") or "active"),
+                "timestamp": timestamp,
+                "created_time": row.get("created_time", ""),
+                "last_edited_time": row.get("last_edited_time", ""),
+            })
+        lines = [f"- [{item['status']}] {item['timestamp']} {item['title']}: {item['content']}" for item in items]
+        return ("\n".join(lines) or "No history found for this subject key.", {"items": items})
+
+    def _supersede_matching_active(
+        self, page_id: str, entry: S.BrainEntry, database_id: str
+    ) -> None:
+        """Best-effort history flip after the successful current-row write."""
+        if (not entry.metadata.get("subject_key")
+                or store.normalize_id(database_id) != store.normalize_id(self._db_ids.get("memory", ""))):
+            return
+        subject_key = S.redact_secrets(str(entry.metadata.get("subject_key") or "")).strip()
+        if not subject_key:
+            return
+        try:
+            rows = store.query_database(database_id, page_size=100)
+            schema_props = store.get_database(database_id).get("properties", {})
+            status_property = self._status_property("Superseded", schema_props, strict=True)
+            if not status_property:
+                logger.warning("NotionBrainProvider supersession skipped: Superseded status unavailable")
+                return
+            for row in rows:
+                old_id = str(row.get("id") or "")
+                props = row.get("properties") or {}
+                if (not old_id or old_id == page_id
+                        or str(props.get("Subject Key") or "").strip() != subject_key
+                        or str(props.get("Status") or "active").casefold() != "active"):
+                    continue
+                store.update_page(old_id, {"Status": status_property}, expected_database_id=database_id)
+                if self._hermes_home:
+                    brain_cache.upsert_active(
+                        self._hermes_home, page_id=old_id,
+                        title=str(row.get("title") or "Untitled"),
+                        kind=str(props.get("Kind") or "note"),
+                        content=str(props.get("Content") or props.get("Summary") or ""),
+                        status="Superseded", last_seen=str(props.get("Last Seen") or ""),
+                        truth=str(props.get("Truth") or "inferred"),
+                        subject_key=subject_key,
+                    )
+        except Exception as exc:
+            logger.warning("NotionBrainProvider supersession failed: %s", S.redact_secrets(str(exc)))
+
     @staticmethod
     def _truth_recency_key(entry: dict[str, Any]) -> tuple[str, int]:
         props = entry.get("properties", {}) or {}
@@ -931,6 +1011,7 @@ class NotionBrainProvider:
                         content=str(properties.get("Content") or ""),
                         status=str(properties.get("Status") or "active"),
                         last_seen=str(properties.get("Last Seen") or ""), truth="certified",
+                        subject_key=str(properties.get("Subject Key") or ""),
                     )
                 except Exception as exc:
                     logger.warning(
@@ -1008,7 +1089,8 @@ class NotionBrainProvider:
             tags=[S.redact_secrets(t) for t in tags],
             entities=[S.redact_secrets(e) for e in entities],
             source_session_id=self._session_id,
-            metadata={"subject_key": S.redact_secrets(str(args.get("subject_key") or "")).strip()},
+            metadata={"subject_key": S.redact_secrets(str(args.get("subject_key") or "")).strip()
+                      or S.infer_subject_key(title, content)},
         ).normalized()
 
         try:
