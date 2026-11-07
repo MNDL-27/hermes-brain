@@ -106,18 +106,14 @@ REMEMBER_SCHEMA: dict[str, Any] = {
 
 CERTIFY_SCHEMA: dict[str, Any] = {
     "name": "notion_brain_certify",
-    "description": (
-        "Promote a memory to certified only after explicit user confirmation. "
-        "The caller must set user_confirmed=true only after the user confirms the fact."
-    ),
+    "description": "Promote a memory to certified only after orchestrator-supplied user confirmation.",
     "parameters": {
         "type": "object",
         "properties": {
             "memory_id": {"type": "string", "description": "Notion memory page ID."},
             "title": {"type": "string", "description": "Exact memory title when ID is unavailable."},
-            "user_confirmed": {"type": "boolean", "enum": [True]},
         },
-        "required": ["user_confirmed"],
+        "required": [],
         "anyOf": [{"required": ["memory_id"]}, {"required": ["title"]}],
     },
 }

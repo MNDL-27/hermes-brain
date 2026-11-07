@@ -22,9 +22,27 @@ def test_agent_remember_defaults_truth_to_inferred(monkeypatch):
 def test_certify_requires_exact_user_confirmation(monkeypatch):
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db1"}
-    assert "user_confirmed=true" in provider._tool_certify({"memory_id": "p1"})
-    assert "user_confirmed=true" in provider._tool_certify({"memory_id": "p1", "user_confirmed": "true"})
+    assert "orchestrator confirmation" in provider._tool_certify({"memory_id": "p1"})
+    assert "orchestrator confirmation" in provider._tool_certify({"memory_id": "p1", "user_confirmed": "true"})
     assert "notion_brain_certify" in {s["name"] for s in ALL_TOOL_SCHEMAS}
+
+
+def test_certify_tool_args_cannot_self_certify(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db1"}
+    calls = []
+    monkeypatch.setattr(store, "update_page", lambda *a, **k: calls.append((a, k)))
+    result = provider._tool_certify({"memory_id": "p1", "user_confirmed": True})
+    assert "orchestrator confirmation" in result
+    assert calls == []
+
+
+def test_initialize_user_confirmed_orchestrator_channel():
+    provider = NotionBrainProvider()
+    provider.initialize("s")
+    assert provider._user_confirmed is False
+    provider.initialize(session_id="s", user_confirmed=True)
+    assert provider._user_confirmed is True
 
 
 def test_certify_promotes_and_supersedes_same_subject_inferred(monkeypatch):
@@ -38,7 +56,8 @@ def test_certify_promotes_and_supersedes_same_subject_inferred(monkeypatch):
     monkeypatch.setattr(store, "query_database", lambda *a, **k: rows)
     monkeypatch.setattr(store, "get_database", lambda *_: {"properties": {"Status": {"type": "status", "status": {"options": [{"name": "active"}, {"name": "Superseded"}]}}}})
     monkeypatch.setattr(store, "update_page", lambda page_id, properties, **kwargs: calls.append((page_id, properties)))
-    assert provider._tool_certify({"memory_id": "new", "user_confirmed": True}) == "Certified: Current car"
+    provider._user_confirmed = True
+    assert provider._tool_certify({"memory_id": "new"}) == "Certified: Current car"
     assert calls[0][1] == {"Truth": {"select": {"name": "certified"}}}
     assert calls[1][0] == "old"
     assert calls[1][1] == {"Status": {"status": {"name": "Superseded"}}}

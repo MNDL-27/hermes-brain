@@ -83,6 +83,7 @@ class NotionBrainProvider:
     def __init__(self) -> None:
         # Set by initialize()
         self._session_id: str = ""
+        self._user_confirmed = False
         self._hermes_home: str = ""
         self._db_ids: dict[str, str] = {}
         self._parent_page_id: str = ""
@@ -108,8 +109,9 @@ class NotionBrainProvider:
     def is_available(self) -> bool:
         return bool(store.get_api_key())
 
-    def initialize(self, session_id: str, **kwargs) -> None:
+    def initialize(self, session_id: str, user_confirmed: bool = False, **kwargs) -> None:
         self._session_id = session_id
+        self._user_confirmed = user_confirmed
         self._hermes_home = str(kwargs.get("hermes_home", ""))
 
         if not self._hermes_home:
@@ -1044,8 +1046,8 @@ class NotionBrainProvider:
 
     def _tool_certify(self, args: dict[str, Any]) -> str:
         """Certify one memory only when the orchestrator supplies explicit confirmation."""
-        if args.get("user_confirmed") is not True:
-            return "Error: user_confirmed=true is required"
+        if not self._user_confirmed:
+            return "Error: orchestrator confirmation is required"
         db_id = self._db_ids.get("memory")
         if not db_id:
             return "Error: Memory database is unavailable"
