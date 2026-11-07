@@ -72,40 +72,50 @@ def _connect(path: Path) -> sqlite3.Connection:
     return conn
 
 
-def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Apply schema v1 once. Refuse to rewrite a newer on-disk version."""
+def _ensure_schema(conn: sqlite3.Connection) -> bool:
+    """Apply schema v1 once. Return False without mutation for newer schemas."""
+    meta_exists = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_meta'"
+    ).fetchone()
+    if meta_exists:
+        row = conn.execute(
+            "SELECT value FROM schema_meta WHERE key = 'version'"
+        ).fetchone()
+        try:
+            existing = int(row["value"]) if row is not None else 0
+        except (TypeError, ValueError):
+            existing = 0
+        if existing > SCHEMA_VERSION:
+            logger.warning(
+                "brain_cache: on-disk schema %s is newer than %s; leaving file unchanged",
+                existing,
+                SCHEMA_VERSION,
+            )
+            return False
     conn.executescript(_CREATE_SQL)
     columns = {row[1] for row in conn.execute("PRAGMA table_info(memory_rows)")}
     if "truth" not in columns:
         conn.execute("ALTER TABLE memory_rows ADD COLUMN truth TEXT NOT NULL DEFAULT 'inferred'")
         conn.commit()
-    row = conn.execute(
-        "SELECT value FROM schema_meta WHERE key = 'version'"
-    ).fetchone()
+    row = conn.execute("SELECT value FROM schema_meta WHERE key = 'version'").fetchone()
     if row is None:
         conn.execute(
             "INSERT INTO schema_meta (key, value) VALUES ('version', ?)",
             (str(SCHEMA_VERSION),),
         )
         conn.commit()
-        return
+        return True
     try:
         existing = int(row["value"])
     except (TypeError, ValueError):
         existing = 0
-    if existing > SCHEMA_VERSION:
-        logger.warning(
-            "brain_cache: on-disk schema %s is newer than %s; leaving file unchanged",
-            existing,
-            SCHEMA_VERSION,
-        )
-        return
     if existing < SCHEMA_VERSION:
         conn.execute(
             "UPDATE schema_meta SET value = ? WHERE key = 'version'",
             (str(SCHEMA_VERSION),),
         )
         conn.commit()
+    return True
 
 
 def _safe(exc: BaseException) -> str:
@@ -132,7 +142,8 @@ def list_active(
         logger.warning("brain_cache: open failed: %s", _safe(exc))
         return None
     try:
-        _ensure_schema(conn)
+        if not _ensure_schema(conn):
+            return None
         rows = conn.execute(
             """
             SELECT page_id, title, kind, content, status, last_seen, truth
@@ -195,7 +206,8 @@ def upsert_active(
         logger.warning("brain_cache: open for write failed: %s", _safe(exc))
         return False
     try:
-        _ensure_schema(conn)
+        if not _ensure_schema(conn):
+            return False
         conn.execute("BEGIN IMMEDIATE")
         conn.execute(
             """

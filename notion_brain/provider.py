@@ -923,14 +923,20 @@ class NotionBrainProvider:
         try:
             store.update_page(page_id, {"Truth": store.select_property("certified")}, expected_database_id=db_id)
             if self._hermes_home:
-                brain_cache.upsert_active(
-                    self._hermes_home, page_id=page_id,
-                    title=str(row.get("title") or "Untitled"),
-                    kind=str(properties.get("Kind") or "note"),
-                    content=str(properties.get("Content") or ""),
-                    status=str(properties.get("Status") or "active"),
-                    last_seen=str(properties.get("Last Seen") or ""), truth="certified",
-                )
+                try:
+                    brain_cache.upsert_active(
+                        self._hermes_home, page_id=page_id,
+                        title=str(row.get("title") or "Untitled"),
+                        kind=str(properties.get("Kind") or "note"),
+                        content=str(properties.get("Content") or ""),
+                        status=str(properties.get("Status") or "active"),
+                        last_seen=str(properties.get("Last Seen") or ""), truth="certified",
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "NotionBrainProvider cache mirror failed: %s",
+                        S.redact_secrets(str(exc)),
+                    )
             subject_key = str(properties.get("Subject Key") or "")
             if subject_key:
                 for older in rows:
