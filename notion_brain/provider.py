@@ -935,9 +935,9 @@ class NotionBrainProvider:
         props = entry.get("properties", {}) or {}
         status = str(props.get("Status") or "active").lower()
         return {
-            "source_agent": S.redact_secrets(str(props.get("Source Agent") or "hermes")),
+            "source_agent": S.redact_secrets(str(props.get("Source Agent") or "unknown")),
             "session_id": S.redact_secrets(str(props.get("Source Session") or "")),
-            "created_at": S.redact_secrets(str(entry.get("created_time") or entry.get("created_at") or "")),
+            "created_at": S.redact_secrets(str(entry.get("created_time") or entry.get("created_at") or "unknown")),
             "truth": str(props.get("Truth") or "inferred").lower() if str(props.get("Truth") or "inferred").lower() in {"certified", "inferred"} else "inferred",
             "status": "superseded" if status == "superseded" else "active",
         }
