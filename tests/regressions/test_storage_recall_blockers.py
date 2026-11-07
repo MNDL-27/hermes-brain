@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from notion_brain import NotionBrainProvider, bootstrap, store
+from notion_brain import NotionBrainProvider, bootstrap, catalog, store
 from notion_brain import schema as S
 from notion_brain.helpers import _paragraph_blocks
 
@@ -130,6 +130,9 @@ def test_database_filtered_search_honors_query(
     monkeypatch.setattr(store, "_request", fake_request)
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db-memory"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="needle"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     response = provider.handle_tool_call(
         "notion_brain_search",
@@ -161,6 +164,9 @@ def test_database_filtered_search_matches_case_insensitively(
     monkeypatch.setattr(store, "_request", fake_request)
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db-memory"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="needle"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     response = provider.handle_tool_call(
         "notion_brain_search",
@@ -192,6 +198,9 @@ def test_database_filtered_search_empty_query_returns_all_rows(
     monkeypatch.setattr(store, "_request", fake_request)
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db-memory"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="needle"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     response = provider.handle_tool_call(
         "notion_brain_search",
@@ -227,6 +236,9 @@ def test_all_databases_search_applies_same_query_semantics(
     monkeypatch.setattr(store, "_request", fake_request)
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db-memory", "tasks": "db-tasks"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="needle"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     response = provider.handle_tool_call(
         "notion_brain_search",
@@ -260,6 +272,9 @@ def test_search_limit_applies_after_query_refinement(
     monkeypatch.setattr(store, "_request", fake_request)
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db-memory", "tasks": "db-tasks"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="needle"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     response = provider.handle_tool_call(
         "notion_brain_search",
@@ -290,6 +305,9 @@ def test_database_filtered_search_max_results_capped_at_20(
     monkeypatch.setattr(store, "_request", fake_request)
     provider = NotionBrainProvider()
     provider._db_ids = {"memory": "db-memory"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="needle"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     provider.handle_tool_call(
         "notion_brain_search",

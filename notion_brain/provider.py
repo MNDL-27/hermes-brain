@@ -765,6 +765,22 @@ class NotionBrainProvider:
         database = args.get("database")
         max_results = min(args.get("max_results", 8), 20)
 
+        # Resolve answerability before retrieving rows or merging disk context.
+        catalog = None
+        if query:
+            try:
+                catalog = semantic_catalog.Catalog().load(
+                    Path(self._hermes_home) / "brain_catalog.json"
+                )
+                coverage = semantic_catalog.check_answerable(query, catalog)
+                if coverage["coverage"] == 0.0:
+                    safe_query = S.redact_secrets(query)
+                    missing = ", ".join(coverage["missing_terms"])
+                    answer = f"No certified memory for {safe_query}. Missing terms: {missing}."
+                    return S.redact_secrets(answer), {"items": [], "contradiction": []}
+            except Exception:
+                catalog = None
+
         # Merge disk context
         disk_text = ""
         if self._hermes_home:
@@ -920,7 +936,7 @@ class NotionBrainProvider:
         result = semantic_catalog.check_answerable(query)
         if result["coverage"] == 0.0:
             missing = ", ".join(result["missing_terms"])
-            message = f"No known semantic terms for {query} were found in the catalog; unable to verify answerability. Missing terms: {missing}."
+            message = f"No certified memory for {query}. Missing terms: {missing}."
         else:
             message = f"Catalog term coverage: {result['coverage']:.2f}."
         return message, result

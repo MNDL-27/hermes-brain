@@ -157,6 +157,10 @@ def test_initialize_maps_every_cached_database_for_filtered_search(
         return []
 
     monkeypatch.setattr(store, "query_database", query_database)
+    from notion_brain import catalog
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="anything"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
 
     for database_key in schema.DATABASES:
         response = initialized_provider.handle_tool_call(

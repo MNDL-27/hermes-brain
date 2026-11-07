@@ -51,6 +51,9 @@ def test_search_surfaces_active_contradiction(monkeypatch):
         {"id": "1", "title": "Car one", "created_time": "2026-01-01", "properties": {"Subject Key": "car", "Content": "Volvo", "Status": "active", "Truth": "certified"}},
         {"id": "2", "title": "Car two", "created_time": "2026-02-01", "properties": {"Subject Key": "car", "Content": "Saab", "Status": "active", "Truth": "inferred"}},
     ]
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="Car"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
     monkeypatch.setattr(store, "query_database", lambda *a, **k: rows)
     payload = json.loads(provider.handle_tool_call("notion_brain_search", {"query": "Car", "database": "memory"}))
     assert len(payload["contradiction"]) == 1
@@ -90,3 +93,43 @@ def test_answerability_and_contradiction_output_redacted():
         {"created_time": "later", "properties": {"Subject Key": secret, "Content": "different", "Status": "active", "Truth": "inferred"}},
     ])
     assert secret not in str(conflicts)
+
+
+def test_search_zero_coverage_blocks_near_miss(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    empty = catalog.Catalog()
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: empty)
+    rows = [{"id": "1", "title": "Unknown Gadget Recall", "properties": {"Content": "near miss"}}]
+    calls = []
+
+    def query_database(*args, **kwargs):
+        calls.append((args, kwargs))
+        return rows
+
+    monkeypatch.setattr(store, "query_database", query_database)
+    response, _ = provider._tool_search({"query": "unknown gadget", "database": "memory"})
+    assert "no certified memory" in response.lower()
+    assert "Unknown Gadget Recall" not in response
+    assert calls == []
+
+
+def test_search_partial_coverage_still_retrieves(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="phone"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
+    rows = [{"id": "1", "title": "Phone details", "properties": {"Content": "A phone"}}]
+    monkeypatch.setattr(store, "query_database", lambda *args, **kwargs: rows)
+    response, payload = provider._tool_search({"query": "phone unknown", "database": "memory"})
+    assert "Phone details" in response
+    assert payload["items"][0]["title"] == "Phone details"
+
+
+def test_check_answerable_zero_coverage_says_no_certified_memory(monkeypatch):
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: catalog.Catalog())
+    payload = json.loads(NotionBrainProvider().handle_tool_call(
+        "notion_brain_check_answerable", {"query": "unknown gadget"}
+    ))
+    assert "no certified memory" in payload["result"].lower()
