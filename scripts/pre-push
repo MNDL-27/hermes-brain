@@ -10,8 +10,7 @@
 
 set -euo pipefail
 
-skip="${HERMES_BRAIN_SKIP_PRE_PUSH:-0}"
-if [[ "$skip" != "0" ]]; then
+if [[ -n "${HERMES_BRAIN_SKIP_PRE_PUSH:-}" ]]; then
     echo "hermes-brain: pre-push hook skipped (HERMES_BRAIN_SKIP_PRE_PUSH set)"
     exit 0
 fi

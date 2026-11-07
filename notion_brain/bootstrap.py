@@ -678,7 +678,19 @@ def health_report(hermes_home: str | Path) -> str:
     cache = update_cache.load_cache(hermes_home)
     if cache and cache.get("drift"):
         latest = cache.get("latest") or "?"
-        lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+        drift_type = cache.get("drift_type") or ""
+        # Version-only (and legacy caches with no drift_type) keep the
+        # generic banner. Commit-only and both add cached behind-count
+        # and release URL; this read stays local (UPD-06/UPD-07).
+        if drift_type != "commit":
+            lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+        if drift_type in ("commit", "both"):
+            behind = int(cache.get("behind_commits") or 0)
+            release_url = cache.get("release_url") or ""
+            detail = f"behind {behind} commits"
+            if release_url:
+                detail = f"{detail} {release_url}"
+            lines.append(detail)
     elif cache and cache.get("latest"):
         lines.append(f"version: {cur} (latest: {cache.get('latest')})")
     else:

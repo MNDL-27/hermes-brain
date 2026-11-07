@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Release Polish** — Phases 1-3 (shipped 2026-09-21)
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
-- 🚧 **v1.2 Update UX & Tooling Polish** — Phases 7-8 (defined 2026-10-08, in progress)
+- ✅ **v1.2 Update UX & Tooling Polish** — Phases 7-8 (shipped 2026-11-07)
 - 📋 **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (defined 2026-11-02 from competitive research)
 - 📋 **v1.4 Semantic Brain Layer** — Phases 12-15 (defined 2026-11-06 from NVIDIA Auto-Ontology architecture study + user decisions)
 
@@ -36,8 +36,8 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 
 **Milestone goal:** Close the three loose ends called out at the v1.1 closeout — commit-level drift detection with release-notes links for git-clone installs, an opt-in pre-push pytest hook plus scheduled `pre-commit autoupdate` for contributors, and clearing the three pre-existing offline test-suite hangs so `pytest -q` is a usable release gate again. No new CLI surface beyond the drift UX rewrites, no Notion schema changes, no packaging rebuild, no new external integrations.
 
-- [ ] **Phase 7: Update UX — Commit-Level Drift + Release-Notes Link** - Git-clone installs behind `main` by N commits learn about it from `notion_brain update` and the cached auto-update check; the printed link lands on the release notes page
-- [ ] **Phase 8: Developer Tooling & Test Reliability** - Opt-in pre-push pytest hook, weekly `pre-commit autoupdate` workflow, and the three TEST-HANGS files cleared
+- [x] **Phase 7: Update UX — Commit-Level Drift + Release-Notes Link** (2/2 plans) — completed 2026-11-07
+- [x] **Phase 8: Developer Tooling & Test Reliability** (2/2 plans) — completed 2026-11-07
 
 ### v1.3 Brain Architecture & Freemium Foundation (Phases 9-11)
 
@@ -70,7 +70,7 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
   3. The update banner prints `https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z` (release notes), derived from the same tag the drift check resolves — copy-pasteable in every mode (UPD-07).
   4. No mutation: the command still never executes `pip install`, `git pull`, or any environment change (carried UPD-05 contract).
 
-**Plans**: TBD
+**Plans**: 2/2 plans — completed 2026-11-07
 
 ### Phase 8: Developer Tooling & Test Reliability
 
@@ -85,11 +85,11 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
   4. The full offline `pytest` run completes with zero hangs: `test_coverage_gaps`, `test_migration_privacy_blockers`, and `test_provider` each finish or fail within the CI timeout, with a root-cause note for each (TEST-HANGS).
   5. Total suite count does not shrink silently — any reclassified tests (e.g. network-marked) are counted and named; nothing is skipped without a recorded reason (TEST-HANGS).
 
-**Plans**: 2 plans
+**Plans**: 2/2 plans — completed 2026-11-07
 
 Plans:
-- [ ] 08-01-PLAN.md — commit TEST-HANGS hermetic infra + audit suite-count in PROJECT/STATE/REQUIREMENTS
-- [ ] 08-02-PLAN.md — opt-in `scripts/pre-push` hook + `.github/workflows/pre-commit-autoupdate.yml` (TOOL-01, TOOL-02)
+- [x] 08-01-PLAN.md — commit TEST-HANGS hermetic infra + audit suite-count in PROJECT/STATE/REQUIREMENTS
+- [x] 08-02-PLAN.md — opt-in `scripts/pre-push` hook + `.github/workflows/pre-commit-autoupdate.yml` (TOOL-01, TOOL-02)
 
 ---
 
