@@ -39,23 +39,47 @@ _QUERY_STOPWORDS = {
 }
 
 
-def _candidate_terms(query: str) -> list[str]:
+def _query_words(query: str) -> list[str]:
+    """Keep name punctuation (C++, C#, .NET), excluding sentence punctuation."""
+    return [
+        clean for word in re.findall(r"[\w'+#./:@-]+", query, flags=re.UNICODE)
+        if (clean := word.strip("'").rstrip(".:"))
+    ]
+
+
+def _candidate_terms(query: str, known_words: set[str]) -> list[str]:
     """Extract deterministic word candidates, excluding common question glue."""
-    words = re.findall(r"[\w'-]+", query, flags=re.UNICODE)
-    return list(dict.fromkeys(w for w in words if len(w) > 1 and w.lower() not in _QUERY_STOPWORDS))
+    words = _query_words(query)
+    return list(dict.fromkeys(
+        w for w in words
+        if (len(w) > 1 and w.lower() not in _QUERY_STOPWORDS) or w.casefold() in known_words
+    ))
+
+
+def _matching_name_words(query: str, names: tuple[str, ...]) -> set[str]:
+    """Return words covered by complete catalog names or aliases in the query."""
+    query_words = _query_words(query.casefold())
+    matched: set[str] = set()
+    for name in names:
+        words = _query_words(name.casefold())
+        if words and any(
+            query_words[start:start + len(words)] == words
+            for start in range(len(query_words) - len(words) + 1)
+        ):
+            matched.update(words)
+    return matched
 
 
 def check_answerable(query: str, catalog: "Catalog | None" = None) -> dict[str, Any]:
     """Score query-term coverage in the semantic catalog, with redacted output."""
     safe_query = _redact(str(query or ""))
     catalog = catalog if catalog is not None else Catalog().load()
-    candidates = _candidate_terms(safe_query)
-    known: dict[str, str] = {}
+    known: set[str] = set()
     for term in catalog._terms.values():
-        for name in (term.name, *term.synonyms):
-            known[name.casefold()] = term.name
+        known.update(_matching_name_words(safe_query, (term.name, *term.synonyms)))
     for entity in catalog._entities.values():
-        known[entity.name.casefold()] = entity.name
+        known.update(_matching_name_words(safe_query, (entity.name,)))
+    candidates = _candidate_terms(safe_query, known)
     matched: list[str] = []
     missing: list[str] = []
     for candidate in candidates:
@@ -310,6 +334,18 @@ class Catalog:
         return clean
 
     # ── query ─────────────────────────────────────────────────────────
+
+    def match_definitions(self, query: str) -> list[Term | Entity]:
+        """Match complete names or synonyms, including phrases, in a query."""
+        safe_query = _redact(str(query or ""))
+        matches: list[Term | Entity] = []
+        for term in self._terms.values():
+            if _matching_name_words(safe_query, (term.name, *term.synonyms)):
+                matches.append(term)
+        for entity in self._entities.values():
+            if _matching_name_words(safe_query, (entity.name,)):
+                matches.append(entity)
+        return matches
 
     def resolve_term(self, name: str) -> Term | None:
         """Resolve a term by exact match, then case-insensitively, then by synonym."""

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from notion_brain import catalog, store
 from notion_brain.provider import NotionBrainProvider
 
@@ -22,6 +24,55 @@ def test_check_answerable_zero_coverage_names_missing():
     result = catalog.check_answerable("unknown gadget")
     assert result["coverage"] == 0.0
     assert result["missing_terms"] == ["unknown", "gadget"]
+
+
+@pytest.mark.parametrize("definition, query", [
+    (catalog.Term(name="daily phone"), "Daily phone?"),
+    (catalog.Term(name="phone", synonyms=("mobile device",)), "mobile device"),
+    (catalog.Entity(name="Project Hermes"), "Project Hermes"),
+    (catalog.Entity(name="The Who"), "The Who"),
+])
+def test_answerability_matches_complete_multiword_definitions(definition, query):
+    graph = catalog.Catalog()
+    if isinstance(definition, catalog.Term):
+        graph.add_term(definition)
+    else:
+        graph.add_entity(definition)
+    result = catalog.check_answerable(query, graph)
+    assert result["answerable"] is True
+    assert result["coverage"] == 1.0
+    assert result["missing_terms"] == []
+    assert graph.match_definitions(query) == [definition]
+
+
+def test_answerability_does_not_match_fragments_of_multiword_alias():
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="city", synonyms=("New York",)))
+    result = catalog.check_answerable("New city York", graph)
+    assert result["matched_terms"] == ["city"]
+    assert result["missing_terms"] == ["New", "York"]
+    assert catalog.check_answerable("New", graph)["answerable"] is False
+
+
+@pytest.mark.parametrize("query, expected", [("C++?", "C++"), ("C#.", "C#"), ("C", None)])
+def test_definition_matching_preserves_significant_punctuation(query, expected):
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="C++"))
+    graph.add_term(catalog.Term(name="C#"))
+    assert [definition.name for definition in graph.match_definitions(query)] == (
+        [expected] if expected else []
+    )
+    result = catalog.check_answerable(query, graph)
+    assert result["answerable"] is (expected is not None)
+
+
+def test_coverage_does_not_conflate_punctuated_names():
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="C++"))
+    result = catalog.check_answerable("C++ C#", graph)
+    assert result["coverage"] == 0.5
+    assert result["matched_terms"] == ["C++"]
+    assert result["missing_terms"] == ["C#"]
 
 
 def test_answerability_tool_callable(monkeypatch):
@@ -109,7 +160,10 @@ def test_search_zero_coverage_blocks_near_miss(monkeypatch):
 
     monkeypatch.setattr(store, "query_database", query_database)
     response, _ = provider._tool_search({"query": "unknown gadget", "database": "memory"})
-    assert "no certified memory" in response.lower()
+    assert response == (
+        "No known semantic terms for unknown gadget were found in the catalog; "
+        "unable to verify answerability. Missing terms: unknown, gadget."
+    )
     assert "Unknown Gadget Recall" not in response
     assert calls == []
 
@@ -127,9 +181,15 @@ def test_search_partial_coverage_still_retrieves(monkeypatch):
     assert payload["items"][0]["title"] == "Phone details"
 
 
-def test_check_answerable_zero_coverage_says_no_certified_memory(monkeypatch):
+def test_check_answerable_zero_coverage_reports_catalog_uncertainty(monkeypatch):
     monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: catalog.Catalog())
     payload = json.loads(NotionBrainProvider().handle_tool_call(
         "notion_brain_check_answerable", {"query": "unknown gadget"}
     ))
-    assert "no certified memory" in payload["result"].lower()
+    assert payload["result"] == (
+        "No known semantic terms for unknown gadget were found in the catalog; "
+        "unable to verify answerability. Missing terms: unknown, gadget."
+    )
+    assert payload["answerable"] is False
+    assert payload["coverage"] == 0.0
+    assert payload["missing_terms"] == ["unknown", "gadget"]

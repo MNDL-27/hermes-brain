@@ -83,7 +83,6 @@ class NotionBrainProvider:
     def __init__(self) -> None:
         # Set by initialize()
         self._session_id: str = ""
-        self._user_confirmed = False
         self._hermes_home: str = ""
         self._db_ids: dict[str, str] = {}
         self._parent_page_id: str = ""
@@ -100,6 +99,12 @@ class NotionBrainProvider:
         # Update-check cache (CHK-01..CHK-05); populated in initialize()
         self._update_cache: dict[str, Any] | None = None
 
+    def _catalog_path(self) -> Path:
+        """Keep catalog reads and writes in the initialized provider's home."""
+        if self._hermes_home:
+            return Path(self._hermes_home) / "brain_catalog.json"
+        return semantic_catalog.catalog_path()
+
     # Core lifecycle
 
     @property
@@ -109,9 +114,8 @@ class NotionBrainProvider:
     def is_available(self) -> bool:
         return bool(store.get_api_key())
 
-    def initialize(self, session_id: str, user_confirmed: bool = False, **kwargs) -> None:
+    def initialize(self, session_id: str, **kwargs) -> None:
         self._session_id = session_id
-        self._user_confirmed = user_confirmed
         self._hermes_home = str(kwargs.get("hermes_home", ""))
 
         if not self._hermes_home:
@@ -448,7 +452,10 @@ class NotionBrainProvider:
                 )
         return schemas
 
-    def handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> str:
+    def handle_tool_call(
+        self, tool_name: str, arguments: dict[str, Any], *, user_confirmed: bool = False
+    ) -> str:
+        """Run a tool; trusted callers may confirm this exact certification call."""
         handlers = {
             "notion_brain_search": self._tool_search,
             "notion_brain_check_answerable": self._tool_check_answerable,
@@ -470,7 +477,11 @@ class NotionBrainProvider:
             )
 
         try:
-            result = handler(arguments)
+            result: str | tuple[str, dict[str, Any]]
+            if tool_name == "notion_brain_certify":
+                result = self._tool_certify(arguments, user_confirmed=user_confirmed)
+            else:
+                result = handler(arguments)
             if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
                 text_result, extra = result
                 payload: dict[str, Any] = {
@@ -590,15 +601,18 @@ class NotionBrainProvider:
             self._mirror_memory_cache(page_id, entry, target_db_id)
             self._supersede_matching_active(page_id, entry, target_db_id)
             if self._hermes_home and page_id and entry.entities:
-                graph = semantic_catalog.Catalog().load()
+                graph = semantic_catalog.Catalog().load(self._catalog_path())
+                known_entities = {entity.name.casefold() for entity in graph.list_entities()}
                 for entity_name in entry.entities:
                     clean_entity = S.redact_secrets(entity_name)
-                    graph.add_entity(semantic_catalog.Entity(name=clean_entity))
+                    if clean_entity.casefold() not in known_entities:
+                        graph.add_entity(semantic_catalog.Entity(name=clean_entity))
+                        known_entities.add(clean_entity.casefold())
                     graph.add_relation(semantic_catalog.Relation(
                         subject=clean_entity, predicate="related", object=page_id,
                         relation_type="edge",
                     ))
-                graph.save(Path(self._hermes_home) / "brain_catalog.json")
+                graph.save(self._catalog_path())
 
     def _prefetch_entries(self) -> list[dict[str, Any]]:
         """Read active memory rows from the local cache, else Notion.
@@ -769,14 +783,15 @@ class NotionBrainProvider:
         catalog = None
         if query:
             try:
-                catalog = semantic_catalog.Catalog().load(
-                    Path(self._hermes_home) / "brain_catalog.json"
-                )
+                catalog = semantic_catalog.Catalog().load(self._catalog_path())
                 coverage = semantic_catalog.check_answerable(query, catalog)
                 if coverage["coverage"] == 0.0:
                     safe_query = S.redact_secrets(query)
                     missing = ", ".join(coverage["missing_terms"])
-                    answer = f"No certified memory for {safe_query}. Missing terms: {missing}."
+                    answer = (
+                        f"No known semantic terms for {safe_query} were found in the catalog; "
+                        f"unable to verify answerability. Missing terms: {missing}."
+                    )
                     return S.redact_secrets(answer), {"items": [], "contradiction": []}
             except Exception:
                 catalog = None
@@ -793,6 +808,7 @@ class NotionBrainProvider:
         # every row (``query_database`` walks cursor pagination to exhaustion)
         # and apply the case-insensitive title match client-side below, so a
         # query narrows results identically with and without ``database``.
+        entry_databases: dict[str, str] = {}
         if database:
             # Search specific database
             db_id = self._db_ids.get(database)
@@ -800,6 +816,10 @@ class NotionBrainProvider:
                 return S.redact_secrets(f"No database found for: {database}")
 
             entries = store.query_database(db_id, page_size=max_results)
+            entry_databases.update({
+                store.normalize_id(str(row.get("id") or "")): store.normalize_id(db_id)
+                for row in entries if row.get("id")
+            })
             entries = _merge_disk_only(entries, disk_text)
         else:
             # Search all databases
@@ -807,6 +827,10 @@ class NotionBrainProvider:
             for db_id in self._db_ids.values():
                 try:
                     results = store.query_database(db_id, page_size=max_results)
+                    entry_databases.update({
+                        store.normalize_id(str(row.get("id") or "")): store.normalize_id(db_id)
+                        for row in results if row.get("id")
+                    })
                     all_entries.extend(results)
                 except Exception:
                     pass
@@ -816,37 +840,35 @@ class NotionBrainProvider:
         # failures are intentionally non-fatal: ordinary search remains intact.
         definitions: list[dict[str, Any]] = []
         expanded_needles: set[str] = set()
+        resolved_page_ids: set[str] = set()
+        resolved_database_ids: set[str] = set()
         if query:
             try:
                 if catalog is None:
-                    catalog = semantic_catalog.Catalog().load(
-                        Path(self._hermes_home) / "brain_catalog.json"
-                    )
-                query_tokens = {token.casefold() for token in query.split() if token}
-                matches: dict[str, Any] = {}
-                for definition in catalog._terms.values():
-                    names = [definition.name, *definition.synonyms]
-                    if query_tokens & {name.casefold() for name in names if name}:
-                        matches[definition.name.casefold()] = definition
-                        expanded_needles.update(names)
-                for entity_definition in catalog._entities.values():
-                    names = [entity_definition.name]
-                    if query_tokens & {name.casefold() for name in names if name}:
-                        matches[entity_definition.name.casefold()] = entity_definition
-                        expanded_needles.update(names)
+                    catalog = semantic_catalog.Catalog().load(self._catalog_path())
+                matches = catalog.match_definitions(query)
+                for definition in matches:
+                    expanded_needles.add(definition.name)
+                    if isinstance(definition, semantic_catalog.Term):
+                        expanded_needles.update(definition.synonyms)
                 if matches:
                     from . import adapters
                     notion_adapter = adapters.NotionAdapter(hermes_home=self._hermes_home)
                     import os
                     vault_path = os.environ.get("HERMES_OBSIDIAN_VAULT", "").strip()
                     obsidian_adapter = adapters.ObsidianVaultAdapter(vault_path) if vault_path else None
-                    for definition in matches.values():
+                    for definition in matches:
                         resolved: list[str] = []
                         for ref in definition.storage_refs:
                             adapter_name = str(ref.adapter_name).casefold()
                             locator = None
                             if adapter_name.startswith("notion"):
                                 locator = notion_adapter.resolve_storage_ref(ref)
+                                if locator is not None:
+                                    if ref.locator.casefold().startswith(("db/", "db:", "database/", "database:")):
+                                        resolved_database_ids.add(store.normalize_id(locator))
+                                    else:
+                                        resolved_page_ids.add(store.normalize_id(locator))
                             elif adapter_name.startswith("obsidian") and obsidian_adapter is not None:
                                 locator = obsidian_adapter.resolve_storage_ref(ref)
                             if locator is not None:
@@ -861,13 +883,24 @@ class NotionBrainProvider:
             except Exception:
                 definitions = []
                 expanded_needles.clear()
+                resolved_page_ids.clear()
+                resolved_database_ids.clear()
 
-        # Case-insensitive title/content refinement, including catalog aliases.
+        # Current recall excludes superseded history; timeline/related expose it.
+        entries = [
+            entry for entry in entries
+            if str((entry.get("properties") or {}).get("Status") or "active").casefold() != "superseded"
+        ]
+
+        # Concrete references select only rows from the queried databases.
+        # Alias text matching remains available for definitions without refs.
         if query:
             needles = {query.casefold(), *(needle.casefold() for needle in expanded_needles)}
             entries = [
                 e for e in entries
-                if any(needle in (str(e.get("title") or "") + " " + str((e.get("properties") or {}).get("Content") or "")).casefold()
+                if store.normalize_id(str(e.get("id") or "")) in resolved_page_ids
+                or entry_databases.get(store.normalize_id(str(e.get("id") or ""))) in resolved_database_ids
+                or any(needle in (str(e.get("title") or "") + " " + str((e.get("properties") or {}).get("Content") or "")).casefold()
                        for needle in needles)
             ]
 
@@ -933,17 +966,21 @@ class NotionBrainProvider:
 
     def _tool_check_answerable(self, args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         query = S.redact_secrets(str(args.get("query") or ""))
-        result = semantic_catalog.check_answerable(query)
+        catalog = semantic_catalog.Catalog().load(self._catalog_path())
+        result = semantic_catalog.check_answerable(query, catalog)
         if result["coverage"] == 0.0:
             missing = ", ".join(result["missing_terms"])
-            message = f"No certified memory for {query}. Missing terms: {missing}."
+            message = (
+                f"No known semantic terms for {query} were found in the catalog; "
+                f"unable to verify answerability. Missing terms: {missing}."
+            )
         else:
             message = f"Catalog term coverage: {result['coverage']:.2f}."
         return message, result
 
     def _tool_search_terms(self, args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         query = S.redact_secrets(str(args.get("query") or ""))
-        terms = semantic_catalog.Catalog().load().search_terms(query)
+        terms = semantic_catalog.Catalog().load(self._catalog_path()).search_terms(query)
         return ("\n".join(terms) if terms else "No glossary terms found.", {"terms": terms})
 
     @staticmethod
@@ -962,7 +999,7 @@ class NotionBrainProvider:
         start = S.redact_secrets(str(args.get("start_id") or args.get("query") or "").strip())
         if not start:
             return ("A memory id or name is required.", {"items": []})
-        graph = semantic_catalog.Catalog().load()
+        graph = semantic_catalog.Catalog().load(self._catalog_path())
         resolved = start
         db_id = self._db_ids.get("memory")
         rows = store.query_database(db_id, page_size=100) if db_id else []
@@ -1020,7 +1057,7 @@ class NotionBrainProvider:
         self, page_id: str, entry: S.BrainEntry, database_id: str
     ) -> None:
         """Best-effort history flip after the successful current-row write."""
-        if (not entry.metadata.get("subject_key")
+        if (not page_id or not entry.metadata.get("subject_key")
                 or store.normalize_id(database_id) != store.normalize_id(self._db_ids.get("memory", ""))):
             return
         subject_key = S.redact_secrets(str(entry.metadata.get("subject_key") or "")).strip()
@@ -1041,6 +1078,24 @@ class NotionBrainProvider:
                         or str(props.get("Status") or "active").casefold() != "active"):
                     continue
                 store.update_page(old_id, {"Status": status_property}, expected_database_id=database_id)
+                if "Superseded Page ID" in schema_props:
+                    try:
+                        store.update_page(
+                            page_id,
+                            {"Superseded Page ID": store.rich_text_property(old_id)},
+                            expected_database_id=database_id,
+                        )
+                    except Exception as exc:
+                        logger.warning("Supersession predecessor link failed: %s", S.redact_secrets(str(exc)))
+                try:
+                    graph = semantic_catalog.Catalog().load(self._catalog_path())
+                    graph.add_relation(semantic_catalog.Relation(
+                        subject=page_id, predicate="supersedes", object=old_id,
+                        relation_type="edge",
+                    ))
+                    graph.save(self._catalog_path())
+                except Exception as exc:
+                    logger.warning("Supersession catalog update failed: %s", S.redact_secrets(str(exc)))
                 if self._hermes_home:
                     brain_cache.upsert_active(
                         self._hermes_home, page_id=old_id,
@@ -1060,9 +1115,9 @@ class NotionBrainProvider:
         recency = str(props.get("Last Seen") or entry.get("last_edited_time") or entry.get("created_time") or "")
         return recency, int(str(props.get("Truth") or "inferred").lower() == "certified")
 
-    def _tool_certify(self, args: dict[str, Any]) -> str:
-        """Certify one memory only when the orchestrator supplies explicit confirmation."""
-        if not self._user_confirmed:
+    def _tool_certify(self, args: dict[str, Any], *, user_confirmed: bool = False) -> str:
+        """Certify one memory only with explicit confirmation for this invocation."""
+        if user_confirmed is not True:
             return "Error: orchestrator confirmation is required"
         db_id = self._db_ids.get("memory")
         if not db_id:
@@ -1115,16 +1170,12 @@ class NotionBrainProvider:
                                 {"Superseded Page ID": store.rich_text_property(predecessor_id)},
                                 expected_database_id=db_id,
                             )
-                        graph = semantic_catalog.Catalog().load()
+                        graph = semantic_catalog.Catalog().load(self._catalog_path())
                         graph.add_relation(semantic_catalog.Relation(
                             subject=page_id, predicate="supersedes", object=predecessor_id,
                             relation_type="edge",
                         ))
-                        catalog_target = (
-                            Path(self._hermes_home) / "brain_catalog.json"
-                            if self._hermes_home else None
-                        )
-                        graph.save(catalog_target)
+                        graph.save(self._catalog_path())
                         if self._hermes_home:
                             brain_cache.upsert_active(
                                 self._hermes_home, page_id=str(older.get("id") or ""),

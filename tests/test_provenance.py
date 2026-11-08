@@ -79,8 +79,7 @@ def test_supersession_creates_catalog_edge(monkeypatch, tmp_path):
     }})
     calls = []
     monkeypatch.setattr(store, "update_page", lambda page_id, properties, **kwargs: calls.append((page_id, properties)))
-    provider._user_confirmed = True
-    assert provider._tool_certify({"memory_id": "new"}) == "Certified: Current"
+    assert provider._tool_certify({"memory_id": "new"}, user_confirmed=True) == "Certified: Current"
     assert any(page_id == "new" and properties.get("Superseded Page ID", {}).get("rich_text") for page_id, properties in calls)
     payload = json.loads((tmp_path / "brain_catalog.json").read_text())
     assert {"subject": "new", "predicate": "supersedes", "object": "old", "relation_type": "edge"} in payload["relations"]
