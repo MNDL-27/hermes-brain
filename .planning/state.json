@@ -52,7 +52,7 @@
   "next": {
     "command": "/gsd-plan-phase 9 --gaps",
     "label": "Close Phase 9 retrieval/cache/budget gaps",
-    "reason": "Audit found RET-02/RET-03 gaps and missing original GSD closure evidence for Phases 9–15. Semantic fixes are committed in fb7ec04; prerequisite integration and push are pending. Continue approved phases in order; v1.5 is undefined."
+    "reason": "Audit found incomplete Phase 9 retrieval. v1.2 prerequisite is integrated; push verified corrections, then execute the Phase 9 gap-closure plan."
   },
   "updated_at": "2026-11-08T22:01:00Z"
 }
