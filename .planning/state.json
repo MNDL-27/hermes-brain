@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 9 --gaps",
-    "label": "Close Phase 9 retrieval/cache/budget gaps",
-    "reason": "Audit found incomplete Phase 9 retrieval. v1.2 prerequisite is integrated; push verified corrections, then execute the Phase 9 gap-closure plan."
+    "command": "/gsd-execute-phase 9 --gaps-only",
+    "label": "Execute Phase 9 retrieval gap closure",
+    "reason": "Plan 09-02 passed checking. Baseline and v1.2 integration pushed as24ce18b; repair RET-02/03 before later phases."
   },
-  "updated_at": "2026-11-08T22:01:00Z"
+  "updated_at": "2026-11-08T22:09:55Z"
 }

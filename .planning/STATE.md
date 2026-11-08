@@ -2,7 +2,7 @@
 gsd_state_version: "1.0"
 milestone: v1.3
 milestone_name: Brain Architecture & Freemium Foundation
-status: planning
+status: executing
 current_phase: 9
 current_phase_name: Retrieval Correctness & Local Read-Through Cache
 last_updated: "2026-11-08T22:01:43Z"
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-09)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** Phase 9 gap closure within the approved v1.3 → v1.4 sequence. The GSD audit found code gaps and missing original phase closure evidence. Semantic follow-up fixes are committed in `fb7ec04`; the v1.2 prerequisite is integrated in the pending merge; the user-authorized push is next. v1.5 remains undefined.
+**Current focus:** Phase 9 gap closure within the approved v1.3 → v1.4 sequence. The GSD audit found code gaps and missing original phase closure evidence. Semantic follow-up fixes are committed in `fb7ec04`; the v1.2 prerequisite is integrated and the verified baseline is pushed as `24ce18b`. v1.5 remains undefined.
 
 ## Current Position
 
 Milestone: v1.3 — Brain Architecture & Freemium Foundation (gap closure)
 Phase: 9 of 15 — Retrieval Correctness & Local Read-Through Cache
-Status: Planning gap closure for RET-02 and RET-03
-Next position: `/gsd-plan-phase 9 --gaps`; see [milestone audit](v1.4-MILESTONE-AUDIT.md)
+Status: Executing checked gap-closure plan 09-02 for RET-01/02/03
+Next position: `/gsd-execute-phase 9 --gaps-only`; see [milestone audit](v1.4-MILESTONE-AUDIT.md)
 Last activity: 2026-11-09 — verification reopened Phases 9–15; current automated baseline is green but does not prove all approved requirements
 
 Phases 1–8 retain their prior closeout history. The 8/15 progress count carries that historical status; none of Phases 9–15 has complete original GSD SUMMARY/VERIFICATION evidence. Their implementations exist, but the old 15/15 completion claim is superseded.
 
-Implementation history: v1.3 `7b78b98`, `7ceaafb`, `71e7122`; v1.4 `da6b1d4`, `700221c`, `c5e829e`, `6208569`; semantic review fixes `fb7ec04`. Commit existence, automated verification, push, merge and release are separate observations. Push/merge/release: pending, not claimed.
+Implementation history: v1.3 `7b78b98`, `7ceaafb`, `71e7122`; v1.4 `da6b1d4`, `700221c`, `c5e829e`, `6208569`; semantic review fixes `fb7ec04`. Commit existence, automated verification, push, merge and release are separate observations. Prerequisite merge and feature-branch push: observed at `24ce18b`. Merge to main/release: not performed.
 
 ## Execution Order (user-confirmed 2026-11-06)
 
@@ -84,7 +84,7 @@ All milestone decisions logged in PROJECT.md Key Decisions table (v1.0 + v1.1 se
 - Phase 9: cold Notion reads do not populate the SQLite cache; fallback can include superseded rows; disk context and contradiction output bypass the total injection budget.
 - Later approved work: background subject-key inference and same-title history (Phase 10), adapter routing/runtime selection (Phase 11), certification failure isolation (Phase 13), and cached/prompt provenance (Phase 14).
 - Original GSD SUMMARY/VERIFICATION artifacts for Phases 9–15 are missing. Reconcile from actual evidence; do not infer completion from checkboxes or suite counts.
-- The pending merge incorporates v1.2 follow-ups through `752fc51`, including the executable pre-push hook. Current GSD audit state takes precedence over the older closeout metadata. Remote push is pending.
+- The merge at `24ce18b` incorporates v1.2 follow-ups through `752fc51`, including the executable pre-push hook. Remote feature-branch SHA was independently checked after push.
 - The external Hermes host must collect user approval and supply per-call certification confirmation. This package exposes the boundary, not that UI.
 
 ## Deferred Items
@@ -116,7 +116,7 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 ## Session Continuity
 
 Last session: 2026-11-09
-Stopped at: GSD audit recorded; semantic fixes committed in `fb7ec04`; prerequisite integrated; push pending; Phase 9 gap closure is next
+Stopped at: GSD audit recorded; baseline pushed at `24ce18b`; plan 09-02 checked and Phase 9 gap closure executing
 Resume file: `.planning/phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md`
 
 ## Operator Next Steps
@@ -129,3 +129,7 @@ Resume file: `.planning/phases/09-retrieval-correctness-local-cache/09-VERIFICAT
 ## Prerequisite integration
 
 The v1.2-only branch recorded **407 passed, 1 deselected** in its isolated baseline. Follow-ups `c42ac35`, `9af9d7e`, and `752fc51` are integrated here; the v1.2 archive retains that branch history. Planning conflicts preserve this branch's later audit and Phase 9 gap-closure state.
+
+## Active gap plan
+
+[09-02-PLAN.md](phases/09-retrieval-correctness-local-cache/09-02-PLAN.md) passed independent GSD plan checking with no blockers. Execution follows the verified 519-test baseline; later phase gaps remain open.
