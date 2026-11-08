@@ -1,7 +1,7 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v1.2 — Update UX & Tooling Polish",
+  "milestone": "v1.3 — Brain Architecture & Freemium Foundation (gap closure)",
   "phases": [
     {
       "number": "7",
@@ -16,7 +16,7 @@
     {
       "number": "9",
       "name": "Retrieval Correctness & Local Read-Through Cache",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "number": "10",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-discuss-phase 9",
-    "label": "Discuss Phase 9: Retrieval Correctness & Local Read-Through Cache",
-    "reason": "v1.2 complete — begin planning the next phase"
+    "command": "/gsd-plan-phase 9 --gaps",
+    "label": "Close Phase 9 retrieval/cache/budget gaps",
+    "reason": "Audit found RET-02/RET-03 gaps and missing original GSD closure evidence for Phases 9–15. Semantic fixes are committed in fb7ec04; prerequisite integration and push are pending. Continue approved phases in order; v1.5 is undefined."
   },
-  "updated_at": "2026-11-07T07:51:05Z"
+  "updated_at": "2026-11-08T22:01:00Z"
 }

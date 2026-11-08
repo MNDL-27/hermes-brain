@@ -2,7 +2,7 @@ You are implementing v1.4 Phase 13 (CERT-01..03) in /home/protik/projects/hermes
 
 Requirements:
 - CERT-01: Memories carry a truth status. Add a Notion select property `Truth` on the Memory DB with options `inferred` and `certified` (default `inferred` for agent-written rows). Retrieval prefers certified facts over inferred facts at equal recency: implement the ordering in the search/prefetch path so certified rows rank first when recency ties.
-- CERT-02: ONLY explicit user confirmation promotes inferred -> certified. Add dedicated `notion_brain_certify` action registered in `notion_brain/schemas.py`, accepting memory id/title plus `user_confirmed: true`. Provider rejects certification unless this exact flag is present and true; normal agent-facing remember cannot set Truth. UI/orchestrator is responsible for supplying the flag after a real user confirmation; the provider must not infer confirmation from free-text or agent intent.
+- CERT-02: ONLY explicit user confirmation promotes inferred -> certified. The dedicated `notion_brain_certify` tool accepts a memory id/title; confirmation is never part of its agent-facing arguments or schema. After the user approves that exact call, the trusted UI/orchestrator invokes `handle_tool_call("notion_brain_certify", approved_arguments, user_confirmed=True)` using a keyword-only control parameter. The provider requires `user_confirmed is True` for that invocation alone; confirmation never persists across calls and `initialize` cannot grant it. Normal agent-facing remember cannot set Truth. Never derive confirmation from tool arguments, free-text, or agent intent.
 - CERT-03: A certified correction supersedes conflicting inferred rows immediately: when a row is certified and an existing ACTIVE row shares the same Subject Key, flip the older row to Status: Superseded (reuse Phase 10 supersession machinery). Historical rows are preserved.
 
 Hard rules:
@@ -15,6 +15,8 @@ Tests (tests/test_certification.py):
 - agent remember defaults Truth=inferred
 - certify action flips to certified
 - normal remember path cannot set certified
+- tool arguments and non-boolean confirmation values cannot authorize certification
+- confirmed calls do not authorize later calls; initialization cannot authorize certification
 - retrieval orders certified before inferred at equal recency
 - certified row supersedes conflicting inferred row with same subject key
 - bootstrap schema match stays true with the new property

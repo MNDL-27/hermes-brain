@@ -3,7 +3,9 @@
 **Defined:** 2026-09-19 (v1.0) — Last reset: 2026-10-08 (v1.2 selection from v1.1 carryover)
 **Core Value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
 
-**Milestone:** v1.2 — Update UX & Tooling Polish (intake accepted via Paperclip interaction `5246bf23` at 2026-10-08T07:48Z; previously approved at the v1.1 milestone closeout as the next-milestone scope)
+**Historical v1.2 intake:** Update UX & Tooling Polish (intake accepted via Paperclip interaction `5246bf23` at 2026-10-08T07:48Z; previously approved at the v1.1 milestone closeout as the next-milestone scope)
+
+**Current work:** v1.3 Phase 9 gap closure, followed by the remaining approved Phases 10–15 in order. v1.5 remains undefined.
 
 ## v1.2 Requirements
 
@@ -23,55 +25,57 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **TEST-HANGS**: Investigate and resolve the three pre-existing offline test-suite hangs accepted as v1.1 known gaps — `test_coverage_gaps`, `test_migration_privacy_blockers`, and `test_provider` — so the full offline `pytest` run finishes within the existing CI timeout and remains a usable release gate. Pre-existing hangs must be **fixed**, not silently `@pytest.mark.skip`ed.
 
-## v1.3 Requirements (Defined 2026-11-02 — shipped 2026-11-07)
+## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
+
+Audit 2026-11-09: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–15 lack their original SUMMARY/VERIFICATION evidence; eight requirements also have concrete code gaps. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
 ### Retrieval Correctness (RET)
 
-- [x] **RET-01**: Prefetch hydrates non-empty summary text per row by reading a `Summary` rich-text property or hydrating page body blocks; no more blank `- [kind] Title: ` prefetch lines.
-- [x] **RET-02**: A local SQLite read-through cache mirrors active memory rows; turn-zero prefetch completes offline in <5ms with zero Notion API calls; the existing background worker drains writes to Notion.
-- [x] **RET-03**: Prompt injection is hard-capped at 800 tokens split into Lane 1 (pinned identity/warnings/decisions, 400 tok) and Lane 2 (dynamic per-turn context, 400 tok), with deterministic overflow trimming.
+- [ ] **RET-01**: Prefetch hydrates non-empty summary text per row by reading a `Summary` rich-text property or hydrating page body blocks; no more blank `- [kind] Title: ` prefetch lines.
+- [ ] **RET-02**: A local SQLite read-through cache mirrors active memory rows; turn-zero prefetch completes offline in <5ms with zero Notion API calls; the existing background worker drains writes to Notion.
+- [ ] **RET-03**: Prompt injection is hard-capped at 800 tokens split into Lane 1 (pinned identity/warnings/decisions, 400 tok) and Lane 2 (dynamic per-turn context, 400 tok), with deterministic overflow trimming.
 
 ### Supersession (SUP)
 
-- [x] **SUP-01**: Memory rows carry a `Subject Key` logical slot (e.g. `device.daily_phone`, `preferences.engine_cc`); detection infers it from content with an explicit override parameter.
-- [x] **SUP-02**: Writing a fact whose `Subject Key` matches an existing active row marks the older row `Status: Superseded` (non-destructive; history preserved) instead of leaving contradictions.
-- [x] **SUP-03**: Superseded history stays queryable (recall-as-of / timeline listing) so past truths remain auditable.
+- [ ] **SUP-01**: Memory rows carry a `Subject Key` logical slot (e.g. `device.daily_phone`, `preferences.engine_cc`); detection infers it from content with an explicit override parameter.
+- [ ] **SUP-02**: Writing a fact whose `Subject Key` matches an existing active row marks the older row `Status: Superseded` (non-destructive; history preserved) instead of leaving contradictions.
+- [ ] **SUP-03**: Superseded history stays queryable (recall-as-of / timeline listing) so past truths remain auditable.
 
 ### Storage Adapter & Freemium (ADAPT)
 
-- [x] **ADAPT-01**: A `StorageAdapter` protocol abstracts `search`, `remember`, `supersede`, `prefetch`, `health`.
-- [x] **ADAPT-02**: The current Notion code path is refactored behind `NotionAdapter` with no behavior change for existing users.
-- [x] **ADAPT-03**: A premium entitlement check (license token) gates non-free storage adapters; unentitled selection falls back to Notion with an upgrade notice.
-- [x] **ADAPT-04**: An `ObsidianVaultAdapter` premium adapter (markdown + SQLite index inside the user's vault) is specified and scaffolded behind the entitlement check; free tier remains Notion-only.
+- [ ] **ADAPT-01**: A `StorageAdapter` protocol abstracts `search`, `remember`, `supersede`, `prefetch`, `health`.
+- [ ] **ADAPT-02**: The current Notion code path is refactored behind `NotionAdapter` with no behavior change for existing users.
+- [ ] **ADAPT-03**: A premium entitlement check (license token) gates non-free storage adapters; unentitled selection falls back to Notion with an upgrade notice.
+- [ ] **ADAPT-04**: An `ObsidianVaultAdapter` premium adapter (markdown + SQLite index inside the user's vault) is specified and scaffolded behind the entitlement check; free tier remains Notion-only.
 
-## v1.4 Requirements (Defined 2026-11-06 — shipped 2026-11-07)
+## v1.4 Requirements (Defined 2026-11-06 — implementation present, closure unverified)
 
 Requirements derived from the Auto Ontology semantic-layer architecture study (github.com/NVIDIA/auto-ontology) and user-confirmed decisions of 2026-11-06. Builds on v1.3's StorageAdapter (ADAPT-01..04), local cache (RET-02), and supersession (SUP-01..03).
 
 ### Semantic Catalog (CAT)
 
-- [x] **CAT-01**: A provider-neutral semantic catalog model (Terms with description/synonyms, typed Entities, Relations) lives in core, independent of any StorageAdapter; both NotionAdapter and ObsidianVaultAdapter map the catalog into their backing store.
-- [x] **CAT-02**: The catalog is queryable deterministically (`resolve_term`, `list_entities`, `get_relations`) without LLM inference in the read path.
-- [x] **CAT-03**: Terms can map to concrete storage locations (Notion database/property, Obsidian note/section) so retrieval resolves through definitions instead of raw fuzzy search.
+- [ ] **CAT-01**: A provider-neutral semantic catalog model (Terms with description/synonyms, typed Entities, Relations) lives in core, independent of any StorageAdapter; both NotionAdapter and ObsidianVaultAdapter map the catalog into their backing store.
+- [ ] **CAT-02**: The catalog is queryable deterministically (`resolve_term`, `list_entities`, `get_relations`) without LLM inference in the read path.
+- [ ] **CAT-03**: Terms can map to concrete storage locations (Notion database/property, Obsidian note/section) so retrieval resolves through definitions instead of raw fuzzy search.
 
 ### Certification (CERT)
 
-- [x] **CERT-01**: Memories carry a truth status `inferred` (agent-written) vs `certified` (user-confirmed); retrieval prefers certified facts over inferred ones at equal recency.
-- [x] **CERT-02**: Only user confirmation promotes inferred → certified; agents may flag/suggest certification candidates but can never self-certify.
-- [x] **CERT-03**: A certified correction supersedes conflicting inferred rows immediately (integrates with SUP-02 status flipping).
+- [ ] **CERT-01**: Memories carry a truth status `inferred` (agent-written) vs `certified` (user-confirmed); retrieval prefers certified facts over inferred ones at equal recency.
+- [ ] **CERT-02**: Only user confirmation promotes inferred → certified; agents may flag/suggest certification candidates but can never self-certify.
+- [ ] **CERT-03**: A certified correction supersedes conflicting inferred rows immediately (integrates with SUP-02 status flipping).
 
 ### Provenance & Graph (PROV)
 
-- [x] **PROV-01**: Every recalled fact returns provenance: source (agent/session), timestamp, and current status/certification level.
-- [x] **PROV-02**: Supersession is stored as an explicit relation edge (`supersedes`) rather than only a status flag, keeping the historical chain auditable (extends SUP-03).
-- [x] **PROV-03**: Related entities are reachable by graph traversal (e.g. "decisions affecting project X") via stored links, not just text similarity.
+- [ ] **PROV-01**: Every recalled fact returns provenance: source (agent/session), timestamp, and current status/certification level.
+- [ ] **PROV-02**: Supersession is stored as an explicit relation edge (`supersedes`) rather than only a status flag, keeping the historical chain auditable (extends SUP-03).
+- [ ] **PROV-03**: Related entities are reachable by graph traversal (e.g. "decisions affecting project X") via stored links, not just text similarity.
 
 ### Answerability Gate (ANS)
 
-- [x] **ANS-01**: Before fuzzy retrieval, a coverage check resolves the question's entities/terms against the catalog; zero coverage yields a deterministic "no certified memory for X" answer instead of a near-miss recall.
-- [x] **ANS-02**: Conflicting candidates (same subject, both active, divergent values) are surfaced as a contradiction instead of silently returning one row.
+- [ ] **ANS-01**: Before fuzzy retrieval, a coverage check resolves the question's entities/terms against the catalog; zero coverage reports that no known semantic terms were found and answerability cannot be verified, naming the missing terms. It blocks near-miss recall without claiming that no certified memory exists.
+- [ ] **ANS-02**: Conflicting candidates (same subject, both active, divergent values) are surfaced as a contradiction instead of silently returning one row.
 
 ## Traceability
 
@@ -82,27 +86,27 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | TOOL-01 | Phase 8 | Completed |
 | TOOL-02 | Phase 8 | Completed |
 | TEST-HANGS | Phase 8 | Completed |
-| RET-01 | Phase 9 | Completed |
-| RET-02 | Phase 9 | Completed |
-| RET-03 | Phase 9 | Completed |
-| SUP-01 | Phase 10 | Completed |
-| SUP-02 | Phase 10 | Completed |
-| SUP-03 | Phase 10 | Completed |
-| ADAPT-01 | Phase 11 | Completed |
-| ADAPT-02 | Phase 11 | Completed |
-| ADAPT-03 | Phase 11 | Completed |
-| ADAPT-04 | Phase 11 | Completed |
-| CAT-01 | Phase 12 | Completed |
-| CAT-02 | Phase 12 | Completed |
-| CAT-03 | Phase 12 | Completed |
-| CERT-01 | Phase 13 | Completed |
-| CERT-02 | Phase 13 | Completed |
-| CERT-03 | Phase 13 | Completed |
-| PROV-01 | Phase 14 | Completed |
-| PROV-02 | Phase 14 | Completed |
-| PROV-03 | Phase 14 | Completed |
-| ANS-01 | Phase 15 | Completed |
-| ANS-02 | Phase 15 | Completed |
+| RET-01 | Phase 9 | Implementation observed — GSD closure unverified |
+| RET-02 | Phase 9 | Gaps found — cold read-through cache is not populated |
+| RET-03 | Phase 9 | Gaps found — disk fallback and contradictions bypass the budget |
+| SUP-01 | Phase 10 | Gaps found — background ingestion does not infer subject keys |
+| SUP-02 | Phase 10 | Gaps found — same-title overwrite and cold fallback lose history/current-state filtering |
+| SUP-03 | Phase 10 | Implementation observed — GSD closure unverified |
+| ADAPT-01 | Phase 11 | Implementation observed — GSD closure unverified |
+| ADAPT-02 | Phase 11 | Gaps found — provider operations bypass the adapter |
+| ADAPT-03 | Phase 11 | Gaps found — runtime adapter selection/fallback is absent |
+| ADAPT-04 | Phase 11 | Implementation observed — GSD closure unverified |
+| CAT-01 | Phase 12 | Implementation observed — GSD closure unverified |
+| CAT-02 | Phase 12 | Implementation observed — GSD closure unverified |
+| CAT-03 | Phase 12 | Implementation observed — GSD closure unverified |
+| CERT-01 | Phase 13 | Implementation observed — GSD closure unverified |
+| CERT-02 | Phase 13 | Implementation observed — GSD closure unverified |
+| CERT-03 | Phase 13 | Gaps found — provenance failure skips cache/remaining supersessions |
+| PROV-01 | Phase 14 | Gaps found — cached metadata and prompt provenance are incomplete |
+| PROV-02 | Phase 14 | Implementation observed — GSD closure unverified |
+| PROV-03 | Phase 14 | Implementation observed — GSD closure unverified |
+| ANS-01 | Phase 15 | Implementation observed — GSD closure unverified |
+| ANS-02 | Phase 15 | Implementation observed — GSD closure unverified |
 
 **Coverage:**
 - v1.2 requirements: 5 total
@@ -111,9 +115,11 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 - Dropped: 0
 - Adjusted: 0
 - Deferred to next milestone: 0
-- v1.3 requirements: 10 total — shipped and verified 10 (2026-11-07)
-- v1.4 requirements: 11 total — shipped and verified 11 (2026-11-07)
-- v1.3/v1.4 mapped to phases 9-15 ✓; full gate at closeout: 487 passed, 1 deselected, ruff + mypy clean
+- v1.3 requirements: 10 total — 6 with concrete gaps; 4 with implementation observed but closure unverified
+- v1.4 requirements: 11 total — 2 with concrete gaps; 9 with implementation observed but closure unverified
+- Original GSD closure evidence for Phases 9–15: missing; no requirement in these phases is marked complete by this audit
+- Current automated baseline: 519 passed, 1 deselected (7.17s); Ruff and mypy clean across 52 source files. Passing tests do not close the identified requirement gaps
+- Historical 2026-11-07 closeout report: 487 passed, 1 deselected, Ruff/mypy clean; its blanket completion claim is superseded by the 2026-11-09 audit
 
 ## Out of Scope (v1.2)
 
@@ -128,4 +134,4 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ---
 *Requirements defined: 2026-10-08 (selected from `v1.1-REQUIREMENTS.md` §Future Requirements UPD-06/07, TOOL-01/02 and v1.1 `MILESTONES.md` known-gap #1).*
-*Last updated: 2026-11-07 — v1.3/v1.4 requirements closeout (Phases 9-15 shipped; full gate 487 passed, 1 deselected).*
+*Last updated: 2026-11-09 — audit reconciliation; Phase 9 gap closure active and later approved work remains unverified.*
