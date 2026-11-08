@@ -11,6 +11,8 @@ same prompt.
 
 from __future__ import annotations
 
+import re
+
 from .brain_cache import is_pinned_kind
 
 LANE1_TOKEN_BUDGET = 400
@@ -23,6 +25,29 @@ def count_tokens(text: str) -> int:
     if not text or not text.strip():
         return 0
     return len(text.split())
+
+
+def trim_tokens(text: str, budget: int) -> str:
+    """Retain a bounded prefix while preserving whitespace within that prefix."""
+    if budget <= 0:
+        return ""
+    words = list(re.finditer(r"\S+", text))
+    if len(words) <= budget:
+        return text.strip()
+    return text[:words[budget - 1].end()].strip()
+
+
+def render_disk_context(memory_text: str, user_text: str) -> str:
+    """Fit disk identity and dynamic memory into their respective lanes."""
+    if not memory_text.strip() and not user_text.strip():
+        return ""
+    marker = "<!-- memory-context from disk -->"
+    lines = [("identity", marker)]
+    if user_text.strip():
+        lines.append(("identity", trim_tokens(user_text, LANE1_TOKEN_BUDGET - count_tokens(marker))))
+    if memory_text.strip():
+        lines.append(("note", trim_tokens(memory_text, LANE2_TOKEN_BUDGET)))
+    return render_injection(lines)
 
 
 def _fit_lines(lines: list[str], budget: int) -> tuple[list[str], int]:

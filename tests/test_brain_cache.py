@@ -91,3 +91,37 @@ def test_newer_schema_is_left_unchanged(tmp_path) -> None:
     conn.close()
     assert after == before
     assert version == ("999",)
+
+
+def test_uninitialized_cache_file_is_a_miss(tmp_path) -> None:
+    brain_cache.cache_path(tmp_path).touch()
+    assert brain_cache.list_active(tmp_path) is None
+
+
+def test_read_population_is_atomic_and_failed_initialization_remains_miss(tmp_path) -> None:
+    conn = sqlite3.connect(brain_cache.cache_path(tmp_path))
+    conn.row_factory = sqlite3.Row
+    brain_cache._ensure_schema(conn)
+    conn.execute("""
+        CREATE TRIGGER reject_bad_row BEFORE INSERT ON memory_rows
+        WHEN NEW.page_id = 'bad'
+        BEGIN SELECT RAISE(ABORT, 'simulated disk write failure'); END
+    """)
+    conn.commit()
+    conn.close()
+    rows = [
+        {"id": page_id, "title": page_id, "properties": {"Content": "A value"}}
+        for page_id in ("first", "bad")
+    ]
+    assert not brain_cache.populate_from_read(tmp_path, rows)
+    assert brain_cache.list_active(tmp_path) is None
+    with sqlite3.connect(brain_cache.cache_path(tmp_path)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM memory_rows").fetchone()[0] == 0
+
+
+def test_empty_read_population_preserves_existing_accepted_rows(tmp_path) -> None:
+    assert brain_cache.upsert_active(tmp_path, page_id="accepted", title="Accepted", kind="fact", content="New value")
+    assert brain_cache.populate_from_read(tmp_path, [])
+    rows = brain_cache.list_active(tmp_path)
+    assert rows is not None
+    assert [row["id"] for row in rows] == ["accepted"]

@@ -145,8 +145,10 @@ class NotionBrainProvider:
             user_text = bootstrap.read_user_from_disk(self._hermes_home)
             combined = "\n".join(filter(None, [mem_text, user_text])).strip()
             if combined:
-                # Store as local fallback; prefetch() will use it
-                self._prefetch_cache = "<!-- memory-context from disk -->\n" + combined[:4000]
+                # Bound only the injected view; the worker receives the full snapshot.
+                self._prefetch_cache = injection.render_disk_context(
+                    S.redact_secrets(mem_text), S.redact_secrets(user_text)
+                )
             if self._db_ids:
                 # Pass the snapshot read for this initialization to the worker.
                 # A delayed worker must not re-read through module globals after
@@ -184,47 +186,33 @@ class NotionBrainProvider:
 
                 contradictions = self._contradictions(entries)
 
-                # One body fetch per page id for this prefetch run.
-                hydrated_bodies: dict[str, str] = {}
+                # Cold reads hydrate before caching. Rendering a cache hit is offline,
+                # including rows whose source body was empty or unavailable.
                 tagged: list[tuple[str, str]] = []
                 for entry in entries[:10]:
                     title = entry.get("title", "Untitled")
                     props = entry.get("properties", {}) or {}
                     content = props.get("Content") or props.get("Summary") or ""
                     kind = str(props.get("Kind") or "note")
-                    if not content:
-                        page_id = entry.get("id") or ""
-                        if page_id:
-                            if page_id not in hydrated_bodies:
-                                try:
-                                    hydrated_bodies[page_id] = (
-                                        store.page_body_text(page_id) or ""
-                                    )
-                                except Exception as exc:
-                                    logger.warning(
-                                        "NotionBrainProvider prefetch body hydration failed for %s: %s",
-                                        page_id,
-                                        S.redact_secrets(str(exc)),
-                                    )
-                                    hydrated_bodies[page_id] = ""
-                            content = hydrated_bodies[page_id]
                     safe_title = S.redact_secrets(str(title))
                     safe_content = S.redact_secrets(str(content)[:200])
                     provenance = self._provenance(entry)
                     tag = f"[fact:{provenance['truth']}:{provenance['source_agent']}]"
                     tagged.append((kind, f"- [{kind}] {safe_title}: {safe_content} {tag}"))
 
-                safe_lines = S.redact_secrets(injection.render_injection(tagged))
                 if contradictions:
-                    conflict_lines = ["CONTRADICTION: active memories disagree for the same subject key."]
+                    conflict_lines = [("warning", "CONTRADICTION: active memories disagree for the same subject key.")]
                     for conflict in contradictions:
                         for item in conflict["entries"]:
-                            conflict_lines.append(
-                                f"- {item['subject_key']}: {item['value']} "
-                                f"(timestamp: {item['timestamp']}; certification: {item['certification']})"
-                            )
-                    safe_lines = S.redact_secrets(safe_lines + "\n" + "\n".join(conflict_lines))
-                self._prefetch_cache = safe_lines
+                            snippet = injection.trim_tokens(item["value"][:200], 24)
+                            conflict_lines.append((
+                                "warning",
+                                f"- {item['subject_key'][:80]}: {snippet} "
+                                f"(timestamp: {item['timestamp'][:40]}; certification: {item['certification'][:20]})",
+                            ))
+                    # Keep the warning and short conflicting values before other pinned facts.
+                    tagged = conflict_lines + tagged
+                self._prefetch_cache = S.redact_secrets(injection.render_injection(tagged))
                 return self._prefetch_cache
             except Exception as exc:
                 logger.warning(
@@ -633,8 +621,36 @@ class NotionBrainProvider:
             sorts=[{"property": "Last Seen", "direction": "descending"}],
             page_size=10,
         )
+        entries = [
+            entry for entry in entries
+            if str((entry.get("properties") or {}).get("Status") or "active").strip().casefold() == "active"
+        ]
         entries.sort(key=self._truth_recency_key, reverse=True)
-        return entries
+        hydrated_bodies: dict[str, str] = {}
+        hydrated: list[dict[str, Any]] = []
+        for entry in entries[:10]:
+            props = dict(entry.get("properties") or {})
+            content = props.get("Content") or props.get("Summary") or ""
+            page_id = str(entry.get("id") or "")
+            if not content and page_id:
+                if page_id not in hydrated_bodies:
+                    try:
+                        hydrated_bodies[page_id] = store.page_body_text(page_id) or ""
+                    except Exception as exc:
+                        logger.warning(
+                            "NotionBrainProvider prefetch body hydration failed for %s: %s",
+                            S.redact_secrets(page_id), S.redact_secrets(str(exc)),
+                        )
+                        hydrated_bodies[page_id] = ""
+                content = hydrated_bodies[page_id]
+            props["Content"] = S.redact_secrets(str(content))
+            hydrated.append({**entry, "properties": props})
+        if self._hermes_home:
+            try:
+                brain_cache.populate_from_read(self._hermes_home, hydrated)
+            except Exception as exc:
+                logger.warning("NotionBrainProvider cache population failed: %s", S.redact_secrets(str(exc)))
+        return hydrated
 
     def _mirror_memory_cache(
         self, page_id: str, entry: S.BrainEntry, database_id: str

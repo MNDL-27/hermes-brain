@@ -1,8 +1,8 @@
 """Local SQLite read-through cache for active Memory rows (RET-02).
 
 The file lives at ``<hermes_home>/brain_cache.db`` (default ``~/.hermes``).
-Prefetch reads it with zero Notion calls. Background writes still go to
-Notion; this module only mirrors the row after a successful Notion write.
+Prefetch reads it with zero Notion calls. Successful cold reads populate
+the cache; background writes still go to Notion and mirror accepted rows.
 
 Schema is versioned in ``schema_meta``. A newer on-disk version is left
 untouched (no destructive downgrade). Writes commit through a single
@@ -134,19 +134,29 @@ def list_active(
     """Return active memory rows, newest ``last_seen`` first.
 
     ``None`` means there is no usable cache (missing file or unreadable).
-    Callers fall through to Notion in that case. An empty list means the
-    cache file exists and has no active rows — that is a hit, not a miss.
+    Callers fall through to Notion in that case. An empty list means a
+    completed population has no active rows — that is a hit, not a miss.
+    A schema-only file from interrupted initialization remains a miss.
     """
     path = cache_path(hermes_home)
-    if not path.exists():
-        return None
     try:
+        if not path.exists():
+            return None
         conn = _connect(path)
-    except sqlite3.Error as exc:
+    except (sqlite3.Error, OSError) as exc:
         logger.warning("brain_cache: open failed: %s", _safe(exc))
         return None
     try:
         if not _ensure_schema(conn):
+            return None
+        initialized = conn.execute(
+            "SELECT value FROM schema_meta WHERE key = 'initialized'"
+        ).fetchone()
+        # Legacy caches predate the marker, but an accepted row proves that
+        # a write completed. An empty schema alone does not prove a read did.
+        if not (initialized and initialized["value"] == "1") and not conn.execute(
+            "SELECT 1 FROM memory_rows LIMIT 1"
+        ).fetchone():
             return None
         rows = conn.execute(
             """
@@ -234,6 +244,7 @@ def upsert_active(
             """,
             (pid, safe_title, safe_kind, safe_content, safe_status, seen, time.time(), truth if truth in {"inferred", "certified"} else "inferred", safe_subject_key),
         )
+        conn.execute("INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('initialized', '1')")
         conn.commit()
     except sqlite3.Error as exc:
         try:
@@ -241,6 +252,71 @@ def upsert_active(
         except sqlite3.Error:
             pass
         logger.warning("brain_cache: write failed: %s", _safe(exc))
+        return False
+    finally:
+        conn.close()
+    return True
+
+
+def populate_from_read(
+    hermes_home: str | Path | None, entries: list[dict[str, Any]]
+) -> bool:
+    """Atomically cache a successful read, including an intentional empty one.
+
+    Existing rows win over the remote snapshot: an accepted write may have
+    arrived while the cold read was in progress. Neither empty snapshots nor
+    insertion failures erase those writes. The initialization marker commits
+    with the complete batch, so a failed first population remains a cache miss.
+    """
+    values = []
+    now = time.time()
+    for entry in entries:
+        page_id = str(entry.get("id") or "").strip()
+        if not page_id:
+            logger.warning("brain_cache: read population skipped a result without a page id")
+            return False
+        props = entry.get("properties") or {}
+        status = str(props.get("Status") or "active").strip().lower()
+        if status != "active":
+            continue
+        truth = str(props.get("Truth") or "inferred").lower()
+        values.append((
+            S.redact_secrets(page_id),
+            S.redact_secrets(str(entry.get("title") or "Untitled")),
+            S.redact_secrets(str(props.get("Kind") or "note"))[:80],
+            S.redact_secrets(str(props.get("Content") or props.get("Summary") or "")),
+            status,
+            S.redact_secrets(str(props.get("Last Seen") or entry.get("last_edited_time") or entry.get("created_time") or "")),
+            now,
+            truth if truth in {"inferred", "certified"} else "inferred",
+            S.redact_secrets(str(props.get("Subject Key") or "")).strip(),
+        ))
+    try:
+        conn = _connect(cache_path(hermes_home))
+    except (sqlite3.Error, OSError) as exc:
+        logger.warning("brain_cache: open for population failed: %s", _safe(exc))
+        return False
+    try:
+        if not _ensure_schema(conn):
+            return False
+        conn.execute("BEGIN IMMEDIATE")
+        conn.executemany(
+            """
+            INSERT INTO memory_rows (
+                page_id, title, kind, content, status, last_seen, updated_at, truth, subject_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(page_id) DO NOTHING
+            """,
+            values,
+        )
+        conn.execute("INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('initialized', '1')")
+        conn.commit()
+    except sqlite3.Error as exc:
+        try:
+            conn.rollback()
+        except sqlite3.Error:
+            pass
+        logger.warning("brain_cache: population failed: %s", _safe(exc))
         return False
     finally:
         conn.close()
