@@ -5,10 +5,10 @@
 - ✅ **v1.0 Release Polish** — Phases 1-3 (shipped 2026-09-21)
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
 - ✅ **v1.2 Update UX & Tooling Polish** — Phases 7-8 (shipped 2026-11-07)
-- **v1.3 Brain Architecture & Freemium Foundation** — Phases 9–11 (defined 2026-11-02; Phase 9 gap closure active after audit 2026-11-09)
+- **v1.3 Brain Architecture & Freemium Foundation** — Phases 9–11 (defined 2026-11-02; Phase 9 verified; Phase 10 gap planning active after audit 2026-11-09)
 - **v1.4 Semantic Brain Layer** — Phases 12–15 (defined 2026-11-06; implementation present, gaps and GSD verification debt remain)
 
-**Current route:** `/gsd-plan-phase 9 --gaps`. Close the earliest unfinished approved phase before advancing. The 2026-11-07 v1.3/v1.4 completion report is superseded by the [milestone audit](v1.4-MILESTONE-AUDIT.md); no new v1.5 scope is defined. Push, merge and release are separate from implementation and verification.
+**Current route:** `/gsd-plan-phase 10 --gaps`. Phase 9 plan 09-02 is verified and pushed as `45c8ca2`. Close the earliest unfinished approved phase before advancing. The 2026-11-07 v1.3/v1.4 completion report is superseded by the [milestone audit](v1.4-MILESTONE-AUDIT.md); no new v1.5 scope is defined. Push, merge and release are separate from implementation and verification.
 
 ## Phases
 
@@ -45,7 +45,7 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 
 **Milestone goal:** Evolve hermes-brain from a naive Notion REST caller into a competitive, metabolic memory engine. Fix the prefetch schema blind spot, add a local-first SQLite read-through cache to decouple turn latency from Notion API limits, implement subject_key supersession to eliminate truth contradictions, cap injection at 800 tokens (two-lane architecture), and lay the foundation for the Obsidian adapter gated for premium users while free users remain Notion-only.
 
-- [ ] **Phase 9: Retrieval Correctness & Local Read-Through Cache** — Gap closure active: RET-02/RET-03; RET-01 implementation observed (implementation history `7b78b98`) - Fix prefetch to read summary/body without schema misses; add local SQLite cache mirror so prefetch is <2ms and offline-resilient; introduce two-lane token-budgeted prompt injection (max 800 tokens)
+- [x] **Phase 9: Retrieval Correctness & Local Read-Through Cache** — verified 2026-11-09 (`45c8ca2`): hydrated cold reads populate the offline cache, active rows only, and every injection path obeys the 400/400 budget. GSD closure evidence: 09-02 summary, verification and validation.
 - [ ] **Phase 10: Event-Driven Supersession & Truth Integrity** — Gaps found: SUP-01/SUP-02; original GSD closure unverified (implementation history `7ceaafb`) - Add `Subject Key` tracking across Memory rows; incoming facts mark older conflicting facts as `status: superseded` rather than accumulating contradictions; historical versions remain auditable
 - [ ] **Phase 11: Storage Adapter Abstraction & Freemium Gate** — Gaps found: ADAPT-02/ADAPT-03; original GSD closure unverified (implementation history `71e7122`) - Refactor backend behind a pluggable `StorageAdapter` interface (NotionAdapter = default/free; ObsidianVaultAdapter = premium stub with license entitlement verification)
 
@@ -97,17 +97,17 @@ Plans:
 
 ### Phase 9: Retrieval Correctness & Local Read-Through Cache
 
-**Goal**: Fix the prefetch schema blind spot so memories actually display their text summaries, back the memory store with a local SQLite read-through cache (`<2ms` cold start, zero Notion latency on turn 0), and enforce an 800-token two-lane injection budget.
+**Goal**: Fix the prefetch schema blind spot so memories actually display their text summaries, back the memory store with a local SQLite read-through cache (`<5ms` cached prefetch, zero Notion calls on cache hits), and enforce an 800-token two-lane injection budget.
 **Depends on**: v1.2 (Phase 8)
 **Requirements**: RET-01 (prefetch text hydration), RET-02 (SQLite local cache mirror), RET-03 (two-lane 800-token context cap)
 **Success Criteria**:
-  1. `provider.py` prefetch surfaces non-empty summary text for every retrieved row by reading either a `Summary` property or the page body blocks.
+  1. `provider.py` prefetch surfaces available source text from `Content`, a `Summary` property or page body blocks; rows with no available text retain the existing empty-content behavior.
   2. A local SQLite cache (`~/.hermes/brain_cache.db`) mirrors active memory rows; prefetch executes in `<5ms` offline with zero network calls.
-  3. Context injection is hard-capped at 800 tokens split between Lane 1 (pinned/critical, 400 tok) and Lane 2 (dynamic context, 400 tok).
+  3. Context injection is hard-capped at 800 whitespace-token units split between Lane 1 (pinned/critical, 400 units) and Lane 2 (dynamic context, 400 units), retaining the existing budget convention.
 
 **Implementation history**: `7b78b98` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Gap closure active: RET-02/RET-03; RET-01 implementation observed. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
-**Next action**: `/gsd-plan-phase 9 --gaps` against `phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md`.
+**Verification**: Passed 09-02: 6/6 must-haves and RET-01/02/03, with current GSD fingerprint. Full suite 532 passed; cached prefetch median 1.012ms / p95 1.349ms. See [09-VERIFICATION.md](phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md).
+**Next action**: `/gsd-plan-phase 10 --gaps` against `phases/10-event-driven-supersession/10-VERIFICATION.md`.
 
 ### Phase 10: Event-Driven Supersession & Truth Integrity
 

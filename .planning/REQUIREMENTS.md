@@ -5,7 +5,7 @@
 
 **Historical v1.2 intake:** Update UX & Tooling Polish (intake accepted via Paperclip interaction `5246bf23` at 2026-10-08T07:48Z; previously approved at the v1.1 milestone closeout as the next-milestone scope)
 
-**Current work:** v1.3 Phase 9 gap closure, followed by the remaining approved Phases 10–15 in order. v1.5 remains undefined.
+**Current work:** v1.3 Phase 10 gap planning after verified Phase 9 closure, followed by the remaining approved phases in order. v1.5 remains undefined.
 
 ## v1.2 Requirements
 
@@ -27,15 +27,15 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
 
-Audit 2026-11-09: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–15 lack their original SUMMARY/VERIFICATION evidence; eight requirements also have concrete code gaps. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+Audit follow-up 2026-11-09: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phase 9 has current passing SUMMARY/VERIFICATION evidence; Phases 10–15 still await closure, with six requirements having concrete code gaps. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
 ### Retrieval Correctness (RET)
 
-- [ ] **RET-01**: Prefetch hydrates non-empty summary text per row by reading a `Summary` rich-text property or hydrating page body blocks; no more blank `- [kind] Title: ` prefetch lines.
-- [ ] **RET-02**: A local SQLite read-through cache mirrors active memory rows; turn-zero prefetch completes offline in <5ms with zero Notion API calls; the existing background worker drains writes to Notion.
-- [ ] **RET-03**: Prompt injection is hard-capped at 800 tokens split into Lane 1 (pinned identity/warnings/decisions, 400 tok) and Lane 2 (dynamic per-turn context, 400 tok), with deterministic overflow trimming.
+- [x] **RET-01**: Prefetch hydrates available text from `Content`, a `Summary` rich-text property or page body blocks, avoiding blank prefetch lines when source text exists. Rows without available source text retain the existing empty-content behavior.
+- [x] **RET-02**: A local SQLite read-through cache mirrors active memory rows; turn-zero prefetch completes offline in <5ms with zero Notion API calls; the existing background worker drains writes to Notion.
+- [x] **RET-03**: Prompt injection is hard-capped at 800 whitespace-token units split into Lane 1 (pinned identity/warnings/decisions, 400 units) and Lane 2 (dynamic per-turn context, 400 units), with deterministic overflow trimming. This retains the existing budget convention rather than model-tokenizer precision.
 
 ### Supersession (SUP)
 
@@ -86,11 +86,11 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | TOOL-01 | Phase 8 | Completed |
 | TOOL-02 | Phase 8 | Completed |
 | TEST-HANGS | Phase 8 | Completed |
-| RET-01 | Phase 9 | Implementation observed — GSD closure unverified |
-| RET-02 | Phase 9 | Gaps found — cold read-through cache is not populated |
-| RET-03 | Phase 9 | Gaps found — disk fallback and contradictions bypass the budget |
+| RET-01 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
+| RET-02 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
+| RET-03 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
 | SUP-01 | Phase 10 | Gaps found — background ingestion does not infer subject keys |
-| SUP-02 | Phase 10 | Gaps found — same-title overwrite and cold fallback lose history/current-state filtering |
+| SUP-02 | Phase 10 | Gaps found — same-title overwrite loses history; cold fallback filtering fixed in 09-02 |
 | SUP-03 | Phase 10 | Implementation observed — GSD closure unverified |
 | ADAPT-01 | Phase 11 | Implementation observed — GSD closure unverified |
 | ADAPT-02 | Phase 11 | Gaps found — provider operations bypass the adapter |
@@ -115,10 +115,10 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 - Dropped: 0
 - Adjusted: 0
 - Deferred to next milestone: 0
-- v1.3 requirements: 10 total — 6 with concrete gaps; 4 with implementation observed but closure unverified
+- v1.3 requirements: 10 total — 3 verified in Phase 9, 4 with concrete gaps, 3 with implementation observed but closure unverified
 - v1.4 requirements: 11 total — 2 with concrete gaps; 9 with implementation observed but closure unverified
-- Original GSD closure evidence for Phases 9–15: missing; no requirement in these phases is marked complete by this audit
-- Current automated baseline: 519 passed, 1 deselected (7.17s); Ruff and mypy clean across 52 source files. Passing tests do not close the identified requirement gaps
+- Phase 9 now has current GSD summary, verification and validation evidence for RET-01/02/03. The missing original records for Phases 10–15 still require reconciliation.
+- Current automated baseline: 532 passed, 1 deselected (6.39s); Ruff and mypy clean across 53 source files. Only specifically verified Phase 9 requirements are closed; later gaps remain open.
 - Historical 2026-11-07 closeout report: 487 passed, 1 deselected, Ruff/mypy clean; its blanket completion claim is superseded by the 2026-11-09 audit
 
 ## Out of Scope (v1.2)
@@ -134,4 +134,4 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ---
 *Requirements defined: 2026-10-08 (selected from `v1.1-REQUIREMENTS.md` §Future Requirements UPD-06/07, TOOL-01/02 and v1.1 `MILESTONES.md` known-gap #1).*
-*Last updated: 2026-11-09 — audit reconciliation; Phase 9 gap closure active and later approved work remains unverified.*
+*Last updated: 2026-11-09 — audit reconciliation; Phase 9 verified; Phase 10 gap planning active and later approved work remains unverified.*

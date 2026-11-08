@@ -1,125 +1,110 @@
 ---
 phase: 09-retrieval-correctness-local-cache
-verified: "2026-11-09"
-status: gaps_found
-score: "1/3 scoped requirements demonstrated"
-source_snapshot: "fb7ec04"
-re_verification: false
+verified: "2026-11-08T22:33:41Z"
+status: passed
+score: "6/6 must-haves verified"
+source_snapshot: "45c8ca2"
+re_verification: true
+previous_status: gaps_found
+previous_source_snapshot: "fb7ec04"
 overrides_applied: 0
+behavior_unverified: 0
+gaps: []
+requirements_satisfied: [RET-01, RET-02, RET-03]
 covered_files:
-  - .planning/REQUIREMENTS.md
-  - .planning/ROADMAP.md
-  - .planning/dispatch-phase09.md
-  - .planning/phases/09-retrieval-correctness-local-cache/09-01-WORK-ORDER.md
-  - notion_brain/provider.py
+  - .planning/phases/09-retrieval-correctness-local-cache/09-02-PLAN.md
+  - .planning/phases/09-retrieval-correctness-local-cache/09-02-SUMMARY.md
+  - .planning/phases/09-retrieval-correctness-local-cache/09-BENCHMARK.json
+  - .planning/phases/09-retrieval-correctness-local-cache/09-VALIDATION.md
   - notion_brain/brain_cache.py
   - notion_brain/injection.py
-  - tests/test_prefetch_hydration.py
+  - notion_brain/provider.py
+  - tests/test_answerability.py
   - tests/test_brain_cache.py
   - tests/test_injection.py
-baseline:
-  observed_by: "root agent, independent full-suite run"
-  passed: 519
-  deselected: 1
-  duration_seconds: 7.17
-  interpretation: "Regression baseline only; known uncovered gaps remain"
+  - tests/test_prefetch_gap_closure.py
+  - tests/test_prefetch_hydration.py
+covered_digest: "v4:sha256:8c674c0749ed0c6acff5d47ed0b6d34203ca0f2754678a6ff7345a1bf7dd8fd2"
 nyquist:
-  validation_file: missing
-  compliant: false
-gaps:
-  - truth: "Every provider prefetch result obeys the deterministic two-lane 800-token budget."
-    status: failed
-    requirements: [RET-03]
-    reason: "Disk fallback is assigned directly to _prefetch_cache; contradiction detail is appended after render_injection. Probes returned 1505 and 2094 whitespace tokens."
-    artifacts:
-      - path: notion_brain/provider.py
-        issue: "initialize disk fallback at line 149 and contradiction append at lines 218–226 bypass the final budget."
-      - path: tests/test_injection.py
-        issue: "Tests cover renderer lane limits, not all provider output branches."
-    missing:
-      - "Route disk fallback and contradiction explanations through a final bounded rendering path."
-      - "Preserve an explicit conflict signal while bounding its details."
-      - "Add provider-level oversized disk and conflict regressions, checking total and lane budgets."
-  - truth: "A successful cold retrieval populates the local cache for later offline recall."
-    status: failed
-    requirements: [RET-02]
-    reason: "_prefetch_entries returns Notion results without caching them. An isolated successful read left brain_cache.db absent. Cache hits are available only for previously mirrored writes or externally seeded cache rows."
-    artifacts:
-      - path: notion_brain/provider.py
-        issue: "Remote fallback at lines 631–637 has no cache population step; hydration at lines 193–210 is also not persisted."
-      - path: notion_brain/brain_cache.py
-        issue: "Cache primitives exist but are not connected to the remote read/hydration path."
-      - path: tests/test_brain_cache.py
-        issue: "Utility round-trip tests do not demonstrate cold provider read followed by a new offline provider."
-    missing:
-      - "Persist successfully retrieved/hydrated active rows without making cache failures fail usable recall."
-      - "Verify a new provider can recall cached content with remote query and body access disabled."
-      - "Keep an intentionally empty cache distinguishable from a missing or unreadable cache."
-      - "Record an appropriate cache-hit latency measurement before asserting the less-than-5ms criterion."
-  - truth: "The remote fallback feeding the cache and injected context excludes superseded rows."
-    status: failed
-    requirements: [RET-02, SUP-02]
-    reason: "The local cache filters active rows, but _prefetch_entries remote fallback does not. An isolated probe returned a Superseded row."
-    artifacts:
-      - path: notion_brain/provider.py
-        issue: "Remote query results are sorted and returned without the local cache's status restriction."
-      - path: notion_brain/brain_cache.py
-        issue: "list_active correctly filters status='active'; fallback behavior is inconsistent with it."
-    missing:
-      - "Filter superseded remote rows before rendering and read-through cache population."
-      - "Add a cold-cache provider regression proving historical rows are not injected."
+  validation_file: 09-VALIDATION.md
+  compliant: true
 ---
 
 # Phase 9 verification: retrieval correctness and local cache
 
-**Status: gaps_found.** Hydration is implemented, but the full read-through and injection-budget contracts are not satisfied. This is the first discovered Phase 9 verification report; no original execution SUMMARY or Nyquist VALIDATION file was present. It records current evidence, not retroactive successful execution.
+**Status: passed.** All six must-haves in [09-02-PLAN.md](09-02-PLAN.md) are verified against implementation commit `45c8ca2`. Cold retrieval populates an offline cache, and disk context and contradiction notices use the existing 400/400 injection lanes. Final repository gates: **532 tests passed, 1 deselected in 6.39s**, Ruff clean, mypy clean across 53 source files, and CRLF-aware whitespace check clean.
 
-The parent/root independently ran the full offline suite: **519 passed, 1 deselected in 7.17s**. Existing tests passing is a regression baseline. The failures below were demonstrated using isolated temporary-directory/mocked-storage probes and source traces; no live Notion request was needed.
+This re-verifies the gaps recorded at `fb7ec04`. It closes current Phase 9 work without retroactively asserting that missing original execution artifacts existed or verifying Phases 10–15.
 
 ## Observable truths
 
-| Requirement | Expected behavior | Result | Evidence |
+| # | Must-have | Status | Evidence |
 | --- | --- | --- | --- |
-| RET-01 | Retrieved rows use available Content/Summary or page-body text. | **Demonstrated** | `provider.py:193–210`; hydration tests cover source selection, duplicate fetches and errors. Empty underlying sources can still produce empty text. |
-| RET-02 | Read-through cache provides offline recall after successful retrieval, with a recorded `<5ms` cache-hit result. | **Partial** | Cached writes can be recalled, but cold remote retrieval does not create/populate SQLite. No performance measurement was found. |
-| RET-03 | Every prefetch output respects 400/400 lane budgets and an 800-token total. | **Partial / failed boundary** | Renderer tests pass, but initialized disk text and appended contradiction explanations bypass it. |
+| 1 | A cold Notion prefetch hydrates active memories and makes them available to a new offline provider. | VERIFIED | `provider.py:605` hydrates before `populate_from_read`. `test_cold_hydrated_read_is_available_to_new_offline_provider` denies both query and body access on a new provider and checks persisted redaction. Existing hydration tests and an independent probe confirm Content, then Summary, then body precedence. |
+| 2 | A successfully fetched empty result becomes an empty cache hit; failed reads do not become empty hits. | VERIFIED | `test_successful_empty_read_is_cached_but_failed_read_is_not` distinguishes `[]` from `None`. Rows and the initialization marker commit together. Schema-only and row-insertion rollback tests pass; an independent marker-insertion failure also leaves zero rows, no marker, and a cache miss. |
+| 3 | Superseded rows are excluded before hydration, caching and rendering on the cold path. | VERIFIED | `test_remote_inactive_rows_are_excluded_before_hydration_and_caching` supplies Superseded and done rows without text, denies body calls, and verifies only the current row appears in SQLite and output. Filtering precedes hydration. |
+| 4 | Disk fallback, normal facts and contradiction notices fit the existing two-lane 400/400 budget, with a total of at most 800 whitespace-token units. | VERIFIED | Both provider output assignments use the shared renderer. Disk wrapper cost is included in Lane 1. Provider disk/conflict and renderer lane tests pass. Six independent disk boundary cases pass. The original complete disk strings still reach the background-sync callback. |
+| 5 | Conflicting memories retain an explicit contradiction notice within the budget. | VERIFIED | The notice and bounded snippets enter the warning lane before ordinary facts. `test_conflict_notices_share_budget_and_keep_both_value_snippets` verifies `CONTRADICTION`, both value excerpts in warning text, each lane and total bound, and deterministic repeat output. |
+| 6 | Cache or hydration failures remain fail-soft and all persisted/displayed text remains redacted. | VERIFIED | Population, hydration and unreadable-cache regressions preserve usable recall. A reproduced `PermissionError` now falls back to remote retrieval. Redaction tests inspect both displayed and stored text. Empty/unavailable bodies are cached without repeated remote hydration. |
 
-The integration check also identified a Phase 10 contract affecting Phase 9's fallback: superseded Notion rows are returned even though `brain_cache.list_active` excludes them.
+**Score: 6/6; behavior-unverified: 0; overrides: 0.** RET-01 preserves available-source hydration. A source with neither Content, Summary nor body text can still render empty text, as the pre-existing empty-source test explicitly requires; the implementation does not invent content.
 
-## Required artifacts and connections
+## Artifacts and data flow
 
-| Artifact / connection | Status | Evidence |
+| Artifact | Substance and integration |
+| --- | --- |
+| [provider.py](../../../notion_brain/provider.py) | `_prefetch_entries` reads SQLite first, filters inactive remote rows, hydrates/redacts Content and populates SQLite. `initialize` and `prefetch` use bounded injection helpers. |
+| [brain_cache.py](../../../notion_brain/brain_cache.py) | `BEGIN IMMEDIATE`, conflict-ignore insertion, transactionally committed initialization marker and rollback provide usable offline snapshots while preserving accepted writes. |
+| [injection.py](../../../notion_brain/injection.py) | Disk wrapper/user text uses the pinned lane, memory uses the dynamic lane, and contradiction details use the warning lane. Deterministic trimming retains the whitespace-token convention. |
+| [test_prefetch_gap_closure.py](../../../tests/test_prefetch_gap_closure.py) | Ten provider regressions use real providers and temporary SQLite caches with remote operations mocked or denied. |
+| Existing cache, hydration, injection and answerability tests | Existing contracts are included in independent targeted verification and the final full suite. |
+
+Installed GSD `query verify.artifacts` passed **3/3 declared artifacts**. Source tracing and behavioral tests additionally verify the links: remote rows → status filter → hydrated/redacted Content → SQLite → fresh offline provider → bounded prompt. Disk strings flow separately to bounded prompt output and complete background-sync arguments.
+
+## Behavioral verification
+
+| Check | Observed result |
+| --- | --- |
+| Independent targeted suite | **48 passed in 0.28s** across gap-closure, hydration, cache, injection and answerability tests, before the final permission-error regression was added. |
+| Final read-permission regression | **1 passed in 0.13s** independently after the fix; root demonstrated failure before the fix. |
+| Initialization-marker failure | SQLite trigger aborting marker insertion rolls back the batch: zero rows, no marker, subsequent cache miss. |
+| Legacy/future schema compatibility | Accepted rows remain readable without the legacy marker. Population refuses schema 999 without changing its version or creating `memory_rows`. |
+| Concurrent writes | A real Thread/Event interleaving pauses cold fetching while a newer same-ID row and a separate row are accepted. Both survive population and are recalled offline alongside the remote-only row. |
+| Source precedence and empty body | Content wins over Summary; Summary avoids body access; duplicated empty-body rows fetch once and a later provider needs no remote operation. |
+| Disk boundary matrix | Six empty, single-lane, mixed and boundary cases with tabs/newlines fit 400/400 and total 800 including the wrapper, deterministically. |
+| Root final gates | **532 passed, 1 deselected in 6.39s**; Ruff, mypy (53 source files), and CRLF-aware whitespace check clean. |
+
+Independent probes used temporary directories and mocked remote operations, with no live Notion workspace. Commands and requirement mappings are in [09-VALIDATION.md](09-VALIDATION.md).
+
+## Cache latency
+
+The durable [09-BENCHMARK.json](09-BENCHMARK.json) records the committed implementation: **120 fresh provider instances**, ten hydrated rows, **1.012 ms median**, **1.349 ms p95**, and **zero warm query/body calls**. Output was asserted non-empty. Initial population used one query and ten body reads.
+
+Both observed statistics satisfy RET-02's `<5ms` criterion and the roadmap's `<2ms` narrative target on this host. This measures prefetch from an existing cache, excluding initialization and missing-cache remote retrieval. It is recorded performance evidence, not a timing-sensitive unit test or a guarantee for other hardware.
+
+## Requirements coverage
+
+| Requirement | Result | Evidence |
 | --- | --- | --- |
-| `brain_cache.py` cache primitives | Present and substantive | SQLite schema, active filtering, round-trip tests and safe failure handling exist. |
-| `injection.py` two-lane renderer | Present and substantive | Deterministic trimming and lane tests exist; token convention is whitespace-delimited words. |
-| Notion write → cache mirror → cached prefetch | WIRED | `_mirror_memory_cache` writes accepted memory rows; `_prefetch_entries` reads cache hits. |
-| Notion read/body hydration → cache population | **BROKEN / BLOCKER** | Fallback returns fetched rows without writing the cache; rendered hydrated content is not persisted. |
-| Disk initialization → bounded prefetch | **BROKEN / BLOCKER** | `_prefetch_cache` receives `combined[:4000]` directly and `prefetch` returns it immediately. |
-| Contradiction details → bounded prefetch | **BROKEN / BLOCKER** | Conflict strings are appended after `render_injection`. |
-| Remote fallback → active-only recall | **BROKEN / BLOCKER** | No status filtering before remote rows are returned. |
-| Original `09-*-SUMMARY.md` | Missing | Work order and dispatch brief are not execution evidence. |
-| Original `09-VERIFICATION.md` | Missing before this report | This report records failure, not a passing phase closure. |
-| `09-VALIDATION.md` | Missing | Nyquist validation cannot be marked compliant. |
+| RET-01: text hydration | SATISFIED | Available-source hydration and existing empty-source contracts pass; cold-to-offline tests retain hydrated content. |
+| RET-02: local active-memory cache and offline prefetch | SATISFIED | Cold population, initialized-empty semantics, rollback, accepted writes, active filtering, read-error fallback and measured offline latency. Existing background Notion writes remain in place. |
+| RET-03: deterministic 400/400, 800-total injection | SATISFIED | Former provider bypasses use shared rendering; disk/conflict and normal lane regressions pass under the explicit whitespace-token convention. |
 
-## Behavioral observations
+## Re-verification history
 
-| Probe | Setup | Actual outcome |
+The earlier report at `fb7ec04` was **gaps_found**, with RET-01 demonstrated and a regression baseline of 519 passing tests. Its failures remain historical evidence:
+
+| Original failure | Original observation | Current disposition |
 | --- | --- | --- |
-| Disk budget | Mock bootstrap/disk reads; initialize with 1,500 words; call real `prefetch`. | **1,505 whitespace tokens**, including the disk-context marker. |
-| Conflict budget | Mock `_prefetch_entries` with two active same-subject rows, each containing 1,000 words. | **2,094 whitespace tokens** after conflict details are appended. |
-| Read-through persistence | Empty temporary home; mock successful remote query; call `_prefetch_entries`. | `brain_cache.db` **does not exist** afterward. |
-| Historical fallback | Empty temporary home; mock one row with `Status: Superseded`. | `_prefetch_entries` **returns the old row**. |
+| Disk fallback bypassed lane rendering | 1,505 whitespace units | Closed: bounded disk rendering includes wrapper cost and preserves full sync inputs. |
+| Contradictions appended after rendering | 2,094 whitespace units | Closed: warning-lane rendering includes notice and bounded excerpts. |
+| Successful cold read did not populate SQLite | No cache file afterward | Closed: hydration, transactional population and a new offline-provider regression. |
+| Superseded remote rows reached prefetch | Historical row returned | Closed for Phase 9 cold prefetch by pre-hydration filtering; later history/supersession requirements remain separate. |
 
-These are failures even under the implementation's own whitespace-token estimator; no model-tokenizer assumption is needed to demonstrate the cap violations.
+No original successful execution SUMMARY or VALIDATION was found. The current [09-02-SUMMARY.md](09-02-SUMMARY.md) and validation record actual gap closure rather than unobserved historical execution.
 
-## Gap-closure acceptance tests
+## Anti-patterns and advisory findings
 
-1. Oversized initialized disk memory remains within the final budget, including any context marker; repeated prefetch returns the same bounded text.
-2. Oversized conflicting memories preserve an explicit contradiction signal while total output and lane allocation stay within their caps.
-3. A cold successful read, including required body hydration, persists usable active content; a new provider recalls it with all remote access disabled.
-4. An intentionally empty cache remains a cache hit; a missing/unreadable cache follows the defined fallback behavior.
-5. Superseded rows from the remote fallback are neither injected nor introduced as active cached facts.
-6. Cache-write and body-hydration failures preserve available recall without silently making every cache hit require network access.
-7. Measure the supported cache-hit path before claiming the `<5ms` criterion; keep wall-clock benchmarking distinct from correctness assertions.
+No debt/stub markers were found in the changed implementation and regression files. **Advisory (new scope, unevidenced): none.** No remaining blocker or human-only check is required for this scoped contract. Known Phase 10–15 gaps remain outside this verification.
 
-After implementation, rerun the relevant provider/cache/injection regressions and full repository gates, then update this report with actual results. Do not turn the current passing baseline into proof that these missing branches have been fixed.
+**Verifier:** independent `gsd_next` agent, using installed GSD verifier guidance, source tracing and runtime evidence. Root supplied final full gates and the committed-source benchmark.

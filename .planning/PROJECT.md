@@ -8,9 +8,9 @@ hermes-brain replaces local flat markdown memory files (`MEMORY.md` / `USER.md`)
 
 Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
 
-## Current Work: v1.3 Phase 9 Gap Closure
+## Current Work: v1.3 Phase 10 Gap Planning
 
-**Goal:** Complete and verify the already-approved v1.3 foundation before closing v1.4. The semantic catalog, certification boundary, graph and answerability implementations are present; the 2026-11-09 [audit](v1.4-MILESTONE-AUDIT.md) found remaining integration gaps and missing original GSD closure artifacts. Start with Phase 9 cache population, current-memory filtering and the total injection budget.
+**Goal:** Complete and verify the already-approved v1.3 foundation before closing v1.4. The semantic catalog, certification boundary, graph and answerability implementations are present; the 2026-11-09 [audit](v1.4-MILESTONE-AUDIT.md) found remaining integration gaps and missing original GSD closure artifacts. Phase 9 cache population, active-memory filtering and injection budgeting are now verified. Next address Phase 10 background inference and same-title history.
 
 **Shipped in v1.1 (Phases 4-6):**
 - ✓ `pyproject.toml` migrated to PEP 639 SPDX `license = "MIT"` and `setuptools>=77.0.3` floor — v1.1 (META-01/02)
@@ -22,10 +22,10 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 
 **Milestone history and current status (user-confirmed order: v1.2 → v1.3 → v1.4, no skipping):**
 - ✅ **v1.2 Update UX & Tooling Polish** (Phases 7-8) — shipped 2026-11-07: UPD-06/07 commit drift + release URL; TOOL-01/02 pre-push hook + autoupdate workflow; TEST-HANGS fixes.
-- **v1.3 Brain Architecture & Freemium Foundation** (Phases 9–11) — implementation committed, but RET-02/03, SUP-01/02 and ADAPT-02/03 have gaps. Phase 9 is active; formal closure remains unverified.
+- **v1.3 Brain Architecture & Freemium Foundation** (Phases 9–11) — implementation committed; RET-01/02/03 are verified in 09-02. SUP-01/02 and ADAPT-02/03 remain open. Phase 10 is next; the milestone is not yet closed.
 - **v1.4 Semantic Brain Layer** (Phases 12–15) — semantic catalog, certification, graph and answerability implementation committed, including review fixes in `fb7ec04`. CERT-03 and PROV-01 still have integration gaps. Original phase SUMMARY/VERIFICATION artifacts are absent; no verified completion or release is claimed.
 
-**Next action:** `/gsd-plan-phase 9 --gaps`, then close remaining approved phases in order. Prerequisite branch integration and the user-authorized push are pending.
+**Next action:** `/gsd-plan-phase 10 --gaps`, then close remaining approved phases in order. Prerequisite integration and the baseline push are complete; Phase 9 code is pushed as `45c8ca2`.
 
 **Next Milestone Goals:** v1.5 is undefined; this gap-closure work does not introduce a new milestone scope.
 
@@ -58,12 +58,12 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 
 ### Active Gap Closure
 
-- [ ] **Phase 9 / RET-02, RET-03:** populate the cache after a cold Notion read, exclude superseded fallback rows, and budget every injection path including disk fallback and contradictions.
+- [x] **Phase 9 / RET-01/02/03:** verified cold-read caching, active-only recall, bounded disk/conflict injection and fail-soft behavior in plan 09-02.
 - [ ] **Phase 10 / SUP-01, SUP-02:** infer subject keys on background writes and preserve same-title history.
 - [ ] **Phase 11 / ADAPT-02, ADAPT-03:** route provider operations through the adapter and wire runtime entitlement/fallback selection.
 - [ ] **Phase 13 / CERT-03:** keep cache and remaining supersessions progressing when certification provenance writes fail.
 - [ ] **Phase 14 / PROV-01:** retain provenance in cache and expose the required metadata in prompt recall.
-- [ ] Reconstruct honest verification/summary evidence for Phases 9–15 from actual work; preserve historical reports without treating them as proof of completion.
+- [ ] Reconstruct honest verification/summary evidence for Phases 10–15 from actual work; preserve historical reports without treating them as proof of completion.
 
 ### Out of Scope
 
@@ -81,7 +81,7 @@ Persistent, structured long-term memory for Hermes agents across 7 Notion databa
 - **Ecosystem**: Python 3.11–3.13 plugin package for Hermes Agent ecosystem (`hermes-agent`).
 - **Storage Layer**: Notion REST API (`api.notion.com/v1`) using internal integration tokens (`NOTION_API_KEY`).
 - **Quality Gates**: Ruff linting and formatting, Mypy strict type checking, Pytest test suite with branch coverage tracking, and local pre-commit hooks (7 hooks) mirroring the CI `quality-debt` job.
-- **Current State (audit 2026-11-09)**: semantic follow-up fixes committed in `fb7ec04`; 519 offline tests pass (1 deselected, 7.17s), Ruff and mypy are clean across 52 source files. This automated baseline does not cover all approved requirements. Phase 9 gap closure is active; v1.3/v1.4 push, merge and release are not yet recorded. The 2026-11-07 report of 487 passing tests and completed milestones is historical and superseded by the current audit.
+- **Current State (2026-11-09)**: baseline and prerequisite merge pushed at `24ce18b`; Phase 9 repair pushed at `45c8ca2`. Full suite 532 passed, 1 deselected (6.39s), Ruff clean, mypy clean across 53 source files. GSD verifies Phase 9 passed; Phase 10 and later gaps remain open. No merge to main or release is claimed.
 - **Distribution**: `hermes-brain` wheel/sdist builds clean via `python -m build` + `twine check` (PEP 639 SPDX, setuptools>=77.0.3). PyPI publishing via GitHub Actions OIDC trusted publishing (no static token). Manual `docs/RELEASES.md` twine fallback maintained.
 - **Update UX**: Remote version source of truth is the GitHub repository (latest tag/commit via public API), chosen over PyPI JSON API so git-installed users also get update notifications without PyPI lag. Detection is read-only; users run the printed upgrade command themselves. Cached status loads in <1ms on startup, refreshes in the background on the existing sync worker.
 
@@ -128,4 +128,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-11-09 after the GSD completion audit reopened Phase 9 and recorded later verification debt.*
+*Last updated: 2026-11-09 after verified Phase 9 closure and preparation of the Phase 10 gap handoff.*

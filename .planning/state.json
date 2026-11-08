@@ -16,7 +16,7 @@
     {
       "number": "9",
       "name": "Retrieval Correctness & Local Read-Through Cache",
-      "status": "in_progress"
+      "status": "completed"
     },
     {
       "number": "10",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-execute-phase 9 --gaps-only",
-    "label": "Execute Phase 9 retrieval gap closure",
-    "reason": "Plan 09-02 passed checking. Baseline and v1.2 integration pushed as24ce18b; repair RET-02/03 before later phases."
+    "command": "/gsd-plan-phase 10 --gaps",
+    "label": "Plan Phase 10 supersession gap closure",
+    "reason": "Phase 9 verified and pushed as 45c8ca2. Address background subject-key inference and same-title history next; v1.5 remains undefined."
   },
-  "updated_at": "2026-11-08T22:09:55Z"
+  "updated_at": "2026-11-08T22:38:07Z"
 }
