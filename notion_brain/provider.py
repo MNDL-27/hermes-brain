@@ -15,6 +15,7 @@ import json
 import logging
 import queue
 import threading
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -510,7 +511,36 @@ class NotionBrainProvider:
                 f"(via '{database_key}'). Run `python -m notion_brain reset` to bootstrap."
             )
 
+        entry = self._resolve_memory_subject(entry, database_key)
         self._write_entry_raw(database_id, entry)
+
+    def _resolve_memory_subject(
+        self, entry: S.BrainEntry, database_key: str
+    ) -> S.BrainEntry:
+        """Resolve the Subject Key for Memory writes that lack an explicit one.
+
+        Background ingestion and explicit ``remember`` share this boundary so
+        the same deterministic key lands on the Notion property and the SQLite
+        mirror. A nonblank redacted explicit override wins; unrecognized content
+        stays keyless. Non-Memory writes are returned unchanged and never
+        acquire inference or supersession behavior. The caller's metadata
+        dictionary is never mutated in place.
+        """
+        if database_key != "memory":
+            return entry
+        raw = str((entry.metadata or {}).get("subject_key") or "").strip()
+        key = S.redact_secrets(raw).strip() if raw else S.infer_subject_key(entry.title, entry.content)
+        if not key:
+            if not raw:
+                return entry
+            new_metadata = dict(entry.metadata or {})
+            new_metadata.pop("subject_key", None)
+            return replace(entry, metadata=new_metadata)
+        if key == raw:
+            return entry
+        new_metadata = dict(entry.metadata or {})
+        new_metadata["subject_key"] = key
+        return replace(entry, metadata=new_metadata)
 
     def _write_entry_raw(
         self,
@@ -553,41 +583,53 @@ class NotionBrainProvider:
 
         properties = self._database_properties(target_db_id, entry)
 
-        # Avoid duplicate pages: if an entry with the same normalized title
-        # already exists in this database, PATCH it instead of POSTing a new
-        # page. Notion search-by-title is case-insensitive on the title field.
-        existing_id = ""
-        if entry.title and target_db_id:
-            try:
-                existing = store.search_page_by_title(entry.title, object_type="page")
-            except Exception:
-                existing = None
-            if (
-                existing
-                and store.normalize_id(existing.get("parent", {}).get("database_id"))
-                == store.normalize_id(target_db_id)
-            ):
-                existing_id = existing["id"]
-
-        page_id = existing_id
+        database_key = S.database_for_domain(entry.domain)
+        page_id = ""
+        reused = False
         try:
-            if existing_id:
-                store.update_page(existing_id, properties, expected_database_id=target_db_id)
-                logger.debug("Updated entry in %s: %s", target_db_id, entry.title)
+            if database_key == "memory":
+                page_id, reused = self._reuse_or_create_memory(target_db_id, entry, properties)
             else:
-                created = store.create_database_page(
-                    database_id=target_db_id, properties=properties
-                )
-                page_id = str((created or {}).get("id") or "")
-                logger.debug("Stored entry in %s: %s", target_db_id, entry.title)
+                # Legacy title-dedup path: non-Memory databases update an
+                # existing same-title page in place rather than versioning.
+                existing_id = ""
+                if entry.title and target_db_id:
+                    try:
+                        existing = store.search_page_by_title(entry.title, object_type="page")
+                    except Exception:
+                        existing = None
+                    if (
+                        existing
+                        and store.normalize_id(existing.get("parent", {}).get("database_id"))
+                        == store.normalize_id(target_db_id)
+                    ):
+                        existing_id = existing["id"]
+                page_id = existing_id
+                if existing_id:
+                    store.update_page(existing_id, properties, expected_database_id=target_db_id)
+                    logger.debug("Updated entry in %s: %s", target_db_id, entry.title)
+                else:
+                    created = store.create_database_page(
+                        database_id=target_db_id, properties=properties
+                    )
+                    page_id = str((created or {}).get("id") or "")
+                    logger.debug("Stored entry in %s: %s", target_db_id, entry.title)
         except Exception:
             # Never echo the failure detail or entry fields back into log
             # streams — the exception may carry the full user payload.
             logger.error("Failed to store entry to Notion")
             raise RuntimeError("Failed to save entry to Notion") from None
         else:
+            if reused:
+                return
             self._mirror_memory_cache(page_id, entry, target_db_id)
             self._supersede_matching_active(page_id, entry, target_db_id)
+            if database_key == "memory":
+                # Invalidate the in-memory prefetch snapshot so a same-provider
+                # next read observes the accepted cache mutation instead of a
+                # stale rendered string.
+                with self._prefetch_lock:
+                    self._prefetch_cache = ""
             if self._hermes_home and page_id and entry.entities:
                 graph = semantic_catalog.Catalog().load(self._catalog_path())
                 known_entities = {entity.name.casefold() for entity in graph.list_entities()}
@@ -601,6 +643,89 @@ class NotionBrainProvider:
                         relation_type="edge",
                     ))
                 graph.save(self._catalog_path())
+
+    def _reuse_or_create_memory(
+        self, target_db_id: str, entry: S.BrainEntry, properties: dict[str, Any]
+    ) -> tuple[str, bool]:
+        """Return ``(page_id, reused)`` for a Memory write.
+
+        An eligible active exact fact — same normalized title, same nonblank
+        subject key, and equal content — is reused idempotently without a
+        Notion mutation, status transition, or duplicate edge. A title
+        collision with a changed value or different subject creates a new page
+        so the prior value is retained. A blank subject or a failed/truncated
+        candidate inspection never authorizes an in-place overwrite; the
+        non-destructive create path is taken instead.
+        """
+        entry_subject = str(entry.metadata.get("subject_key") or "").strip()
+        reuse_id = ""
+        if entry_subject and entry.title:
+            try:
+                rows = store.query_database(target_db_id, page_size=100)
+            except Exception:
+                rows = []
+            cache_index = self._memory_cache_index()
+            norm_title = entry.title.strip().casefold()
+            for row in rows:
+                old_id = str(row.get("id") or "")
+                if not old_id:
+                    continue
+                props = row.get("properties") or {}
+                if str(props.get("Status") or "active").casefold() != "active":
+                    continue
+                row_title = str(row.get("title") or "").strip().casefold()
+                if row_title != norm_title:
+                    continue
+                row_subject = str(props.get("Subject Key") or "").strip()
+                if row_subject.casefold() != entry_subject.casefold():
+                    continue
+                row_content = str(props.get("Content") or props.get("Summary") or "")
+                cache_content = cache_index.get(store.normalize_id(old_id))
+                if self._memory_content_equal(entry.content, row_content, cache_content):
+                    reuse_id = old_id
+                    break
+        if reuse_id:
+            logger.debug("Idempotent reuse of memory entry %s: %s", reuse_id, entry.title)
+            return reuse_id, True
+        created = store.create_database_page(database_id=target_db_id, properties=properties)
+        page_id = str((created or {}).get("id") or "")
+        logger.debug("Stored memory entry in %s: %s", target_db_id, entry.title)
+        return page_id, False
+
+    def _memory_cache_index(self) -> dict[str, str]:
+        """Map normalized Memory page ids to their trusted full cached content."""
+        if not self._hermes_home:
+            return {}
+        rows = brain_cache.list_active(self._hermes_home, limit=100) or []
+        index: dict[str, str] = {}
+        for row in rows:
+            page_id = store.normalize_id(str(row.get("id") or ""))
+            if page_id:
+                index[page_id] = str((row.get("properties") or {}).get("Content") or "")
+        return index
+
+    @staticmethod
+    def _memory_content_equal(
+        new_content: str, remote_content: str, cache_content: str | None
+    ) -> bool:
+        """Compare Memory content accounting for Notion's 2,000-char truncation.
+
+        Remote ``Content`` is truncated to 2,000 chars, so two full values
+        sharing that prefix are not proven equal. A trusted full cached row
+        may establish equality only while the remote prefix still agrees.
+        When full equality cannot be established, return ``False`` so the
+        caller favors a new retained version over unsafe reuse.
+        """
+        if new_content == remote_content:
+            return True
+        if (
+            len(new_content) > 2000
+            and len(remote_content) >= 2000
+            and new_content[:2000] == remote_content
+        ):
+            if cache_content is not None and cache_content[:2000] == remote_content:
+                return new_content == cache_content
+        return False
 
     def _prefetch_entries(self) -> list[dict[str, Any]]:
         """Read active memory rows from the local cache, else Notion.
@@ -1045,8 +1170,9 @@ class NotionBrainProvider:
         ]
         matching.sort(
             key=lambda row: str(
-                (row.get("properties") or {}).get("Last Seen")
-                or row.get("last_edited_time") or row.get("created_time") or ""
+                row.get("created_time")
+                or (row.get("properties") or {}).get("Last Seen")
+                or row.get("last_edited_time") or ""
             ),
             reverse=True,
         )
@@ -1072,8 +1198,15 @@ class NotionBrainProvider:
     def _supersede_matching_active(
         self, page_id: str, entry: S.BrainEntry, database_id: str
     ) -> None:
-        """Best-effort history flip after the successful current-row write."""
+        """Best-effort history flip after the successful current-row write.
+
+        Only an active inferred input may supersede active inferred
+        predecessors with the same nonblank subject. Certified facts are
+        never demoted by an ordinary write; a conflicting inferred fact
+        coexists and surfaces through contradiction reporting.
+        """
         if (not page_id or not entry.metadata.get("subject_key")
+                or str(entry.status or "").casefold() != "active"
                 or store.normalize_id(database_id) != store.normalize_id(self._db_ids.get("memory", ""))):
             return
         subject_key = S.redact_secrets(str(entry.metadata.get("subject_key") or "")).strip()
@@ -1091,7 +1224,8 @@ class NotionBrainProvider:
                 props = row.get("properties") or {}
                 if (not old_id or old_id == page_id
                         or str(props.get("Subject Key") or "").strip() != subject_key
-                        or str(props.get("Status") or "active").casefold() != "active"):
+                        or str(props.get("Status") or "active").casefold() != "active"
+                        or str(props.get("Truth") or "inferred").casefold() == "certified"):
                     continue
                 store.update_page(old_id, {"Status": status_property}, expected_database_id=database_id)
                 if "Superseded Page ID" in schema_props:

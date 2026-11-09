@@ -355,24 +355,24 @@ def test_store_entry_raises_when_no_database() -> None:
         provider._store_entry(entry)
 
 
-def test_write_entry_raw_updates_existing_page(monkeypatch: pytest.MonkeyPatch) -> None:
-    provider = _provider_with_dbs(memory="mem-db")
-    entry = S.BrainEntry(domain="memory", title="Existing", content="updated")
+def test_write_entry_raw_updates_existing_non_memory_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = _provider_with_dbs(content="content-db")
+    entry = S.BrainEntry(domain="social_content", title="Existing", content="updated")
     monkeypatch.setattr(provider, "_database_properties", lambda dbid, e: {"title": {"title": []}})
     monkeypatch.setattr(
         store,
         "search_page_by_title",
         lambda title, object_type="page": {
-            "id": "existing-page",
-            "parent": {"database_id": "mem-db"},
+            "id": "content-existing",
+            "parent": {"database_id": "content-db"},
         },
     )
     updated: list[tuple[str, dict]] = []
     monkeypatch.setattr(
         store, "update_page", lambda pid, props, *a, **kw: updated.append((pid, props))
     )
-    provider._write_entry_raw("mem-db", entry)
-    assert updated == [("existing-page", {"title": {"title": []}})]
+    provider._write_entry_raw("content-db", entry)
+    assert updated == [("content-existing", {"title": {"title": []}})]
 
 
 def test_prefetch_returns_empty_when_no_memory_db() -> None:

@@ -131,3 +131,63 @@ def test_memory_schema_match_accepts_truth_select_superset():
 
 def test_truth_is_normalized_to_inferred_for_agent_entries():
     assert BrainEntry(domain="memory", title="x", content="y", truth="bogus").normalized().truth == "inferred"
+
+
+# --- Phase 10 Task 2: ordinary inferred writes protect certified predecessors ---
+
+
+_CERT_SCHEMA = {
+    "properties": {
+        "Status": {"type": "status", "status": {"options": [{"name": "active"}, {"name": "Superseded"}]}},
+        "Subject Key": {"type": "rich_text"},
+        "Truth": {"type": "select"},
+        "Kind": {"type": "select"},
+        "Content": {"type": "rich_text"},
+    }
+}
+
+
+def _cert_write_provider(monkeypatch, tmp_path, rows):
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._db_ids = {"memory": "memory-db"}
+    created: list[dict] = []
+    updates: list[tuple] = []
+
+    def _create(*, database_id, properties, **_kw):
+        created.append(properties)
+        return {"id": "new-page", "parent": {"database_id": database_id}}
+
+    monkeypatch.setattr(store, "search_page_by_title", lambda *_a, **_kw: None)
+    monkeypatch.setattr(store, "get_database", lambda *_a: _CERT_SCHEMA)
+    monkeypatch.setattr(store, "create_database_page", _create)
+    monkeypatch.setattr(store, "query_database", lambda *_a, **_kw: rows)
+    monkeypatch.setattr(store, "update_page", lambda *args, **kwargs: updates.append((args, kwargs)))
+    return provider, created, updates
+
+
+def test_ordinary_write_does_not_supersede_same_title_certified_predecessor(monkeypatch, tmp_path):
+    rows = [{"id": "cert", "title": "Phone", "properties": {
+        "Subject Key": "device.phone", "Status": "active", "Content": "Pixel 8", "Truth": "certified"}}]
+    provider, created, updates = _cert_write_provider(monkeypatch, tmp_path, rows)
+    provider._tool_remember({"title": "Phone", "content": "Pixel 9", "subject_key": "device.phone"})
+    assert created  # new version created
+    assert updates == []  # certified predecessor Content/Truth/Status untouched
+
+
+def test_ordinary_write_does_not_supersede_different_title_certified_predecessor(monkeypatch, tmp_path):
+    rows = [{"id": "cert", "title": "Old phone", "properties": {
+        "Subject Key": "device.phone", "Status": "active", "Content": "Pixel 8", "Truth": "certified"}}]
+    provider, created, updates = _cert_write_provider(monkeypatch, tmp_path, rows)
+    provider._tool_remember({"title": "Current phone", "content": "Pixel 9", "subject_key": "device.phone"})
+    assert created
+    assert updates == []
+
+
+def test_ordinary_write_reuses_certified_exact_match_without_demotion(monkeypatch, tmp_path):
+    rows = [{"id": "cert", "title": "Phone", "properties": {
+        "Subject Key": "device.phone", "Status": "active", "Content": "Pixel 9", "Truth": "certified"}}]
+    provider, created, updates = _cert_write_provider(monkeypatch, tmp_path, rows)
+    provider._tool_remember({"title": "Phone", "content": "Pixel 9", "subject_key": "device.phone"})
+    assert created == []  # exact match reused
+    assert updates == []  # no Truth demotion, no Status flip, no provenance overwrite
