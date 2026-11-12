@@ -2,10 +2,19 @@
 phase: 14-graph-provenance-relational-recall
 verified: 2026-11-12
 status: passed
-source_snapshot: b868c39
+source_snapshot: edec36a
 score: "3/3 success criteria verified; PROV-01, PROV-02 and PROV-03 closed"
 fingerprint: "Phase 14 closure: known source agent/session and original created time survive the SQLite cache, read-population conflicts backfill provenance without overwriting accepted rows, prefetch renders a provenance suffix, timeline returns the full block, and supersession edges/traversal remain intact. 23 cache/provenance tests and 46 scoped tests pass; full suite 579 passed, 1 deselected; ruff and mypy clean."
 gaps: []
+covered_files:
+  - notion_brain/brain_cache.py
+  - notion_brain/provider.py
+  - tests/test_brain_cache.py
+  - tests/test_provenance.py
+  - tests/test_prefetch_hydration.py
+  - .planning/phases/14-graph-provenance-relational-recall/14-01-PLAN.md
+  - .planning/phases/14-graph-provenance-relational-recall/14-01-SUMMARY.md
+covered_digest: "v4:sha256:7e0ef85c372f5ed2577e6a7f723ba481115e94483a4e83f4170cf5ce4596ad52"
 closed:
   - truth: Recall results expose source, session, timestamp and truth/status for each fact.
     requirements: [PROV-01]
@@ -32,6 +41,7 @@ Phase 14 is verified. PROV-02 and PROV-03 were already wired; the PROV-01 proven
 - Full repository gate: **579 passed, 1 deselected in 5.77s** (Phase 13 baseline 573 plus six new regressions).
 - Ruff, mypy and CRLF-aware whitespace checks clean.
 - No live Notion call was required.
+- Digest refreshed 2026-11-12 after the Phase 15 provider change; 23 cache/provenance tests and the 582-test full gate are green.
 
 ## Closure evidence
 

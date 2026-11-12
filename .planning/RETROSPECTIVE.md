@@ -80,6 +80,43 @@
 
 ---
 
+## Milestone: v1.3 — Brain Architecture & Freemium Foundation
+
+**Shipped:** 2026-11-13
+**Phases:** 3 | **Plans:** 3
+
+### What Was Built
+- Read-through SQLite cache with offline cold prefetch and a two-lane 400/400 injection budget (Phase 9).
+- Event-driven supersession with background subject-key inference and retained history (Phase 10).
+- StorageAdapter protocol, entitlement-gated selection and an Obsidian vault scaffold (Phase 11).
+
+### What Worked
+- Verification-driven gap plans closed each audited requirement without reopening the broader phase.
+- Per-concern failure isolation in cache, graph and certification paths survived later changes.
+- Targeted evidence re-runs before each digest refresh caught real staleness at phase boundaries.
+
+### What Was Inefficient
+- Verification digests went stale repeatedly when later phases touched shared files (`provider.py`, `brain_cache.py`); each close needed a refresh.
+- Some original phase artifacts were missing, requiring retrospective reconstruction from commits and tests.
+- The ROADMAP/REQUIREMENTS files covered multiple milestones, complicating archival.
+
+### Patterns Established
+- Refresh `covered_files`/`covered_digest` after any shared-source change.
+- Accepted-state success boundaries with failure-isolated auxiliary bookkeeping.
+- Explicitly document adapter write-path ceilings instead of claiming full abstraction.
+
+### Key Lessons
+1. Refresh verification digests at the end of a phase sequence, not only at each phase close.
+2. Keep milestone-scoped ROADMAP/REQUIREMENTS files so archival does not strand downstream phases.
+3. A passing suite is not closure evidence; phase summaries, verification and validation must exist.
+
+### Cost Observations
+- Model mix: not instrumented in this session
+- Sessions: one continuous closeout session across Phases 10–15
+- Notable: 10 requirements verified; full suite grew 532 → 582; 181 cross-phase tests.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -88,6 +125,8 @@
 |-----------|----------|--------|------------|
 | v1.0 | 3 | 3 | Introduced automated pre-commit gates, offline test isolation, and Darwin installer guard |
 | v1.1 | ~3 | 3 | Re-verification discipline, code-review-driven fixes, and 58 new offline tests across packaging/update/cache |
+| v1.2 | ~2 | 2 | Retrospective closure, hermetic suite, opt-in pre-push gate and weekly hook maintenance |
+| v1.3 | ~2 | 3 | Cache/supersession foundation plus adapter abstraction and entitlement gate |
 
 ### Cumulative Quality
 
@@ -95,6 +134,8 @@
 |-----------|-------|-----------|----------|-------------------|
 | v1.0 | 303 | 8 | 100% on config_schema.py | 2 test suites, 0 runtime dependencies |
 | v1.1 | 361 | 58 | (per-test) | 0 new runtime deps — all v1.1 work uses stdlib + existing requests |
+| v1.2 | 451 | 90 | (per-test) | 0 new runtime deps; hermetic socket denial |
+| v1.3 | 582 | 131 | (per-test) | 0 new runtime deps; SQLite already stdlib |
 
 ### Top Lessons (Verified Across Milestones)
 

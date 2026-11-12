@@ -2,10 +2,16 @@
 phase: 13-user-gated-certification-flow
 verified: 2026-11-12
 status: passed
-source_snapshot: working tree on top of f8f01b7
+source_snapshot: edec36a
 score: "3/3 success criteria verified; CERT-01, CERT-02 and CERT-03 closed"
 fingerprint: "Phase 13 closure: agent writes default to inferred, exact per-call confirmation is the only promotion path, certified facts rank first at equal recency, and certification now isolates predecessor metadata/catalog/cache failures after the accepted Truth flip while still failing closed on a rejected Truth write. 25 certification tests and 63 scoped tests pass; full suite 573 passed, 1 deselected; ruff and mypy clean."
 gaps: []
+covered_files:
+  - notion_brain/provider.py
+  - tests/test_certification.py
+  - .planning/phases/13-user-gated-certification-flow/13-01-PLAN.md
+  - .planning/phases/13-user-gated-certification-flow/13-01-SUMMARY.md
+covered_digest: "v4:sha256:f734ca8ca5f9691eaeb1df1270a3b696d103c13fff0d7efdcc2e6c4b432d2996"
 closed:
   - truth: Agent-written memories default to inferred and certified facts rank above inferred facts at equal recency.
     requirements: [CERT-01]
@@ -32,6 +38,7 @@ Phase 13 is verified. CERT-01 and CERT-02 were already demonstrated; the CERT-03
 - Full repository gate: **573 passed, 1 deselected in 7.66s** (Phase 12 baseline 570 plus three new regressions).
 - Ruff, mypy and CRLF-aware whitespace checks clean.
 - No live Notion call or external confirmation UI was used.
+- Digest refreshed 2026-11-12 after later phases changed `provider.py`; 25 certification tests and the 582-test full gate are green.
 
 ## Closure evidence
 

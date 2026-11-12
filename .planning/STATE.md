@@ -1,16 +1,21 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.3
-milestone_name: Brain Architecture & Freemium Foundation
-status: planning
+milestone: v1.4
+milestone_name: Semantic Brain Layer
+status: Awaiting milestone closeout
+stopped_at: v1.3 archived; v1.4 phases 12-15 verified
+last_updated: "2026-11-13T00:00:00Z"
+last_activity: 2026-11-13
+last_activity_desc: Milestone v1.3 completed and archived; v1.4 closeout pending
+state_head: c1261af56110f0c76b85d51d97ac2881ec0789e6
+progress:
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 current_phase: 15
 current_phase_name: Answerability Gate & Contradiction Detection
-last_updated: "2026-11-12T00:00:00Z"
-last_activity: 2026-11-12
-progress:
-  total_phases: 15
-  completed_phases: 15
-  percent: 100
 ---
 
 # Project State
@@ -20,19 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-09)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** The milestone audit passed for the full v1.3 + v1.4 scope (21/21 requirements, 7/7 phases). Milestone completion, merge/release and v1.5 scope remain separate decisions.
+**Current focus:** v1.4 is complete and verified; milestone closeout is pending. v1.3 shipped and archived on 2026-11-13. Merge/tag/release and v1.5 scope remain separate decisions.
 
 ## Current Position
 
-Milestone: v1.3 — Brain Architecture & Freemium Foundation (gap closure)
-Phase: 15 of 15 — Answerability Gate & Contradiction Detection
-Status: Verified 3/3; milestone audit passed (v1.3 and v1.4 scope, 21/21 requirements)
-Next position: Milestone completion decision — see [v1.3 audit](v1.3-MILESTONE-AUDIT.md) and [v1.4 audit](v1.4-MILESTONE-AUDIT.md)
-Last activity: 2026-11-12 — ran the milestone audit; 181 cross-phase tests passed; both reports show `passed`
-
-Phases 1–9 retain their historical closeout status. Phases 10–15 are verified with current SUMMARY/VERIFICATION evidence, giving 15/15 phases complete in this roadmap. The original 15/15 implementation claim is now matched by closure evidence; merge to `main` and release remain unperformed.
-
-Implementation history: v1.3 `7b78b98`, `7ceaafb`, `71e7122`; v1.4 `da6b1d4`, `700221c`, `c5e829e`, `6208569`; semantic review fixes `fb7ec04`. Commit existence, automated verification, push, merge and release are separate observations. Prerequisite merge and feature-branch push: observed at `24ce18b`. Merge to main/release: not performed.
+Phase: Milestone v1.3 complete; v1.4 closeout pending
+Plan: —
+Status: Awaiting v1.4 milestone closeout
+Last activity: 2026-11-13 — Milestone v1.3 completed and archived; v1.4 phases 12-15 verified
 
 ## Execution Order (user-confirmed 2026-11-06)
 
@@ -46,7 +46,7 @@ Phase 11 verification (2026-11-12): **568 passed, 1 deselected in 5.59s**; seven
 
 Phase 10 verification (2026-11-09): **561 passed, 1 deselected in 6.15s**, 3/3 scoped contracts, 121 targeted supersession tests. Phase 9 verification (2026-11-09): **532 passed, 1 deselected in 6.39s**; cached prefetch on committed `45c8ca2` measured 1.012ms median / 1.349ms p95 over 120 samples with zero warm Notion calls. The initial [audit](v1.4-MILESTONE-AUDIT.md) records the original gaps and a follow-up below.
 
-GSD integrity remediation (2026-11-12): Phases 7 and 8 gained retrospective SUMMARY and VERIFICATION artifacts reconstructed from committed behavior; `verify phase-completeness` passes for Phases 04–12; `validate health` is **healthy** and `validate consistency` reports 0 warnings. Phase 9's verification digest was refreshed after later provider changes, and dispatch briefs now live under `.planning/milestones/dispatches/`.
+GSD integrity remediation (2026-11-12): Phases 7 and 8 gained retrospective SUMMARY and VERIFICATION artifacts reconstructed from committed behavior; `verify phase-completeness` passes for Phases 04–15; `validate health` is **healthy** and `validate consistency` reports 0 warnings. Verification digests were refreshed after later shared-source changes, and dispatch briefs now live under `.planning/milestones/dispatches/`.
 
 Historical offline baseline (2026-11-06): **401 passed, 1 deselected** via `.venv/bin/python -m pytest -q` (project venv, Python 3.12).
 
@@ -73,7 +73,7 @@ The previous single failure (`test_database_schema_mismatch_detects_zombie_statu
 
 - v1.0 + v1.1 = 6 phases, 7 plans, 25 requirements; offline suite audited 2026-11-06: 401 passed, 1 deselected (prior baseline 361)
 - v1.2 = 2 phases, 4 plans, 5 requirements completed 2026-11-07; observed full-tree suite: 451 passed, 1 deselected (1 warning, 5.41s). The v1.2-only suite baseline was not isolated because v1.3/v1.4 implementation changes are present in this working tree.
-- Historical 2026-11-07 v1.3/v1.4 report claimed 7 phases and 21 requirements complete after 487 passing tests. The initial 2026-11-09 audit superseded that claim: 8 requirements had concrete gaps and all 7 phases lacked original GSD closure evidence. Phase 9's subsequent verified repair closes RET-02/03, leaving 6 concrete requirement gaps and Phases 10–15 awaiting closure evidence. The earlier implementation commits remain valid history.
+- Historical 2026-11-07 v1.3/v1.4 report claimed 7 phases and 21 requirements complete after 487 passing tests. The initial 2026-11-09 audit superseded that claim; subsequent gap plans closed every partial requirement. Current state: v1.3 shipped 2026-11-13 (3 phases, 10 requirements); v1.4 phases 12–15 verified (11 requirements); full suite 582 passed, 1 deselected.
 
 ## Accumulated Context
 
@@ -120,16 +120,16 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 
 ## Session Continuity
 
-Last session: 2026-11-12
-Stopped at: Milestone audit passed for Phases 9–15; completion, merge/release and v1.5 remain separate
+Last session: 2026-11-13
+Stopped at: v1.3 completed and archived; v1.4 phases 12–15 verified and awaiting milestone closeout
 Resume file: `.planning/v1.4-MILESTONE-AUDIT.md`
 
 ## Operator Next Steps
 
-- Review and commit the audit reports (`v1.3-MILESTONE-AUDIT.md`, updated `v1.4-MILESTONE-AUDIT.md`) and the summary metadata alignment.
-- Decide on milestone completion/archival (`/gsd-complete-milestone v1.3`, with v1.4 handled separately) and on merge/tag/release.
-- PyPI Trusted Publisher registration remains a one-time manual step before the first `v*` tag push.
+- Run `/gsd-complete-milestone v1.4` after confirming the v1.4 audit; this archives Phases 12–15 and removes the milestone-scoped requirements file.
+- Decide separately on merge to `main`, tagging and release; PyPI Trusted Publisher registration remains a one-time manual step.
 - Define v1.5 only after its scope is supplied.
+
 
 ## Prerequisite integration
 
@@ -137,9 +137,9 @@ The v1.2-only branch recorded **407 passed, 1 deselected** in its isolated basel
 
 ## Completed gap plans
 
-- [09-02-PLAN.md](phases/09-retrieval-correctness-local-cache/09-02-PLAN.md) completed in `45c8ca2`; fingerprinted by [09-VERIFICATION.md](phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md).
-- [10-02-PLAN.md](phases/10-event-driven-supersession/10-02-PLAN.md) completed in `f9c589b`; fingerprinted by [10-VERIFICATION.md](phases/10-event-driven-supersession/10-VERIFICATION.md).
-- [11-01-PLAN.md](phases/11-storage-adapters/11-01-PLAN.md) completed in `61a6247`; fingerprinted by [11-VERIFICATION.md](phases/11-storage-adapters/11-VERIFICATION.md).
+- [09-02-PLAN.md](milestones/v1.3-phases/09-retrieval-correctness-local-cache/09-02-PLAN.md) completed in `45c8ca2`; fingerprinted by [09-VERIFICATION.md](milestones/v1.3-phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md).
+- [10-02-PLAN.md](milestones/v1.3-phases/10-event-driven-supersession/10-02-PLAN.md) completed in `f9c589b`; fingerprinted by [10-VERIFICATION.md](milestones/v1.3-phases/10-event-driven-supersession/10-VERIFICATION.md).
+- [11-01-PLAN.md](milestones/v1.3-phases/11-storage-adapters/11-01-PLAN.md) completed in `61a6247`; fingerprinted by [11-VERIFICATION.md](milestones/v1.3-phases/11-storage-adapters/11-VERIFICATION.md).
 - [12-01-PLAN.md](phases/12-semantic-catalog/12-01-PLAN.md) completed 2026-11-12 as verification plus Obsidian catalog-ref recall on `61a6247`; fingerprinted by [12-VERIFICATION.md](phases/12-semantic-catalog/12-VERIFICATION.md).
 - [13-01-PLAN.md](phases/13-user-gated-certification-flow/13-01-PLAN.md) completed 2026-11-12 in `e1d55c6`; fingerprinted by [13-VERIFICATION.md](phases/13-user-gated-certification-flow/13-VERIFICATION.md).
 - [14-01-PLAN.md](phases/14-graph-provenance-relational-recall/14-01-PLAN.md) completed 2026-11-12 in `b868c39`; fingerprinted by [14-VERIFICATION.md](phases/14-graph-provenance-relational-recall/14-VERIFICATION.md).

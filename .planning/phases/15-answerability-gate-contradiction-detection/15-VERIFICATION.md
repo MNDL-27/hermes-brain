@@ -2,10 +2,17 @@
 phase: 15-answerability-gate-contradiction-detection
 verified: 2026-11-12
 status: passed
-source_snapshot: cf12265
+source_snapshot: edec36a
 score: "3/3 success criteria verified; ANS-01 and ANS-02 closed"
 fingerprint: "Phase 15 closure: coverage gates retrieval at zero coverage with the approved wording and missing terms; check_answerable/search_terms tools are registered; contradictions surface both structurally and in prefetch; the notice now renders at most four entries, reports the exact omitted count, and stays within the warning lane and 800-token total. 37 answerability/budget tests pass; full suite 582 passed, 1 deselected; ruff and mypy clean."
 gaps: []
+covered_files:
+  - notion_brain/injection.py
+  - notion_brain/provider.py
+  - tests/test_answerability.py
+  - .planning/phases/15-answerability-gate-contradiction-detection/15-01-PLAN.md
+  - .planning/phases/15-answerability-gate-contradiction-detection/15-01-SUMMARY.md
+covered_digest: "v4:sha256:35316899a28e850f6ce97c59d53ca113879132afb9846be47587764d864dfc9e"
 closed:
   - truth: Catalog coverage is checked before fuzzy recall and zero coverage returns deterministic unsupported-term output naming the missing terms.
     requirements: [ANS-01]
@@ -31,6 +38,7 @@ Phase 15 is verified. ANS-01 was already demonstrated; the ANS-02 notice-formatt
 - Full repository gate: **582 passed, 1 deselected in 5.92s** (Phase 14 baseline 579 plus three new regressions).
 - Ruff, mypy and CRLF-aware whitespace checks clean.
 - No live Notion call was required.
+- Digest computed 2026-11-12 against the final code state; 37 answerability/budget tests and the 582-test full gate are green.
 
 ## Closure evidence
 

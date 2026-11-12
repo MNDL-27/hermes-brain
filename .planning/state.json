@@ -1,58 +1,58 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v1.3 — Brain Architecture & Freemium Foundation (gap closure)",
+  "milestone": "v1.4 — Semantic Brain Layer",
   "phases": [
     {
       "number": "7",
       "name": "Update UX — Commit-Level Drift + Release-Notes Link",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "8",
       "name": "Developer Tooling & Test Reliability",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "9",
       "name": "Retrieval Correctness & Local Read-Through Cache",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "10",
       "name": "Event-Driven Supersession & Truth Integrity",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "11",
       "name": "Storage Adapter Abstraction & Freemium Gate",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "12",
       "name": "Core Semantic Catalog",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "13",
       "name": "User-Gated Certification Flow",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "14",
       "name": "Graph Provenance & Relational Recall",
-      "status": "completed"
+      "status": "complete"
     },
     {
       "number": "15",
       "name": "Answerability Gate & Contradiction Detection",
-      "status": "completed"
+      "status": "complete"
     }
   ],
   "next": {
-    "command": "/gsd-complete-milestone v1.3",
-    "label": "Complete the v1.3 milestone after the passed audit",
-    "reason": "The v1.3 and v1.4 milestone audits both passed (21/21 requirements, 7/7 phases). Completion/archival, merge/release and v1.5 scope remain separate decisions."
+    "command": "/gsd-complete-milestone v1.4",
+    "label": "Complete the v1.4 milestone",
+    "reason": "v1.3 shipped and archived on 2026-11-13; all four v1.4 phases are verified and the v1.4 audit passed."
   },
-  "updated_at": "2026-11-12T00:00:00Z"
+  "updated_at": "2026-11-13T00:00:00Z"
 }

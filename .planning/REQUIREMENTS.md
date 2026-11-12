@@ -1,56 +1,11 @@
 # Requirements: hermes-brain
 
-**Defined:** 2026-09-19 (v1.0) — Last reset: 2026-10-08 (v1.2 selection from v1.1 carryover)
+**Defined:** 2026-11-06 (v1.4 intake from the Auto Ontology semantic-layer study)
 **Core Value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
 
-**Historical v1.2 intake:** Update UX & Tooling Polish (intake accepted via Paperclip interaction `5246bf23` at 2026-10-08T07:48Z; previously approved at the v1.1 milestone closeout as the next-milestone scope)
+**Current work:** v1.4 is complete and verified; milestone closeout is pending. v1.3 requirements were archived to `.planning/milestones/v1.3-REQUIREMENTS.md` when the milestone shipped on 2026-11-13.
 
-**Current work:** v1.3 Phase 10 gap planning after verified Phase 9 closure, followed by the remaining approved phases in order. v1.5 remains undefined.
-
-## v1.2 Requirements
-
-Requirements for this milestone. Each maps to roadmap phases.
-
-### Update UX (UPD)
-
-- [x] **UPD-06**: Commit-level drift detection between formal tags so git-clone installs see "behind N commits" alerts even when `__version__` is unchanged.
-- [x] **UPD-07**: `notion_brain update` and the cached auto-update check render the link as the canonical release-notes URL `https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z`, copy-pasteable and derived from the same tag the drift check resolves.
-
-### Developer Tooling (TOOL)
-
-- [x] **TOOL-01**: An optional pre-push git hook runs `pytest -q` before remote push. Installation is opt-in; the hook fails fast on any failing test or pre-existing hang with the same gating the CI `test` job uses.
-- [x] **TOOL-02**: A scheduled GitHub Actions workflow runs `pre-commit autoupdate` on a cron basis (e.g. weekly) and consumes the resulting hook-config update — via PR, workflow summary, or `git.autoUpdate` artifact — without manual intervention.
-
-### Test Reliability (TEST)
-
-- [x] **TEST-HANGS**: Investigate and resolve the three pre-existing offline test-suite hangs accepted as v1.1 known gaps — `test_coverage_gaps`, `test_migration_privacy_blockers`, and `test_provider` — so the full offline `pytest` run finishes within the existing CI timeout and remains a usable release gate. Pre-existing hangs must be **fixed**, not silently `@pytest.mark.skip`ed.
-
-## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
-
-Audit follow-up 2026-11-12: every roadmap phase (9–15) now has current passing SUMMARY/VERIFICATION evidence and no requirement has an unresolved code gap. Milestone-level merge/release decisions remain separate. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
-
-Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
-
-### Retrieval Correctness (RET)
-
-- [x] **RET-01**: Prefetch hydrates available text from `Content`, a `Summary` rich-text property or page body blocks, avoiding blank prefetch lines when source text exists. Rows without available source text retain the existing empty-content behavior.
-- [x] **RET-02**: A local SQLite read-through cache mirrors active memory rows; turn-zero prefetch completes offline in <5ms with zero Notion API calls; the existing background worker drains writes to Notion.
-- [x] **RET-03**: Prompt injection is hard-capped at 800 whitespace-token units split into Lane 1 (pinned identity/warnings/decisions, 400 units) and Lane 2 (dynamic per-turn context, 400 units), with deterministic overflow trimming. This retains the existing budget convention rather than model-tokenizer precision.
-
-### Supersession (SUP)
-
-- [x] **SUP-01**: Memory rows carry a `Subject Key` logical slot (e.g. `device.daily_phone`, `preferences.engine_cc`); detection infers it from content with an explicit override parameter.
-- [x] **SUP-02**: Writing a fact whose `Subject Key` matches an existing active row marks the older row `Status: Superseded` (non-destructive; history preserved) instead of leaving contradictions.
-- [x] **SUP-03**: Superseded history stays queryable (recall-as-of / timeline listing) so past truths remain auditable.
-
-### Storage Adapter & Freemium (ADAPT)
-
-- [x] **ADAPT-01**: A `StorageAdapter` protocol abstracts `search`, `remember`, `supersede`, `prefetch`, `health`.
-- [x] **ADAPT-02**: The current Notion code path is refactored behind `NotionAdapter` with no behavior change for existing users. Provider recall routes through the adapter; the certification/provenance-bearing Memory write path remains on `store.*` as an explicit ceiling.
-- [x] **ADAPT-03**: A premium entitlement check (license token) gates non-free storage adapters; unentitled selection falls back to Notion with an upgrade notice.
-- [x] **ADAPT-04**: An `ObsidianVaultAdapter` premium adapter (markdown + SQLite index inside the user's vault) is specified and scaffolded behind the entitlement check; free tier remains Notion-only.
-
-## v1.4 Requirements (Defined 2026-11-06 — implementation present, closure unverified)
+## v1.4 Requirements (Verified 2026-11-12)
 
 Requirements derived from the Auto Ontology semantic-layer architecture study (github.com/NVIDIA/auto-ontology) and user-confirmed decisions of 2026-11-06. Builds on v1.3's StorageAdapter (ADAPT-01..04), local cache (RET-02), and supersession (SUP-01..03).
 
@@ -81,57 +36,34 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UPD-06 | Phase 7 | Verified — retrospective 07-VERIFICATION (2026-11-12) |
-| UPD-07 | Phase 7 | Verified — retrospective 07-VERIFICATION (2026-11-12) |
-| TOOL-01 | Phase 8 | Verified — retrospective 08-VERIFICATION (2026-11-12) |
-| TOOL-02 | Phase 8 | Verified — retrospective 08-VERIFICATION (2026-11-12) |
-| TEST-HANGS | Phase 8 | Verified — retrospective 08-VERIFICATION (2026-11-12) |
-| RET-01 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
-| RET-02 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
-| RET-03 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
-| SUP-01 | Phase 10 | Verified — 10-02 summary and current verification fingerprint |
-| SUP-02 | Phase 10 | Verified — 10-02 summary and current verification fingerprint |
-| SUP-03 | Phase 10 | Verified — 10-02 summary and current verification fingerprint |
-| ADAPT-01 | Phase 11 | Verified — protocol and both adapter implementations covered by `tests/test_adapters.py` |
-| ADAPT-02 | Phase 11 | Verified for read paths — provider search/prefetch route through `NotionAdapter`; Memory write path is a documented ceiling |
-| ADAPT-03 | Phase 11 | Verified — entitlement-gated selection with provider fallback to Notion |
-| ADAPT-04 | Phase 11 | Verified — vault scaffold plus entitled provider selection and recall merge |
-| CAT-01 | Phase 12 | Verified — 12-01 summary and current verification fingerprint |
-| CAT-02 | Phase 12 | Verified — 12-01 summary and current verification fingerprint |
+| CAT-01 | Phase 12 | Verified — 12-01 summary and verification fingerprint |
+| CAT-02 | Phase 12 | Verified — 12-01 summary and verification fingerprint |
 | CAT-03 | Phase 12 | Verified — definitions resolve Notion ids and premium Obsidian note paths into row selection |
-| CERT-01 | Phase 13 | Verified — 13-01 summary and current verification fingerprint |
-| CERT-02 | Phase 13 | Verified — 13-01 summary and current verification fingerprint |
+| CERT-01 | Phase 13 | Verified — 13-01 summary and verification fingerprint |
+| CERT-02 | Phase 13 | Verified — 13-01 summary and verification fingerprint |
 | CERT-03 | Phase 13 | Verified — failure isolation closed by 13-01 |
-| PROV-01 | Phase 14 | Verified — 14-01 provenance continuity across cache, prefetch and timeline |
-| PROV-02 | Phase 14 | Verified — 14-01 summary and current verification fingerprint |
-| PROV-03 | Phase 14 | Verified — 14-01 summary and current verification fingerprint |
-| ANS-01 | Phase 15 | Verified — 15-01 summary and current verification fingerprint |
-| ANS-02 | Phase 15 | Verified — notice bound closed by 15-01 |
+| PROV-01 | Phase 14 | Verified — provenance continuity across cache, prefetch and timeline |
+| PROV-02 | Phase 14 | Verified — 14-01 summary and verification fingerprint |
+| PROV-03 | Phase 14 | Verified — 14-01 summary and verification fingerprint |
+| ANS-01 | Phase 15 | Verified — 15-01 summary and verification fingerprint |
+| ANS-02 | Phase 15 | Verified — contradiction notice bound closed by 15-01 |
 
 **Coverage:**
-- v1.2 requirements: 5 total
-- Shipped and verified: 5 (completed 2026-11-07)
-- Mapped to phases: 5 ✓
-- Dropped: 0
-- Adjusted: 0
-- Deferred to next milestone: 0
-- v1.3 requirements: 10 total — 3 verified in Phase 9, 4 with concrete gaps, 3 with implementation observed but closure unverified
-- v1.4 requirements: 11 total — 2 with concrete gaps; 9 with implementation observed but closure unverified
-- Phase 9 now has current GSD summary, verification and validation evidence for RET-01/02/03. The missing original records for Phases 10–15 still require reconciliation.
-- Current automated baseline: 532 passed, 1 deselected (6.39s); Ruff and mypy clean across 53 source files. Only specifically verified Phase 9 requirements are closed; later gaps remain open.
-- Historical 2026-11-07 closeout report: 487 passed, 1 deselected, Ruff/mypy clean; its blanket completion claim is superseded by the 2026-11-09 audit
+- v1.4 requirements: 11 total
+- Verified: 11 (2026-11-12)
+- Mapped to phases: 11 ✓
+- Dropped: 0 / Adjusted: 0 / Deferred: 0
+- Full gate: 582 passed, 1 deselected; ruff, mypy and whitespace clean
+- Milestone audit: [v1.4-MILESTONE-AUDIT.md](v1.4-MILESTONE-AUDIT.md) — passed, 21/21 across Phases 9–15
 
-## Out of Scope (v1.2)
+## Accepted boundaries
 
-| Feature | Reason |
-|---------|--------|
-| New CLI subcommands beyond the drift UX rewrites UPD-06/07 require | Keeps the CLI surface the maintenance team owns small; "CLI ergonomics" can be its own milestone if needed |
-| Notion schema changes | The 7-database schema shipped at v0.x; nothing in UPD-06/07/TOOL-01/02/TEST-HANGS requires a schema edit |
-| Packaging rebuild | v1.1 (Phase 4) already modernized `pyproject.toml`, build-system floor, and offline packaging tests |
-| New external integrations | TOOL-02 reuses the existing `.github/workflows/` surface; no new OAuth apps, no new services |
-| Silent auto-mutation in `notion_brain update` | Carried from v1.1 UPD-05 detection + instruction-only contract |
-| `@pytest.mark.skip` as the fix for any of the three TEST-HANGS files | Skipping silently removes the regression signal; the v1.1 closeout explicitly recorded these as TEST-HANGS *debt*, not as accepted removals |
+| Boundary | Reason |
+|----------|--------|
+| ADAPT-02 Memory write path remains on `store.*` (archived v1.3) | Certification, provenance, reuse-or-create, graph and cache-mirror semantics exceed the generic adapter protocol; provider recall routes through `NotionAdapter`. |
+| Obsidian section locators (`note.md#section`) unsupported | The premium scaffold stores one note per memory; note-level references are wired end to end. |
+| Merge to `main`, tagging/release, PyPI publisher registration | Separate release decisions from implementation and verification. |
 
 ---
-*Requirements defined: 2026-10-08 (selected from `v1.1-REQUIREMENTS.md` §Future Requirements UPD-06/07, TOOL-01/02 and v1.1 `MILESTONES.md` known-gap #1).*
-*Last updated: 2026-11-09 — audit reconciliation; Phase 9 verified; Phase 10 gap planning active and later approved work remains unverified.*
+*Requirements defined: 2026-11-06.*
+*Last updated: 2026-11-13 — v1.3 archived; v1.4 phase scope retained and verified.*

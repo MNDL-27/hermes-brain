@@ -3,7 +3,7 @@ phase: 09-retrieval-correctness-local-cache
 verified: "2026-11-12"
 status: passed
 score: "6/6 must-haves verified"
-source_snapshot: "61a6247"
+source_snapshot: "edec36a"
 re_verification: true
 previous_status: passed
 previous_source_snapshot: "45c8ca2"
@@ -24,7 +24,7 @@ covered_files:
   - tests/test_injection.py
   - tests/test_prefetch_gap_closure.py
   - tests/test_prefetch_hydration.py
-covered_digest: "v4:sha256:d626a8d5fc15346600ecdfa16c8ebaf2d3e54e236aa09b7fdad831876af45087"
+covered_digest: "v4:sha256:5e5b2da43d6b5b55c4e8dd37fe8d500546d521c56bb5b928092643b4e7ba51a0"
 nyquist:
   validation_file: 09-VALIDATION.md
   compliant: true
@@ -43,6 +43,7 @@ This re-verifies the gaps recorded at `fb7ec04`. It closes current Phase 9 work 
 - Targeted cache/hydration/injection suite: **29 passed in 0.22s**.
 - Full repository gate: **570 passed, 1 deselected**; ruff and mypy clean.
 - No Phase 9 behavior changed; the must-have evidence below still applies. The digest was recomputed against the current covered files and the report date/snapshot updated.
+- A second refresh after the Phase 14/15 cache and provider changes re-ran the 32-test cache/hydration/injection suite and the 582-test full gate; the digest above reflects the final code state.
 
 ## Observable truths
 

@@ -1,5 +1,30 @@
 # Milestones
 
+## v1.3 Brain Architecture & Freemium Foundation (Shipped: 2026-11-13)
+
+**Phases completed:** 3 phases, 3 plans, 10 requirements (RET-01..03, SUP-01..03, ADAPT-01..04)
+
+**Key accomplishments:**
+
+- **Retrieval correctness & local cache (Phase 9, RET-01..03)** — prefetch hydrates Content/Summary/body text; a SQLite read-through cache serves offline prefetch in ~1ms; every injection path is capped by the two-lane 400/400 budget.
+- **Event-driven supersession (Phase 10, SUP-01..03)** — background and explicit writes share deterministic subject-key inference; changed same-title facts create a new page and supersede active inferred predecessors without losing history; timeline preserves fact chronology.
+- **Storage adapters & freemium gate (Phase 11, ADAPT-01..04)** — provider-neutral `StorageAdapter` protocol, NotionAdapter routing for search/prefetch, entitlement-gated selection with graceful Notion fallback, and an Obsidian vault scaffold with markdown notes plus a SQLite index.
+
+**Verification:** [v1.3-MILESTONE-AUDIT.md](milestones/v1.3-MILESTONE-AUDIT.md) — passed, 10/10 requirements, 3/3 phases, Nyquist compliant. Full suite 582 passed, 1 deselected.
+
+**Closeout type:** verified_closeout
+
+**Known verification overrides:** 0 newly acknowledged, 0 carried forward
+
+**Known gaps (accepted at closeout):**
+
+- ADAPT-02 Memory write path remains on `store.*` because certification/provenance/graph semantics exceed the generic adapter protocol; provider recall routes through the adapter.
+- Obsidian section locators are unsupported by design; note-level references are wired end to end.
+
+**Git range:** `7b78b98` feat(brain) → `61a6247` feat(adapters) (implementation and gap closure)
+
+---
+
 ## v1.0 Release Polish (Shipped: 2026-09-21)
 
 **Phases completed:** 3 phases, 3 plans, 10 requirements
