@@ -2,7 +2,7 @@
 phase: 14-graph-provenance-relational-recall
 verified: 2026-11-12
 status: passed
-source_snapshot: working tree on top of e1d55c6
+source_snapshot: b868c39
 score: "3/3 success criteria verified; PROV-01, PROV-02 and PROV-03 closed"
 fingerprint: "Phase 14 closure: known source agent/session and original created time survive the SQLite cache, read-population conflicts backfill provenance without overwriting accepted rows, prefetch renders a provenance suffix, timeline returns the full block, and supersession edges/traversal remain intact. 23 cache/provenance tests and 46 scoped tests pass; full suite 579 passed, 1 deselected; ruff and mypy clean."
 gaps: []
