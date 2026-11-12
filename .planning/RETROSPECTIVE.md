@@ -117,6 +117,44 @@
 
 ---
 
+## Milestone: v1.4 — Semantic Brain Layer
+
+**Shipped:** 2026-11-13
+**Phases:** 4 | **Plans:** 4
+
+### What Was Built
+- Provider-neutral semantic catalog with deterministic queries and Notion/Obsidian locator resolution (Phase 12).
+- User-gated certification with exact per-call confirmation and failure-isolated supersession (Phase 13).
+- Cache-safe provenance, explicit supersession edges and bounded graph traversal (Phase 14).
+- Coverage-gated retrieval plus a bounded contradiction notice (Phase 15).
+
+### What Worked
+- Closing already-wired behavior with verification-first checks avoided unnecessary rewrites.
+- Focused gap plans (adapter routing, ref recall, failure isolation, provenance continuity, notice bound) stayed small and auditable.
+- Independent probes caught real gaps the test suite did not cover, notably Obsidian ref-driven selection.
+
+### What Was Inefficient
+- Verification digests went stale repeatedly as later phases touched shared files; the final audit required a refresh sweep.
+- Original Phase 12/13/14 artifacts were retrofitted around existing implementation, adding documentation overhead.
+- Multi-milestone ROADMAP/REQUIREMENTS files made v1.3 and v1.4 archival interact.
+
+### Patterns Established
+- Catalog refs drive deterministic row selection before fuzzy matching, including premium vault paths.
+- Accepted-state success boundaries with isolated auxiliary bookkeeping.
+- Explicit caps with overflow counts for rendered conflict notices.
+
+### Key Lessons
+1. Run the verification-digest refresh once at the end of the phase sequence, not only at each phase close.
+2. Keep one milestone per ROADMAP/REQUIREMENTS file so archival does not strand downstream phases.
+3. Treat "already implemented" as a hypothesis; verify it with probes and failure injection before closing.
+
+### Cost Observations
+- Model mix: not instrumented in this session
+- Sessions: one continuous audit/closeout session
+- Notable: 11 requirements verified; 12 new closure regressions; full suite 582 passed.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -127,6 +165,7 @@
 | v1.1 | ~3 | 3 | Re-verification discipline, code-review-driven fixes, and 58 new offline tests across packaging/update/cache |
 | v1.2 | ~2 | 2 | Retrospective closure, hermetic suite, opt-in pre-push gate and weekly hook maintenance |
 | v1.3 | ~2 | 3 | Cache/supersession foundation plus adapter abstraction and entitlement gate |
+| v1.4 | ~1 | 4 | Semantic catalog, certification, provenance continuity and bounded answerability |
 
 ### Cumulative Quality
 
@@ -136,6 +175,9 @@
 | v1.1 | 361 | 58 | (per-test) | 0 new runtime deps — all v1.1 work uses stdlib + existing requests |
 | v1.2 | 451 | 90 | (per-test) | 0 new runtime deps; hermetic socket denial |
 | v1.3 | 582 | 131 | (per-test) | 0 new runtime deps; SQLite already stdlib |
+| v1.4 | 582 | 12 | (per-test) | 0 new runtime deps; v1.4 code was present during the v1.3 baseline |
+
+*The v1.3 and v1.4 tree-wide counts overlap because v1.4 implementation was present before v1.3 closed; the 12 figure is the closure-regression delta during the v1.4 phase sequence.*
 
 ### Top Lessons (Verified Across Milestones)
 

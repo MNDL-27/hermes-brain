@@ -6,9 +6,9 @@
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
 - ✅ **v1.2 Update UX & Tooling Polish** — Phases 7-8 (shipped 2026-11-07)
 - ✅ **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (shipped 2026-11-13)
-- 🚧 **v1.4 Semantic Brain Layer** — Phases 12-15 (all phases verified; milestone closeout pending)
+- ✅ **v1.4 Semantic Brain Layer** — Phases 12-15 (shipped 2026-11-13)
 
-**Current route:** Close out v1.4. All four phases are implemented and verified, and the [v1.4 audit](v1.4-MILESTONE-AUDIT.md) passed (11/11 v1.4 requirements). No new implementation work is defined. Merge, tag/release and v1.5 scope remain separate decisions.
+**Current route:** All defined milestones are shipped. Define v1.5 scope before planning new phases. Merge, tag push/release and PyPI publisher registration remain separate decisions.
 
 ## Phases
 
@@ -55,13 +55,16 @@ Full phase details archived to: [.planning/milestones/v1.3-ROADMAP.md](.planning
 
 </details>
 
-### v1.4 Semantic Brain Layer (Phases 12-15)
-
-**Milestone goal:** Shift from raw note/table search to a deterministic semantic catalog, add user-certified vs inferred truth tiers, expose graph provenance across facts, and guard against hallucinations with an answerability gate.
+<details>
+<summary>✅ v1.4 Semantic Brain Layer (Phases 12-15) — SHIPPED 2026-11-13</summary>
 
 - [x] Phase 12: Core Semantic Catalog (1/1 plans) — completed 2026-11-12
 - [x] Phase 13: User-Gated Certification Flow (1/1 plans) — completed 2026-11-12
 - [x] Phase 14: Graph Provenance & Relational Recall (1/1 plans) — completed 2026-11-12
 - [x] Phase 15: Answerability Gate & Contradiction Detection (1/1 plans) — completed 2026-11-12
 
-Verification: [v1.4-MILESTONE-AUDIT.md](v1.4-MILESTONE-AUDIT.md) — all four phases passed, Nyquist compliant, 11/11 v1.4 requirements satisfied.
+Full phase details archived to: [.planning/milestones/v1.4-ROADMAP.md](.planning/milestones/v1.4-ROADMAP.md)
+
+Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDIT.md) — all four phases passed, Nyquist compliant, 11/11 v1.4 requirements satisfied.
+
+</details>

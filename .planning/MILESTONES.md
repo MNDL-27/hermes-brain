@@ -1,5 +1,31 @@
 # Milestones
 
+## v1.4 Semantic Brain Layer (Shipped: 2026-11-13)
+
+**Phases completed:** 4 phases, 4 plans, 11 requirements (CAT-01..03, CERT-01..03, PROV-01..03, ANS-01/02)
+
+**Key accomplishments:**
+
+- **Deterministic semantic catalog (Phase 12, CAT-01..03)** — provider-neutral Terms, Entities, Relations and StorageRefs with atomic redacted persistence; `resolve_term`/`list_entities`/`get_relations` run without LLM inference; Notion page/database refs and premium Obsidian note refs drive selection.
+- **User-gated certification (Phase 13, CERT-01..03)** — inferred by default, exact per-call confirmation is the only promotion path, certified facts rank first at equal recency, and certification bookkeeping isolates recoverable provenance/cache failures while failing closed on a rejected Truth write.
+- **Provenance and relational recall (Phase 14, PROV-01..03)** — source agent/session and original created time survive the SQLite cache with conflict-safe backfill; prefetch and timeline expose the full block; supersession edges and bounded graph traversal drive related recall.
+- **Answerability gate (Phase 15, ANS-01/02)** — deterministic coverage gates retrieval at zero coverage with approved uncertainty wording, and contradictions surface both structurally and as a bounded prefetch notice with an omitted-entry marker.
+
+**Verification:** [v1.4-MILESTONE-AUDIT.md](milestones/v1.4-MILESTONE-AUDIT.md) — passed, 21/21 requirements across Phases 9–15 (11/11 v1.4), 4/4 phases, Nyquist compliant. Full suite 582 passed, 1 deselected.
+
+**Closeout type:** verified_closeout
+
+**Known verification overrides:** 0 newly acknowledged, 0 carried forward
+
+**Known gaps (accepted at closeout):**
+
+- Obsidian section locators (`note.md#section`) are unsupported by design; note-level references are wired end to end.
+- Merge to `main`, tag push/release and PyPI Trusted Publisher registration remain separate decisions.
+
+**Git range:** `da6b1d4` feat(catalog) → `cf12265` fix(answerability) (implementation and gap closure)
+
+---
+
 ## v1.3 Brain Architecture & Freemium Foundation (Shipped: 2026-11-13)
 
 **Phases completed:** 3 phases, 3 plans, 10 requirements (RET-01..03, SUP-01..03, ADAPT-01..04)

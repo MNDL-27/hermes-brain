@@ -3,11 +3,11 @@ gsd_state_version: "1.0"
 milestone: v1.4
 milestone_name: Semantic Brain Layer
 status: complete
-stopped_at: v1.3 archived; v1.4 phases 12-15 complete; milestone closeout pending
-last_updated: "2026-11-13T00:00:00Z"
+stopped_at: v1.4 archived; all defined milestones shipped; v1.5 undefined
+last_updated: "2026-11-12T23:36:13.393Z"
 last_activity: 2026-11-13
-last_activity_desc: Milestone v1.3 completed and archived; v1.4 closeout pending
-state_head: c1261af56110f0c76b85d51d97ac2881ec0789e6
+last_activity_desc: Milestone v1.4 completed and archived
+state_head: 8add7ee968b23ea0f6a151b4839acbf7cd4762f7
 progress:
   total_phases: 4
   completed_phases: 4
@@ -25,14 +25,14 @@ current_phase_name: Answerability Gate & Contradiction Detection
 See: .planning/PROJECT.md (updated 2026-11-09)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** v1.4 is complete and verified; milestone closeout is pending. v1.3 shipped and archived on 2026-11-13. Merge/tag/release and v1.5 scope remain separate decisions.
+**Current focus:** All defined milestones (v1.0–v1.4) are shipped and archived. Define v1.5 scope before planning new phases. Merge to `main`, tag push/release and PyPI publisher registration remain separate decisions.
 
 ## Current Position
 
-Phase: Milestone v1.3 complete; v1.4 closeout pending
+Phase: Milestone v1.4 complete
 Plan: —
-Status: complete; v1.4 milestone closeout pending
-Last activity: 2026-11-13 — Milestone v1.3 completed and archived; v1.4 phases 12-15 verified
+Status: Complete; awaiting v1.5 definition
+Last activity: 2026-11-13 — Milestone v1.4 completed and archived
 
 ## Execution Order (user-confirmed 2026-11-06)
 
@@ -121,14 +121,14 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 ## Session Continuity
 
 Last session: 2026-11-13
-Stopped at: v1.3 completed and archived; v1.4 phases 12–15 verified and awaiting milestone closeout
-Resume file: `.planning/v1.4-MILESTONE-AUDIT.md`
+Stopped at: v1.4 completed and archived; all defined milestones shipped
+Resume file: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 ## Operator Next Steps
 
-- Run `/gsd-complete-milestone v1.4` after confirming the v1.4 audit; this archives Phases 12–15 and removes the milestone-scoped requirements file.
-- Decide separately on merge to `main`, tagging and release; PyPI Trusted Publisher registration remains a one-time manual step.
-- Define v1.5 only after its scope is supplied.
+- Define v1.5 scope, then start it with `/gsd-new-milestone`.
+- Decide separately on merge to `main`, pushing tags and release; PyPI Trusted Publisher registration remains a one-time manual step.
+- Keep the archived v1.0–v1.4 audits as the release evidence trail.
 
 
 ## Prerequisite integration
@@ -140,7 +140,7 @@ The v1.2-only branch recorded **407 passed, 1 deselected** in its isolated basel
 - [09-02-PLAN.md](milestones/v1.3-phases/09-retrieval-correctness-local-cache/09-02-PLAN.md) completed in `45c8ca2`; fingerprinted by [09-VERIFICATION.md](milestones/v1.3-phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md).
 - [10-02-PLAN.md](milestones/v1.3-phases/10-event-driven-supersession/10-02-PLAN.md) completed in `f9c589b`; fingerprinted by [10-VERIFICATION.md](milestones/v1.3-phases/10-event-driven-supersession/10-VERIFICATION.md).
 - [11-01-PLAN.md](milestones/v1.3-phases/11-storage-adapters/11-01-PLAN.md) completed in `61a6247`; fingerprinted by [11-VERIFICATION.md](milestones/v1.3-phases/11-storage-adapters/11-VERIFICATION.md).
-- [12-01-PLAN.md](phases/12-semantic-catalog/12-01-PLAN.md) completed 2026-11-12 as verification plus Obsidian catalog-ref recall on `61a6247`; fingerprinted by [12-VERIFICATION.md](phases/12-semantic-catalog/12-VERIFICATION.md).
-- [13-01-PLAN.md](phases/13-user-gated-certification-flow/13-01-PLAN.md) completed 2026-11-12 in `e1d55c6`; fingerprinted by [13-VERIFICATION.md](phases/13-user-gated-certification-flow/13-VERIFICATION.md).
-- [14-01-PLAN.md](phases/14-graph-provenance-relational-recall/14-01-PLAN.md) completed 2026-11-12 in `b868c39`; fingerprinted by [14-VERIFICATION.md](phases/14-graph-provenance-relational-recall/14-VERIFICATION.md).
-- [15-01-PLAN.md](phases/15-answerability-gate-contradiction-detection/15-01-PLAN.md) completed 2026-11-12 in `cf12265`; fingerprinted by [15-VERIFICATION.md](phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md).
+- [12-01-PLAN.md](milestones/v1.4-phases/12-semantic-catalog/12-01-PLAN.md) completed 2026-11-12 as verification plus Obsidian catalog-ref recall on `61a6247`; fingerprinted by [12-VERIFICATION.md](milestones/v1.4-phases/12-semantic-catalog/12-VERIFICATION.md).
+- [13-01-PLAN.md](milestones/v1.4-phases/13-user-gated-certification-flow/13-01-PLAN.md) completed 2026-11-12 in `e1d55c6`; fingerprinted by [13-VERIFICATION.md](milestones/v1.4-phases/13-user-gated-certification-flow/13-VERIFICATION.md).
+- [14-01-PLAN.md](milestones/v1.4-phases/14-graph-provenance-relational-recall/14-01-PLAN.md) completed 2026-11-12 in `b868c39`; fingerprinted by [14-VERIFICATION.md](milestones/v1.4-phases/14-graph-provenance-relational-recall/14-VERIFICATION.md).
+- [15-01-PLAN.md](milestones/v1.4-phases/15-answerability-gate-contradiction-detection/15-01-PLAN.md) completed 2026-11-12 in `cf12265`; fingerprinted by [15-VERIFICATION.md](milestones/v1.4-phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md).

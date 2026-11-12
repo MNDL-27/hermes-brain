@@ -2,57 +2,11 @@
   "contract": "1.0.0",
   "flavor": "core",
   "milestone": "v1.4 — Semantic Brain Layer",
-  "phases": [
-    {
-      "number": "7",
-      "name": "Update UX — Commit-Level Drift + Release-Notes Link",
-      "status": "complete"
-    },
-    {
-      "number": "8",
-      "name": "Developer Tooling & Test Reliability",
-      "status": "complete"
-    },
-    {
-      "number": "9",
-      "name": "Retrieval Correctness & Local Read-Through Cache",
-      "status": "complete"
-    },
-    {
-      "number": "10",
-      "name": "Event-Driven Supersession & Truth Integrity",
-      "status": "complete"
-    },
-    {
-      "number": "11",
-      "name": "Storage Adapter Abstraction & Freemium Gate",
-      "status": "complete"
-    },
-    {
-      "number": "12",
-      "name": "Core Semantic Catalog",
-      "status": "complete"
-    },
-    {
-      "number": "13",
-      "name": "User-Gated Certification Flow",
-      "status": "complete"
-    },
-    {
-      "number": "14",
-      "name": "Graph Provenance & Relational Recall",
-      "status": "complete"
-    },
-    {
-      "number": "15",
-      "name": "Answerability Gate & Contradiction Detection",
-      "status": "complete"
-    }
-  ],
+  "phases": [],
   "next": {
-    "command": "/gsd-complete-milestone v1.4",
-    "label": "Complete the v1.4 milestone",
-    "reason": "v1.3 shipped and archived on 2026-11-13; all four v1.4 phases are verified and the v1.4 audit passed."
+    "command": "/gsd-new-milestone",
+    "label": "Define the next milestone",
+    "reason": "All defined milestones (v1.0–v1.4) are shipped and archived. Provide v1.5 scope to begin."
   },
   "updated_at": "2026-11-13T00:00:00Z"
 }
