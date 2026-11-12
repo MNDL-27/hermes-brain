@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-audit-milestone",
-    "label": "Run final milestone integrity audit",
-    "reason": "All 15 phases are verified with current closure evidence. The remaining work is milestone-level integrity, then separate merge/release and v1.5 scope decisions."
+    "command": "/gsd-complete-milestone v1.3",
+    "label": "Complete the v1.3 milestone after the passed audit",
+    "reason": "The v1.3 and v1.4 milestone audits both passed (21/21 requirements, 7/7 phases). Completion/archival, merge/release and v1.5 scope remain separate decisions."
   },
   "updated_at": "2026-11-12T00:00:00Z"
 }

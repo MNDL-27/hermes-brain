@@ -20,15 +20,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-09)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** All 15 roadmap phases now have current closure evidence. Phase 15's ANS-02 notice bound is closed. Milestone-level integrity and any merge/release decision remain separate; v1.5 is still undefined.
+**Current focus:** The milestone audit passed for the full v1.3 + v1.4 scope (21/21 requirements, 7/7 phases). Milestone completion, merge/release and v1.5 scope remain separate decisions.
 
 ## Current Position
 
 Milestone: v1.3 — Brain Architecture & Freemium Foundation (gap closure)
 Phase: 15 of 15 — Answerability Gate & Contradiction Detection
-Status: Verified 3/3 success criteria; the contradiction notice is explicitly bounded with an omitted-entry marker
-Next position: `/gsd-audit-milestone` for the final integrity check; merge/release remain separate
-Last activity: 2026-11-12 — bounded the contradiction notice and added three answerability regressions; full suite 582 passed
+Status: Verified 3/3; milestone audit passed (v1.3 and v1.4 scope, 21/21 requirements)
+Next position: Milestone completion decision — see [v1.3 audit](v1.3-MILESTONE-AUDIT.md) and [v1.4 audit](v1.4-MILESTONE-AUDIT.md)
+Last activity: 2026-11-12 — ran the milestone audit; 181 cross-phase tests passed; both reports show `passed`
 
 Phases 1–9 retain their historical closeout status. Phases 10–15 are verified with current SUMMARY/VERIFICATION evidence, giving 15/15 phases complete in this roadmap. The original 15/15 implementation claim is now matched by closure evidence; merge to `main` and release remain unperformed.
 
@@ -40,7 +40,7 @@ v1.2 Phase 7 → Phase 8 → v1.3 Phase 9 → 10 → 11 → v1.4 Phase 12 → 13
 
 ## Verification Baselines and Historical Observations
 
-Current verification (2026-11-12): **582 passed, 1 deselected in 5.92s**, Ruff clean, mypy clean (`notion_brain`). Phase 15 is verified: ANS-02's notice is explicitly capped with an omitted-entry marker; 37 answerability/budget tests pass. See the [Phase 15 verification](phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md).
+Current verification (2026-11-12): **582 passed, 1 deselected in 5.67s**, Ruff clean, mypy clean (`notion_brain`). Milestone audit: **passed** for Phases 9–15 (21/21 requirements, 7/7 phases, 11/11 integration flows, Nyquist 7/7 compliant); 181 cross-phase tests pass. See [v1.3-MILESTONE-AUDIT.md](v1.3-MILESTONE-AUDIT.md) and [v1.4-MILESTONE-AUDIT.md](v1.4-MILESTONE-AUDIT.md).
 
 Phase 11 verification (2026-11-12): **568 passed, 1 deselected in 5.59s**; seven new provider-wiring regressions closed ADAPT-02/03 for read and selection paths. See the [Phase 11 verification](phases/11-storage-adapters/11-VERIFICATION.md) and [summary](phases/11-storage-adapters/11-01-SUMMARY.md).
 
@@ -121,14 +121,14 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 ## Session Continuity
 
 Last session: 2026-11-12
-Stopped at: Phase 15 verified; all 15 roadmap phases have current closure evidence
-Resume file: `.planning/phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md`
+Stopped at: Milestone audit passed for Phases 9–15; completion, merge/release and v1.5 remain separate
+Resume file: `.planning/v1.4-MILESTONE-AUDIT.md`
 
 ## Operator Next Steps
 
-- Review and commit the Phase 15 implementation (`notion_brain/provider.py`, `tests/test_answerability.py`) and closure artifacts.
-- Run `/gsd-audit-milestone` for the final milestone integrity check.
-- Decide separately on merge to `main`, tagging and release; PyPI Trusted Publisher registration remains a one-time manual step.
+- Review and commit the audit reports (`v1.3-MILESTONE-AUDIT.md`, updated `v1.4-MILESTONE-AUDIT.md`) and the summary metadata alignment.
+- Decide on milestone completion/archival (`/gsd-complete-milestone v1.3`, with v1.4 handled separately) and on merge/tag/release.
+- PyPI Trusted Publisher registration remains a one-time manual step before the first `v*` tag push.
 - Define v1.5 only after its scope is supplied.
 
 ## Prerequisite integration

@@ -23,7 +23,7 @@ key-decisions:
   - Cap rendered conflict entries at four; the header plus labels fit the 400-token warning lane.
   - Append an exact `… N more conflicting entries omitted` line rather than silently truncating.
   - Keep `_contradictions` and the structured payload complete; only rendering is bounded.
-requirements-completed: [ANS-02]
+requirements-completed: [ANS-01, ANS-02]
 coverage:
   - id: D1
     description: The prefetch contradiction notice is explicitly bounded and reports omitted entries.

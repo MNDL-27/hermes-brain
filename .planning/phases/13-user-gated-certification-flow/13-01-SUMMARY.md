@@ -24,7 +24,7 @@ key-decisions:
   - Each predecessor concern (status flip, `Superseded Page ID`, catalog edge, cache mirror) has its own try/except, mirroring `_supersede_matching_active`.
   - A rejected status flip skips that peer's metadata/graph/cache work but does not stop later peers.
   - The schema is read once before the peer loop; a schema-read failure logs and leaves predecessor statuses untouched rather than guessing.
-requirements-completed: [CERT-03]
+requirements-completed: [CERT-01, CERT-02, CERT-03]
 coverage:
   - id: D1
     description: An accepted certification completes predecessor supersession and cache mirroring despite catalog or metadata failures.

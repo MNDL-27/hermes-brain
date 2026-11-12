@@ -27,7 +27,7 @@ key-decisions:
   - Population conflicts may backfill empty provenance fields only; accepted title/content/status/truth are never overwritten.
   - `list_active` omits unknown/empty provenance keys so the existing exact-equality cache contract stays valid.
   - Prefetch keeps the existing `[fact:truth:agent]` tag and appends a `[provenance: session=… created=… status=…]` suffix.
-requirements-completed: [PROV-01]
+requirements-completed: [PROV-01, PROV-02, PROV-03]
 coverage:
   - id: D1
     description: Known provenance survives cache write-through, cold-read population and offline recall.
