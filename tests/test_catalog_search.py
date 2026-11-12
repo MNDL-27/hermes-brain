@@ -108,3 +108,37 @@ def test_search_does_not_recall_superseded_catalog_target(tmp_path, monkeypatch)
     provider = _provider(tmp_path, monkeypatch, [row])
     _, payload = provider._tool_search({"query": "phone", "database": "memory"})
     assert payload["items"] == []
+
+
+def test_search_resolves_obsidian_note_ref_without_text_match(tmp_path, monkeypatch):
+    from notion_brain.adapters import ObsidianVaultAdapter
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    adapter = ObsidianVaultAdapter(vault)
+    referenced = adapter.remember(
+        {"id": "refnote", "title": "Device of record", "content": "Pixel 9"}
+    )
+    adapter.remember({"id": "othernote", "title": "Weekly groceries", "content": "Milk"})
+
+    graph = Catalog()
+    graph.add_term(
+        Term(
+            name="Daily phone",
+            storage_refs=(StorageRef("obsidian", "note/hermes-brain/refnote.md"),),
+        )
+    )
+    graph.save(tmp_path / "brain_catalog.json")
+
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._adapter_name = "obsidian"
+    provider._obsidian_adapter = adapter
+    monkeypatch.setattr(store, "query_database", lambda *args, **kwargs: [])
+
+    _, payload = provider._tool_search({"query": "Daily phone?"})
+
+    assert [item["id"] for item in payload["items"]] == [referenced["id"]]
+    assert payload["definitions"][0]["storage_refs"] == [
+        (vault / "hermes-brain" / "refnote.md").resolve().as_posix()
+    ]

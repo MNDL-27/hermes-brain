@@ -236,6 +236,36 @@ class ObsidianVaultAdapter:
             rows = conn.execute("SELECT id, path, title, subject_key, status, created_at, body FROM memories ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
         return _redact_value([{"id": r[0], "title": r[2], "subject_key": r[3], "status": r[4], "created_at": r[5], "content": r[6], "path": (self.storage_path / r[1]).as_posix()} for r in rows])
 
+    def get_note(self, path: str | Path) -> dict[str, Any] | None:
+        """Return one indexed note by absolute path inside this adapter's store.
+
+        Catalog references resolve to absolute note paths; this lets retrieval
+        load a referenced note even when its text does not match the query.
+        Paths outside ``<vault>/hermes-brain/`` and unknown notes return None.
+        """
+        try:
+            target = Path(path).expanduser().resolve()
+            relative = target.relative_to(self.storage_path).as_posix()
+        except (ValueError, OSError):
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, path, title, subject_key, status, created_at, body "
+                "FROM memories WHERE path=?",
+                (relative,),
+            ).fetchone()
+        if row is None:
+            return None
+        return _redact_value({
+            "id": row[0],
+            "title": row[2],
+            "subject_key": row[3],
+            "status": row[4],
+            "created_at": row[5],
+            "content": row[6],
+            "path": (self.storage_path / row[1]).as_posix(),
+        })
+
     def supersede(self, subject_key: str, entry: dict[str, Any]) -> dict[str, Any]:
         key = S.redact_secrets(subject_key)
         with self._connect() as conn:

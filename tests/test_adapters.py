@@ -109,6 +109,17 @@ def test_obsidian_redacts_secrets(tmp_path):
     assert "[REDACTED_SECRET]" in raw
 
 
+def test_obsidian_get_note_returns_indexed_note_and_rejects_outside_paths(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    adapter = adapters.ObsidianVaultAdapter(vault)
+    saved = adapter.remember({"id": "note1", "title": "Known", "content": "Body"})
+
+    assert adapter.get_note(saved["path"])["id"] == "note1"
+    assert adapter.get_note(vault / "outside.md") is None
+    assert adapter.get_note(tmp_path / "escape.md") is None
+
+
 def test_provider_prefetch_uses_notion_adapter(monkeypatch):
     from notion_brain.provider import NotionBrainProvider
 

@@ -1098,6 +1098,7 @@ class NotionBrainProvider:
         expanded_needles: set[str] = set()
         resolved_page_ids: set[str] = set()
         resolved_database_ids: set[str] = set()
+        resolved_obsidian_paths: set[str] = set()
         if query:
             try:
                 if catalog is None:
@@ -1131,6 +1132,8 @@ class NotionBrainProvider:
                                         resolved_page_ids.add(store.normalize_id(locator))
                             elif adapter_name.startswith("obsidian") and obsidian_adapter is not None:
                                 locator = obsidian_adapter.resolve_storage_ref(ref)
+                                if locator is not None:
+                                    resolved_obsidian_paths.add(str(locator))
                             if locator is not None:
                                 safe_locator = S.redact_secrets(str(locator))
                                 if safe_locator not in resolved:
@@ -1145,6 +1148,27 @@ class NotionBrainProvider:
                 expanded_needles.clear()
                 resolved_page_ids.clear()
                 resolved_database_ids.clear()
+                resolved_obsidian_paths.clear()
+
+        # CAT-03: recall notes named by a resolved catalog reference even when
+        # their text does not match the query. Premium selection only.
+        if (
+            query
+            and self._adapter_name == "obsidian"
+            and self._obsidian_adapter is not None
+            and resolved_obsidian_paths
+        ):
+            for note_path in sorted(resolved_obsidian_paths):
+                try:
+                    note = self._obsidian_adapter.get_note(note_path)
+                except Exception as exc:
+                    logger.warning(
+                        "Obsidian reference recall failed for %s: %s",
+                        S.redact_secrets(note_path), S.redact_secrets(str(exc)),
+                    )
+                    continue
+                if note is not None:
+                    entries = _merge_adapter_entries(entries, [_adapter_entry(note)])
 
         # Current recall excludes superseded history; timeline/related expose it.
         entries = [
@@ -1160,6 +1184,7 @@ class NotionBrainProvider:
                 e for e in entries
                 if store.normalize_id(str(e.get("id") or "")) in resolved_page_ids
                 or entry_databases.get(store.normalize_id(str(e.get("id") or ""))) in resolved_database_ids
+                or str(e.get("path") or "") in resolved_obsidian_paths
                 or any(needle in (str(e.get("title") or "") + " " + str((e.get("properties") or {}).get("Content") or "")).casefold()
                        for needle in needles)
             ]
