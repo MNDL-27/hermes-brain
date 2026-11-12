@@ -2,7 +2,7 @@
 phase: 15-answerability-gate-contradiction-detection
 verified: 2026-11-12
 status: passed
-source_snapshot: working tree on top of 1ba8c50
+source_snapshot: cf12265
 score: "3/3 success criteria verified; ANS-01 and ANS-02 closed"
 fingerprint: "Phase 15 closure: coverage gates retrieval at zero coverage with the approved wording and missing terms; check_answerable/search_terms tools are registered; contradictions surface both structurally and in prefetch; the notice now renders at most four entries, reports the exact omitted count, and stays within the warning lane and 800-token total. 37 answerability/budget tests pass; full suite 582 passed, 1 deselected; ruff and mypy clean."
 gaps: []
