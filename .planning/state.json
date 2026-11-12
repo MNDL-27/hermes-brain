@@ -41,7 +41,7 @@
     {
       "number": "14",
       "name": "Graph Provenance & Relational Recall",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "number": "15",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 14 --gaps",
-    "label": "Plan Phase 14 provenance continuity",
-    "reason": "Phases 9–13 are verified. PROV-01 remains the next concrete gap: the SQLite cache omits source/session/original timestamps, prefetch emits only truth/source tags, and timeline omits the full provenance block. v1.5 remains undefined."
+    "command": "/gsd-plan-phase 15 --gaps",
+    "label": "Plan Phase 15 answerability closure",
+    "reason": "Phases 9–14 are verified. ANS-01/02 are implemented; the remaining work is closure evidence for the zero-coverage gate, contradiction payload and bounded notice. v1.5 remains undefined."
   },
   "updated_at": "2026-11-12T00:00:00Z"
 }

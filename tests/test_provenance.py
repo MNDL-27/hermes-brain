@@ -103,3 +103,59 @@ def test_related_action_returns_connected_facts(monkeypatch, tmp_path):
     ])
     result = provider._tool_search({"action": "related", "start_id": "Project X"})
     assert {item["id"] for item in result[1]["items"]} == {"m1", "m2"}
+
+
+# --- PROV-01: provenance continuity across cache, prefetch and timeline ---
+
+
+def test_prefetch_surfaces_full_provenance_suffix(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    monkeypatch.setattr(provider, "_prefetch_entries", lambda: [{
+        "id": "m1", "title": "Fact", "properties": {
+            "Content": "value", "Truth": "certified", "Status": "active",
+            "Source Agent": "hermes", "Source Session": "s1", "Created At": "2026-01-01",
+        },
+    }])
+
+    result = provider.prefetch()
+
+    assert "[fact:certified:hermes]" in result
+    assert "[provenance: session=s1 created=2026-01-01 status=active]" in result
+
+
+def test_timeline_includes_provenance_block(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: [{
+        "id": "m1", "title": "Old value", "created_time": "2026-01-01",
+        "properties": {
+            "Subject Key": "device.phone", "Status": "Superseded", "Truth": "inferred",
+            "Content": "Pixel 8", "Source Session": "s1",
+        },
+    }])
+
+    _, payload = provider._tool_timeline({"subject_key": "device.phone"})
+
+    assert payload["items"][0]["provenance"] == {
+        "source_agent": "unknown", "session_id": "s1", "created_at": "2026-01-01",
+        "truth": "inferred", "status": "superseded",
+    }
+
+
+def test_cached_prefetch_preserves_known_provenance(tmp_path):
+    from notion_brain import brain_cache
+
+    assert brain_cache.upsert_active(
+        tmp_path, page_id="m1", title="Fact", kind="note", content="value",
+        last_seen="2026-11-12", truth="certified", source_agent="hermes",
+        source_session="s1", created_at="2026-01-01",
+    )
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._db_ids = {"memory": "db"}
+
+    result = provider.prefetch()
+
+    assert "[fact:certified:hermes]" in result
+    assert "[provenance: session=s1 created=2026-01-01 status=active]" in result

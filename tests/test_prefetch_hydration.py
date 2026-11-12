@@ -44,7 +44,10 @@ def test_prefetch_renders_hydrated_body(monkeypatch) -> None:
 
     text = provider.prefetch()
 
-    assert text == "- [fact] Deploy notes: Ship the cache fix before Friday. [fact:inferred:unknown]"
+    assert text == (
+        "- [fact] Deploy notes: Ship the cache fix before Friday. "
+        "[fact:inferred:unknown] [provenance: session=unknown created=unknown status=active]"
+    )
     assert body_calls == ["page-1"]
 
 
@@ -57,7 +60,10 @@ def test_prefetch_blank_when_body_empty(monkeypatch) -> None:
     )
     monkeypatch.setattr("notion_brain.provider.store.page_body_text", lambda page_id: "")
 
-    assert provider.prefetch() == "- [fact] Empty page:  [fact:inferred:unknown]"
+    assert provider.prefetch() == (
+        "- [fact] Empty page:  [fact:inferred:unknown] "
+        "[provenance: session=unknown created=unknown status=active]"
+    )
 
 
 def test_prefetch_redacts_secrets_in_body(monkeypatch) -> None:
@@ -99,7 +105,10 @@ def test_prefetch_second_call_uses_cache(monkeypatch) -> None:
     first = provider.prefetch()
     second = provider.prefetch()
 
-    assert first == second == "- [fact] Cached title: hydrated once [fact:inferred:unknown]"
+    assert first == second == (
+        "- [fact] Cached title: hydrated once [fact:inferred:unknown] "
+        "[provenance: session=unknown created=unknown status=active]"
+    )
     assert query_calls["n"] == 1
     assert body_calls["n"] == 1
 

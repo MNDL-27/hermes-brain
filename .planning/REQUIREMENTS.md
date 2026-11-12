@@ -27,7 +27,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
 
-Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–13 have current passing SUMMARY/VERIFICATION evidence; Phases 14–15 still await closure, with the remaining concrete gap in provenance continuity. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–14 have current passing SUMMARY/VERIFICATION evidence; Phase 15 remains for answerability closure evidence. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
@@ -68,9 +68,9 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ### Provenance & Graph (PROV)
 
-- [ ] **PROV-01**: Every recalled fact returns provenance: source (agent/session), timestamp, and current status/certification level.
-- [ ] **PROV-02**: Supersession is stored as an explicit relation edge (`supersedes`) rather than only a status flag, keeping the historical chain auditable (extends SUP-03).
-- [ ] **PROV-03**: Related entities are reachable by graph traversal (e.g. "decisions affecting project X") via stored links, not just text similarity.
+- [x] **PROV-01**: Every recalled fact returns provenance: source (agent/session), timestamp, and current status/certification level.
+- [x] **PROV-02**: Supersession is stored as an explicit relation edge (`supersedes`) rather than only a status flag, keeping the historical chain auditable (extends SUP-03).
+- [x] **PROV-03**: Related entities are reachable by graph traversal (e.g. "decisions affecting project X") via stored links, not just text similarity.
 
 ### Answerability Gate (ANS)
 
@@ -102,9 +102,9 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | CERT-01 | Phase 13 | Verified — 13-01 summary and current verification fingerprint |
 | CERT-02 | Phase 13 | Verified — 13-01 summary and current verification fingerprint |
 | CERT-03 | Phase 13 | Verified — failure isolation closed by 13-01 |
-| PROV-01 | Phase 14 | Gaps found — cached metadata and prompt provenance are incomplete |
-| PROV-02 | Phase 14 | Implementation observed — GSD closure unverified |
-| PROV-03 | Phase 14 | Implementation observed — GSD closure unverified |
+| PROV-01 | Phase 14 | Verified — 14-01 provenance continuity across cache, prefetch and timeline |
+| PROV-02 | Phase 14 | Verified — 14-01 summary and current verification fingerprint |
+| PROV-03 | Phase 14 | Verified — 14-01 summary and current verification fingerprint |
 | ANS-01 | Phase 15 | Implementation observed — GSD closure unverified |
 | ANS-02 | Phase 15 | Implementation observed — GSD closure unverified |
 

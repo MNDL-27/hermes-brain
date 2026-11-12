@@ -125,3 +125,58 @@ def test_empty_read_population_preserves_existing_accepted_rows(tmp_path) -> Non
     rows = brain_cache.list_active(tmp_path)
     assert rows is not None
     assert [row["id"] for row in rows] == ["accepted"]
+
+
+def test_provenance_round_trip(tmp_path) -> None:
+    assert brain_cache.upsert_active(
+        tmp_path, page_id="prov", title="Provenance", kind="note", content="Body",
+        last_seen="2026-11-12", source_agent="hermes", source_session="sess-1",
+        created_at="2026-11-01T00:00:00Z",
+    )
+
+    rows = brain_cache.list_active(tmp_path)
+
+    assert rows is not None
+    props = rows[0]["properties"]
+    assert props["Source Agent"] == "hermes"
+    assert props["Source Session"] == "sess-1"
+    assert props["Created At"] == "2026-11-01T00:00:00Z"
+
+
+def test_population_backfills_provenance_without_overwriting_accepted_row(tmp_path) -> None:
+    assert brain_cache.upsert_active(
+        tmp_path, page_id="accepted", title="Accepted", kind="decision",
+        content="Local accepted value", truth="certified", last_seen="2026-11-12",
+    )
+
+    assert brain_cache.populate_from_read(tmp_path, [{
+        "id": "accepted", "title": "Remote title", "created_time": "2026-01-01T00:00:00Z",
+        "properties": {"Content": "Remote value", "Status": "active", "Truth": "inferred",
+                       "Source Agent": "hermes", "Source Session": "sess-1"},
+    }])
+
+    rows = brain_cache.list_active(tmp_path)
+    assert rows is not None
+    row = rows[0]
+    assert row["properties"]["Content"] == "Local accepted value"
+    assert row["properties"]["Truth"] == "certified"
+    assert row["properties"]["Source Agent"] == "hermes"
+    assert row["properties"]["Source Session"] == "sess-1"
+    assert row["properties"]["Created At"] == "2026-01-01T00:00:00Z"
+
+
+def test_population_does_not_erase_stored_provenance(tmp_path) -> None:
+    assert brain_cache.upsert_active(
+        tmp_path, page_id="prov", title="Provenance", kind="note", content="Body",
+        source_agent="hermes", source_session="keep", created_at="2026-01-01",
+    )
+
+    assert brain_cache.populate_from_read(tmp_path, [{
+        "id": "prov", "title": "Remote", "properties": {"Content": "Remote", "Status": "active"},
+    }])
+
+    rows = brain_cache.list_active(tmp_path)
+    assert rows is not None
+    assert rows[0]["properties"]["Source Agent"] == "hermes"
+    assert rows[0]["properties"]["Source Session"] == "keep"
+    assert rows[0]["properties"]["Created At"] == "2026-01-01"

@@ -172,8 +172,8 @@ Plans:
   2. Supersession writes an explicit relation edge while preserving historical recall.
   3. Related facts can be traversed by typed relation edges, with tests proving path and cycle handling.
 
-**Implementation history**: `c5e829e` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Gaps found: PROV-01; original GSD closure unverified. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+**Implementation history**: `c5e829e` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09); PROV-01 provenance continuity 2026-11-12.
+**Verification**: Passed 14-01: 3/3 success criteria verified; PROV-01 provenance continuity closed across the cache, prefetch and timeline. 23 cache/provenance tests and 46 scoped tests pass; full suite 579 passed, ruff and mypy clean. See [14-VERIFICATION.md](phases/14-graph-provenance-relational-recall/14-VERIFICATION.md).
 
 ### Phase 15: Answerability Gate & Contradiction Detection
 

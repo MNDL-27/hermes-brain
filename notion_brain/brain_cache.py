@@ -23,7 +23,7 @@ from . import schema as S
 logger = logging.getLogger(__name__)
 
 CACHE_FILENAME = "brain_cache.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Kinds that belong in the pinned lane (identity, warnings, decisions).
 PINNED_KINDS = frozenset(
@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS memory_rows (
     last_seen TEXT NOT NULL DEFAULT '',
     truth TEXT NOT NULL DEFAULT 'inferred',
     subject_key TEXT NOT NULL DEFAULT '',
+    source_agent TEXT NOT NULL DEFAULT 'unknown',
+    source_session TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT '',
     updated_at REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_memory_rows_active_seen
@@ -100,6 +103,15 @@ def _ensure_schema(conn: sqlite3.Connection) -> bool:
         conn.commit()
     if "subject_key" not in columns:
         conn.execute("ALTER TABLE memory_rows ADD COLUMN subject_key TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    if "source_agent" not in columns:
+        conn.execute("ALTER TABLE memory_rows ADD COLUMN source_agent TEXT NOT NULL DEFAULT 'unknown'")
+        conn.commit()
+    if "source_session" not in columns:
+        conn.execute("ALTER TABLE memory_rows ADD COLUMN source_session TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    if "created_at" not in columns:
+        conn.execute("ALTER TABLE memory_rows ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
     row = conn.execute("SELECT value FROM schema_meta WHERE key = 'version'").fetchone()
     if row is None:
@@ -160,7 +172,8 @@ def list_active(
             return None
         rows = conn.execute(
             """
-            SELECT page_id, title, kind, content, status, last_seen, truth, subject_key
+            SELECT page_id, title, kind, content, status, last_seen, truth, subject_key,
+                   source_agent, source_session, created_at
             FROM memory_rows
             WHERE status = 'active'
             ORDER BY last_seen DESC, truth = 'certified' DESC, updated_at DESC, page_id ASC
@@ -173,21 +186,29 @@ def list_active(
         return None
     finally:
         conn.close()
-    return [
-        {
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        props: dict[str, Any] = {
+            "Kind": row["kind"] or "note",
+            "Content": row["content"] or "",
+            "Status": row["status"] or "active",
+            "Last Seen": row["last_seen"] or "",
+            "Truth": row["truth"] or "inferred",
+        }
+        if row["subject_key"]:
+            props["Subject Key"] = row["subject_key"]
+        if row["source_agent"] and row["source_agent"] != "unknown":
+            props["Source Agent"] = row["source_agent"]
+        if row["source_session"]:
+            props["Source Session"] = row["source_session"]
+        if row["created_at"]:
+            props["Created At"] = row["created_at"]
+        result.append({
             "id": row["page_id"],
             "title": row["title"] or "Untitled",
-            "properties": {
-                "Kind": row["kind"] or "note",
-                "Content": row["content"] or "",
-                "Status": row["status"] or "active",
-                "Last Seen": row["last_seen"] or "",
-                "Truth": row["truth"] or "inferred",
-                **({"Subject Key": row["subject_key"]} if row["subject_key"] else {}),
-            },
-        }
-        for row in rows
-    ]
+            "properties": props,
+        })
+    return result
 
 
 def upsert_active(
@@ -201,11 +222,15 @@ def upsert_active(
     last_seen: str = "",
     truth: str = "inferred",
     subject_key: str = "",
+    source_agent: str = "unknown",
+    source_session: str = "",
+    created_at: str = "",
 ) -> bool:
     """Insert or replace one memory row. Returns False on a cache failure.
 
-    Content and title are secret-redacted before they hit disk. Non-active
-    status is stored so a later read of active rows drops the page.
+    Content, title and provenance are secret-redacted before they hit disk.
+    Non-active status is stored so a later read of active rows drops the page.
+    Empty/unknown provenance never overwrites a known stored value.
     """
     pid = (page_id or "").strip()
     if not pid:
@@ -215,6 +240,9 @@ def upsert_active(
     safe_subject_key = S.redact_secrets(subject_key or "").strip()
     safe_kind = (kind or "note").strip()[:80] or "note"
     safe_status = (status or "active").strip().lower() or "active"
+    safe_source_agent = S.redact_secrets(source_agent or "").strip() or "unknown"
+    safe_source_session = S.redact_secrets(source_session or "").strip()
+    safe_created_at = S.redact_secrets(created_at or "").strip()
     seen = last_seen or ""
     path = cache_path(hermes_home)
     try:
@@ -229,8 +257,9 @@ def upsert_active(
         conn.execute(
             """
             INSERT INTO memory_rows (
-                page_id, title, kind, content, status, last_seen, updated_at, truth, subject_key
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                page_id, title, kind, content, status, last_seen, updated_at, truth,
+                subject_key, source_agent, source_session, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(page_id) DO UPDATE SET
                 title = excluded.title,
                 kind = excluded.kind,
@@ -240,9 +269,17 @@ def upsert_active(
                 updated_at = excluded.updated_at,
                 truth = excluded.truth,
                 subject_key = CASE WHEN excluded.subject_key = ''
-                    THEN memory_rows.subject_key ELSE excluded.subject_key END
+                    THEN memory_rows.subject_key ELSE excluded.subject_key END,
+                source_agent = CASE WHEN excluded.source_agent = 'unknown'
+                    THEN memory_rows.source_agent ELSE excluded.source_agent END,
+                source_session = CASE WHEN excluded.source_session = ''
+                    THEN memory_rows.source_session ELSE excluded.source_session END,
+                created_at = CASE WHEN excluded.created_at = ''
+                    THEN memory_rows.created_at ELSE excluded.created_at END
             """,
-            (pid, safe_title, safe_kind, safe_content, safe_status, seen, time.time(), truth if truth in {"inferred", "certified"} else "inferred", safe_subject_key),
+            (pid, safe_title, safe_kind, safe_content, safe_status, seen, time.time(),
+             truth if truth in {"inferred", "certified"} else "inferred", safe_subject_key,
+             safe_source_agent, safe_source_session, safe_created_at),
         )
         conn.execute("INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('initialized', '1')")
         conn.commit()
@@ -290,6 +327,9 @@ def populate_from_read(
             now,
             truth if truth in {"inferred", "certified"} else "inferred",
             S.redact_secrets(str(props.get("Subject Key") or "")).strip(),
+            S.redact_secrets(str(props.get("Source Agent") or "unknown")).strip() or "unknown",
+            S.redact_secrets(str(props.get("Source Session") or "")).strip(),
+            S.redact_secrets(str(entry.get("created_time") or "")).strip(),
         ))
     try:
         conn = _connect(cache_path(hermes_home))
@@ -303,9 +343,20 @@ def populate_from_read(
         conn.executemany(
             """
             INSERT INTO memory_rows (
-                page_id, title, kind, content, status, last_seen, updated_at, truth, subject_key
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(page_id) DO NOTHING
+                page_id, title, kind, content, status, last_seen, updated_at, truth,
+                subject_key, source_agent, source_session, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(page_id) DO UPDATE SET
+                source_agent = CASE
+                    WHEN memory_rows.source_agent = 'unknown'
+                         AND excluded.source_agent != 'unknown'
+                    THEN excluded.source_agent ELSE memory_rows.source_agent END,
+                source_session = CASE
+                    WHEN memory_rows.source_session = ''
+                    THEN excluded.source_session ELSE memory_rows.source_session END,
+                created_at = CASE
+                    WHEN memory_rows.created_at = ''
+                    THEN excluded.created_at ELSE memory_rows.created_at END
             """,
             values,
         )

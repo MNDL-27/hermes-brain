@@ -265,7 +265,11 @@ class NotionBrainProvider:
                     safe_title = S.redact_secrets(str(title))
                     safe_content = S.redact_secrets(str(content)[:200])
                     provenance = self._provenance(entry)
-                    tag = f"[fact:{provenance['truth']}:{provenance['source_agent']}]"
+                    tag = (
+                        f"[fact:{provenance['truth']}:{provenance['source_agent']}] "
+                        f"[provenance: session={provenance['session_id'] or 'unknown'} "
+                        f"created={provenance['created_at']} status={provenance['status']}]"
+                    )
                     tagged.append((kind, f"- [{kind}] {safe_title}: {safe_content} {tag}"))
 
                 if contradictions:
@@ -886,6 +890,7 @@ class NotionBrainProvider:
                 last_seen=date.today().isoformat(),
                 truth=entry.truth,
                 subject_key=str(entry.metadata.get("subject_key") or ""),
+                source_session=entry.source_session_id,
             )
         except Exception as exc:
             logger.warning(
@@ -1275,7 +1280,7 @@ class NotionBrainProvider:
         return {
             "source_agent": S.redact_secrets(str(props.get("Source Agent") or "unknown")),
             "session_id": S.redact_secrets(str(props.get("Source Session") or "")),
-            "created_at": S.redact_secrets(str(entry.get("created_time") or entry.get("created_at") or "unknown")),
+            "created_at": S.redact_secrets(str(props.get("Created At") or entry.get("created_time") or entry.get("created_at") or "unknown")),
             "truth": str(props.get("Truth") or "inferred").lower() if str(props.get("Truth") or "inferred").lower() in {"certified", "inferred"} else "inferred",
             "status": "superseded" if status == "superseded" else "active",
         }
@@ -1335,6 +1340,7 @@ class NotionBrainProvider:
                 "timestamp": timestamp,
                 "created_time": row.get("created_time", ""),
                 "last_edited_time": row.get("last_edited_time", ""),
+                "provenance": self._provenance(row),
             })
         lines = [f"- [{item['status']}] {item['timestamp']} {item['title']}: {item['content']}" for item in items]
         return ("\n".join(lines) or "No history found for this subject key.", {"items": items})
