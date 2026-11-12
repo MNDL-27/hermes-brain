@@ -36,7 +36,7 @@
     {
       "number": "13",
       "name": "User-Gated Certification Flow",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "number": "14",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 13 --gaps",
-    "label": "Plan Phase 13 certification failure isolation",
-    "reason": "Phases 9–12 are verified. CERT-03 remains the next concrete gap: a provenance failure after a successful status flip can skip predecessor cache mirroring and remaining peers. v1.5 remains undefined."
+    "command": "/gsd-plan-phase 14 --gaps",
+    "label": "Plan Phase 14 provenance continuity",
+    "reason": "Phases 9–13 are verified. PROV-01 remains the next concrete gap: the SQLite cache omits source/session/original timestamps, prefetch emits only truth/source tags, and timeline omits the full provenance block. v1.5 remains undefined."
   },
   "updated_at": "2026-11-12T00:00:00Z"
 }

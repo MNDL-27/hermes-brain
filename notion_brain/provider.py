@@ -1428,61 +1428,106 @@ class NotionBrainProvider:
         page_id = str(row.get("id") or "")
         try:
             store.update_page(page_id, {"Truth": store.select_property("certified")}, expected_database_id=db_id)
-            if self._hermes_home:
-                try:
-                    brain_cache.upsert_active(
-                        self._hermes_home, page_id=page_id,
-                        title=str(row.get("title") or "Untitled"),
-                        kind=str(properties.get("Kind") or "note"),
-                        content=str(properties.get("Content") or ""),
-                        status=str(properties.get("Status") or "active"),
-                        last_seen=str(properties.get("Last Seen") or ""), truth="certified",
-                        subject_key=str(properties.get("Subject Key") or ""),
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "NotionBrainProvider cache mirror failed: %s",
-                        S.redact_secrets(str(exc)),
-                    )
-            subject_key = str(properties.get("Subject Key") or "")
-            if subject_key:
-                for older in rows:
-                    older_props = older.get("properties", {}) or {}
-                    if (str(older.get("id")) == page_id or
-                        str(older_props.get("Subject Key") or "") != subject_key or
-                        str(older_props.get("Status") or "active").lower() != "active" or
-                        str(older_props.get("Truth") or "inferred").lower() != "inferred"):
-                        continue
-                    status = self._status_property("Superseded", store.get_database(db_id).get("properties", {}), strict=True)
-                    if status:
-                        store.update_page(str(older.get("id") or ""), {"Status": status}, expected_database_id=db_id)
-                        predecessor_id = str(older.get("id") or "")
-                        db_props = store.get_database(db_id).get("properties", {})
-                        if "Superseded Page ID" in db_props:
-                            store.update_page(
-                                page_id,
-                                {"Superseded Page ID": store.rich_text_property(predecessor_id)},
-                                expected_database_id=db_id,
-                            )
-                        graph = semantic_catalog.Catalog().load(self._catalog_path())
-                        graph.add_relation(semantic_catalog.Relation(
-                            subject=page_id, predicate="supersedes", object=predecessor_id,
-                            relation_type="edge",
-                        ))
-                        graph.save(self._catalog_path())
-                        if self._hermes_home:
-                            brain_cache.upsert_active(
-                                self._hermes_home, page_id=str(older.get("id") or ""),
-                                title=str(older.get("title") or "Untitled"),
-                                kind=str(older_props.get("Kind") or "note"),
-                                content=str(older_props.get("Content") or ""),
-                                status="Superseded",
-                                last_seen=str(older_props.get("Last Seen") or ""),
-                                truth="inferred",
-                            )
         except Exception as exc:
             logger.warning("Certification update failed: %s", S.redact_secrets(str(exc)))
             return "Error: certification update failed"
+
+        # Truth is accepted; the remaining bookkeeping is recoverable. Each
+        # concern is isolated so one failed provenance/cache write cannot turn
+        # an accepted certification into an error or skip later peers.
+        if self._hermes_home:
+            try:
+                brain_cache.upsert_active(
+                    self._hermes_home, page_id=page_id,
+                    title=str(row.get("title") or "Untitled"),
+                    kind=str(properties.get("Kind") or "note"),
+                    content=str(properties.get("Content") or ""),
+                    status=str(properties.get("Status") or "active"),
+                    last_seen=str(properties.get("Last Seen") or ""), truth="certified",
+                    subject_key=str(properties.get("Subject Key") or ""),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "NotionBrainProvider cache mirror failed: %s",
+                    S.redact_secrets(str(exc)),
+                )
+        subject_key = str(properties.get("Subject Key") or "")
+        if subject_key:
+            db_props: dict[str, Any] = {}
+            try:
+                db_props = store.get_database(db_id).get("properties", {}) or {}
+            except Exception as exc:
+                logger.warning(
+                    "Certification schema read failed: %s", S.redact_secrets(str(exc))
+                )
+            for older in rows:
+                older_props = older.get("properties", {}) or {}
+                if (str(older.get("id")) == page_id or
+                    str(older_props.get("Subject Key") or "") != subject_key or
+                    str(older_props.get("Status") or "active").lower() != "active" or
+                    str(older_props.get("Truth") or "inferred").lower() != "inferred"):
+                    continue
+                predecessor_id = str(older.get("id") or "")
+                try:
+                    status = self._status_property("Superseded", db_props, strict=True)
+                except Exception as exc:
+                    logger.warning(
+                        "Certification status resolution failed for %s: %s",
+                        S.redact_secrets(predecessor_id), S.redact_secrets(str(exc)),
+                    )
+                    continue
+                if not status:
+                    continue
+                try:
+                    store.update_page(
+                        predecessor_id, {"Status": status}, expected_database_id=db_id
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Certification supersession failed for %s: %s",
+                        S.redact_secrets(predecessor_id), S.redact_secrets(str(exc)),
+                    )
+                    continue
+                try:
+                    if "Superseded Page ID" in db_props:
+                        store.update_page(
+                            page_id,
+                            {"Superseded Page ID": store.rich_text_property(predecessor_id)},
+                            expected_database_id=db_id,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Certification predecessor link failed: %s",
+                        S.redact_secrets(str(exc)),
+                    )
+                try:
+                    graph = semantic_catalog.Catalog().load(self._catalog_path())
+                    graph.add_relation(semantic_catalog.Relation(
+                        subject=page_id, predicate="supersedes", object=predecessor_id,
+                        relation_type="edge",
+                    ))
+                    graph.save(self._catalog_path())
+                except Exception as exc:
+                    logger.warning(
+                        "Certification catalog update failed: %s",
+                        S.redact_secrets(str(exc)),
+                    )
+                if self._hermes_home:
+                    try:
+                        brain_cache.upsert_active(
+                            self._hermes_home, page_id=predecessor_id,
+                            title=str(older.get("title") or "Untitled"),
+                            kind=str(older_props.get("Kind") or "note"),
+                            content=str(older_props.get("Content") or ""),
+                            status="Superseded",
+                            last_seen=str(older_props.get("Last Seen") or ""),
+                            truth="inferred",
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Certification predecessor cache mirror failed: %s",
+                            S.redact_secrets(str(exc)),
+                        )
         return f"Certified: {S.redact_secrets(str(row.get('title') or 'memory'))}"
 
     def _tool_remember(self, args: dict[str, Any]) -> str:

@@ -27,7 +27,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
 
-Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–12 have current passing SUMMARY/VERIFICATION evidence; Phases 13–15 still await closure, with the remaining concrete code gaps in certification failure isolation and provenance continuity. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–13 have current passing SUMMARY/VERIFICATION evidence; Phases 14–15 still await closure, with the remaining concrete gap in provenance continuity. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
@@ -62,9 +62,9 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ### Certification (CERT)
 
-- [ ] **CERT-01**: Memories carry a truth status `inferred` (agent-written) vs `certified` (user-confirmed); retrieval prefers certified facts over inferred ones at equal recency.
-- [ ] **CERT-02**: Only user confirmation promotes inferred → certified; agents may flag/suggest certification candidates but can never self-certify.
-- [ ] **CERT-03**: A certified correction supersedes conflicting inferred rows immediately (integrates with SUP-02 status flipping).
+- [x] **CERT-01**: Memories carry a truth status `inferred` (agent-written) vs `certified` (user-confirmed); retrieval prefers certified facts over inferred ones at equal recency.
+- [x] **CERT-02**: Only user confirmation promotes inferred → certified; agents may flag/suggest certification candidates but can never self-certify.
+- [x] **CERT-03**: A certified correction supersedes conflicting inferred rows immediately (integrates with SUP-02 status flipping).
 
 ### Provenance & Graph (PROV)
 
@@ -99,9 +99,9 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | CAT-01 | Phase 12 | Verified — 12-01 summary and current verification fingerprint |
 | CAT-02 | Phase 12 | Verified — 12-01 summary and current verification fingerprint |
 | CAT-03 | Phase 12 | Verified — definitions resolve Notion ids and premium Obsidian note paths into row selection |
-| CERT-01 | Phase 13 | Implementation observed — GSD closure unverified |
-| CERT-02 | Phase 13 | Implementation observed — GSD closure unverified |
-| CERT-03 | Phase 13 | Gaps found — provenance failure skips cache/remaining supersessions |
+| CERT-01 | Phase 13 | Verified — 13-01 summary and current verification fingerprint |
+| CERT-02 | Phase 13 | Verified — 13-01 summary and current verification fingerprint |
+| CERT-03 | Phase 13 | Verified — failure isolation closed by 13-01 |
 | PROV-01 | Phase 14 | Gaps found — cached metadata and prompt provenance are incomplete |
 | PROV-02 | Phase 14 | Implementation observed — GSD closure unverified |
 | PROV-03 | Phase 14 | Implementation observed — GSD closure unverified |

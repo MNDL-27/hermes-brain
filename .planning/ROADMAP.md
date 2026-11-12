@@ -159,8 +159,8 @@ Plans:
   2. Retrieval ranks certified over inferred facts at equal recency and surfaces certification status.
   3. Certified corrections supersede conflicting inferred facts while retaining historical records.
 
-**Implementation history**: `700221c` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Gaps found: CERT-03; original GSD closure unverified. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+**Implementation history**: `700221c` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09); CERT-03 failure isolation 2026-11-12.
+**Verification**: Passed 13-01: 3/3 success criteria verified; CERT-03 failure isolation closed with three failure-injection regressions. 25 certification tests and 63 scoped tests pass; full suite 573 passed, ruff and mypy clean. See [13-VERIFICATION.md](phases/13-user-gated-certification-flow/13-VERIFICATION.md).
 
 ### Phase 14: Graph Provenance & Relational Recall
 

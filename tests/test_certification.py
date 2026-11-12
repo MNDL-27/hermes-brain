@@ -5,7 +5,8 @@ from copy import deepcopy
 
 import pytest
 
-from notion_brain import bootstrap, store
+from notion_brain import bootstrap, brain_cache, store
+from notion_brain import catalog as semantic_catalog
 from notion_brain.provider import NotionBrainProvider
 from notion_brain.schema import BrainEntry
 from notion_brain.schemas import ALL_TOOL_SCHEMAS
@@ -191,3 +192,108 @@ def test_ordinary_write_reuses_certified_exact_match_without_demotion(monkeypatc
     provider._tool_remember({"title": "Phone", "content": "Pixel 9", "subject_key": "device.phone"})
     assert created == []  # exact match reused
     assert updates == []  # no Truth demotion, no Status flip, no provenance overwrite
+
+
+# --- Phase 13: certification failure isolation after the accepted Truth flip ---
+
+
+_CERT_SUPERSEDE_SCHEMA = {
+    "properties": {
+        "Status": {"type": "status", "status": {"options": [{"name": "active"}, {"name": "Superseded"}]}},
+        "Superseded Page ID": {"type": "rich_text"},
+    }
+}
+
+
+def _certify_peer_rows():
+    return [
+        {"id": "new", "title": "Current car", "properties": {
+            "Subject Key": "vehicle.car", "Truth": "inferred", "Status": "active",
+            "Content": "Model 3", "Kind": "note"}},
+        {"id": "old1", "title": "Old car A", "properties": {
+            "Subject Key": "vehicle.car", "Truth": "inferred", "Status": "active",
+            "Content": "Model S", "Kind": "note"}},
+        {"id": "old2", "title": "Old car B", "properties": {
+            "Subject Key": "vehicle.car", "Truth": "inferred", "Status": "active",
+            "Content": "Leaf", "Kind": "note"}},
+    ]
+
+
+def test_certify_catalog_failure_still_updates_cache_and_remaining_peers(monkeypatch, tmp_path, caplog):
+    secret = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz"
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._db_ids = {"memory": "db1"}
+    rows = _certify_peer_rows()
+    updates: list[tuple] = []
+    cache_calls: list[dict] = []
+
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: rows)
+    monkeypatch.setattr(store, "get_database", lambda *_: _CERT_SUPERSEDE_SCHEMA)
+    monkeypatch.setattr(store, "update_page", lambda page_id, properties, **kw: updates.append((page_id, properties)))
+    monkeypatch.setattr(brain_cache, "upsert_active", lambda *a, **k: cache_calls.append(k))
+
+    def fail_save(self, path=None):
+        raise RuntimeError(f"catalog unavailable: {secret}")
+
+    monkeypatch.setattr(semantic_catalog.Catalog, "save", fail_save)
+    caplog.set_level("WARNING", logger="notion_brain")
+
+    result = provider._tool_certify({"memory_id": "new"}, user_confirmed=True)
+
+    assert result == "Certified: Current car"
+    assert [page for page, props in updates if "Status" in props] == ["old1", "old2"]
+    assert [call["page_id"] for call in cache_calls] == ["new", "old1", "old2"]
+    assert [call["status"] for call in cache_calls[1:]] == ["Superseded", "Superseded"]
+    assert secret not in caplog.text
+
+
+def test_certify_metadata_failure_does_not_abort_peer_loop(monkeypatch, tmp_path):
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._db_ids = {"memory": "db1"}
+    rows = _certify_peer_rows()
+    updates: list[tuple] = []
+    cache_calls: list[dict] = []
+
+    def update_page(page_id, properties, **kwargs):
+        if "Superseded Page ID" in properties:
+            raise RuntimeError("metadata property unavailable")
+        updates.append((page_id, properties))
+
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: rows)
+    monkeypatch.setattr(store, "get_database", lambda *_: _CERT_SUPERSEDE_SCHEMA)
+    monkeypatch.setattr(store, "update_page", update_page)
+    monkeypatch.setattr(brain_cache, "upsert_active", lambda *a, **k: cache_calls.append(k))
+    monkeypatch.setattr(semantic_catalog.Catalog, "save", lambda self, path=None: None)
+
+    result = provider._tool_certify({"memory_id": "new"}, user_confirmed=True)
+
+    assert result == "Certified: Current car"
+    assert [page for page, props in updates if "Status" in props] == ["old1", "old2"]
+    assert [call["page_id"] for call in cache_calls] == ["new", "old1", "old2"]
+
+
+def test_certify_truth_write_failure_returns_error_without_predecessor_updates(monkeypatch, tmp_path):
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._db_ids = {"memory": "db1"}
+    rows = _certify_peer_rows()
+    updates: list[tuple] = []
+    cache_calls: list[dict] = []
+
+    def update_page(page_id, properties, **kwargs):
+        if "Truth" in properties:
+            raise RuntimeError("truth write rejected")
+        updates.append((page_id, properties))
+
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: rows)
+    monkeypatch.setattr(store, "get_database", lambda *_: _CERT_SUPERSEDE_SCHEMA)
+    monkeypatch.setattr(store, "update_page", update_page)
+    monkeypatch.setattr(brain_cache, "upsert_active", lambda *a, **k: cache_calls.append(k))
+
+    result = provider._tool_certify({"memory_id": "new"}, user_confirmed=True)
+
+    assert result == "Error: certification update failed"
+    assert updates == []
+    assert cache_calls == []
