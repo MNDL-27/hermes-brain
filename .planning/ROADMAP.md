@@ -73,6 +73,7 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
   4. No mutation: the command still never executes `pip install`, `git pull`, or any environment change (carried UPD-05 contract).
 
 **Plans**: 2/2 plans — completed 2026-11-07
+**Verification**: Retrospective verification passed 2026-11-12 (4/4 criteria; 64 targeted update tests). See [07-VERIFICATION.md](phases/07-update-ux-commit-level-drift-release-notes-link/07-VERIFICATION.md).
 
 ### Phase 8: Developer Tooling & Test Reliability
 
@@ -92,6 +93,7 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 Plans:
 - [x] 08-01-PLAN.md — commit TEST-HANGS hermetic infra + audit suite-count in PROJECT/STATE/REQUIREMENTS
 - [x] 08-02-PLAN.md — opt-in `scripts/pre-push` hook + `.github/workflows/pre-commit-autoupdate.yml` (TOOL-01, TOOL-02)
+**Verification**: Retrospective verification passed 2026-11-12 (5/5 criteria; hook run 570 passed, 1 deselected). See [08-VERIFICATION.md](phases/08-developer-tooling-test-reliability/08-VERIFICATION.md).
 
 ---
 
@@ -144,8 +146,8 @@ Plans:
   2. Deterministic catalog APIs resolve terms and enumerate entities/relations without LLM calls in the retrieval path.
   3. Notion and Obsidian adapters map catalog references to their respective storage locations.
 
-**Implementation history**: `da6b1d4` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Implementation observed; original GSD closure unverified. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+**Implementation history**: `da6b1d4` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09); closure verification and Obsidian ref-driven recall 2026-11-12.
+**Verification**: Passed 12-01: 3/3 success criteria verified; 58 targeted catalog/answerability tests, 14 adapter tests and an independent probe passed; full suite 570 passed, ruff and mypy clean. See [12-VERIFICATION.md](phases/12-semantic-catalog/12-VERIFICATION.md).
 
 ### Phase 13: User-Gated Certification Flow
 

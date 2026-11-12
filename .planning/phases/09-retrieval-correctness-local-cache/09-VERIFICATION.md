@@ -1,12 +1,12 @@
 ---
 phase: 09-retrieval-correctness-local-cache
-verified: "2026-11-08T22:33:41Z"
+verified: "2026-11-12"
 status: passed
 score: "6/6 must-haves verified"
-source_snapshot: "45c8ca2"
+source_snapshot: "61a6247"
 re_verification: true
-previous_status: gaps_found
-previous_source_snapshot: "fb7ec04"
+previous_status: passed
+previous_source_snapshot: "45c8ca2"
 overrides_applied: 0
 behavior_unverified: 0
 gaps: []
@@ -24,7 +24,7 @@ covered_files:
   - tests/test_injection.py
   - tests/test_prefetch_gap_closure.py
   - tests/test_prefetch_hydration.py
-covered_digest: "v4:sha256:8c674c0749ed0c6acff5d47ed0b6d34203ca0f2754678a6ff7345a1bf7dd8fd2"
+covered_digest: "v4:sha256:d626a8d5fc15346600ecdfa16c8ebaf2d3e54e236aa09b7fdad831876af45087"
 nyquist:
   validation_file: 09-VALIDATION.md
   compliant: true
@@ -35,6 +35,14 @@ nyquist:
 **Status: passed.** All six must-haves in [09-02-PLAN.md](09-02-PLAN.md) are verified against implementation commit `45c8ca2`. Cold retrieval populates an offline cache, and disk context and contradiction notices use the existing 400/400 injection lanes. Final repository gates: **532 tests passed, 1 deselected in 6.39s**, Ruff clean, mypy clean across 53 source files, and CRLF-aware whitespace check clean.
 
 This re-verifies the gaps recorded at `fb7ec04`. It closes current Phase 9 work without retroactively asserting that missing original execution artifacts existed or verifying Phases 10–15.
+
+## Freshness refresh (2026-11-12)
+
+`notion_brain/provider.py` changed after the original `45c8ca2` report in later phases (adapter routing in Phase 11 and catalog reference recall in Phase 12), which correctly marked this verification stale. The Phase 9 evidence was re-run on the current tree:
+
+- Targeted cache/hydration/injection suite: **29 passed in 0.22s**.
+- Full repository gate: **570 passed, 1 deselected**; ruff and mypy clean.
+- No Phase 9 behavior changed; the must-have evidence below still applies. The digest was recomputed against the current covered files and the report date/snapshot updated.
 
 ## Observable truths
 

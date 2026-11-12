@@ -1,7 +1,7 @@
 ---
 phase: 10-event-driven-supersession
 verified: 2026-11-09
-status: verified
+status: passed
 source_snapshot: 7b609e8
 score: "3/3 scoped contracts demonstrated; SUP-01/SUP-02/SUP-03 all closed"
 fingerprint: "Phase 10 gap-closure complete: background subject-key inference, non-destructive same-title versioning, idempotency, certified/non-Memory boundaries, accepted-transition cache/graph/timeline ordering, and failure isolation verified. Full suite 561 passed, 1 deselected; ruff clean; mypy clean; CRLF-aware whitespace clean. No live Notion mutation performed."

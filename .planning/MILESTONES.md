@@ -49,3 +49,28 @@
 **Git range:** `9be1f77` docs: start milestone v1.1 → `bed0ee2` chore(state): sync STATE.md after Phase 06 re-verification (25 commits, 12 source files, +1522/-121 in scope)
 
 ---
+
+## v1.2 Update UX & Tooling Polish (Shipped: 2026-11-07)
+
+**Phases completed:** 2 phases, 4 plans, 5 requirements (UPD-06, UPD-07, TOOL-01, TOOL-02, TEST-HANGS)
+
+**Key accomplishments:**
+
+- **Commit-level update drift (Phase 7, UPD-06)** — `detect_git_drift` reads local `git rev-list` ahead/behind counts on `main` and falls back to the GitHub compare API; `check_for_update` reports `drift_type`, `behind_commits`, `ahead_commits`, and the cached payload persists them for offline banners.
+- **Release-notes link (Phase 7, UPD-07)** — the banner and JSON payload carry `https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z` derived from the resolved tag; CLI exit codes distinguish commit-only drift (0) from version drift (2).
+- **Hermetic, auditable test suite (Phase 8, TEST-HANGS)** — autouse socket/DNS denial, a registered `network` marker deselected by default, corrected provider mock targets, and a named single network test; the three former hang sources now finish in 0.26s.
+- **Opt-in pre-push gate (Phase 8, TOOL-01)** — `scripts/pre-push` runs the CI-equivalent offline suite under a 300s timeout with a documented skip escape hatch; end-to-end run: 570 passed, 1 deselected.
+- **Weekly hook maintenance (Phase 8, TOOL-02)** — `.github/workflows/pre-commit-autoupdate.yml` runs Mondays at 06:17 UTC, uses least-privilege permissions, and opens a human-merged PR when hook revs change.
+
+**Closeout type:** retrospective_closeout (original Phase 7/8 SUMMARY and VERIFICATION artifacts were absent; reconstructed 2026-11-12 from committed behavior, tests and git history)
+
+**Known verification overrides:** 0 newly acknowledged, 0 carried forward
+
+**Known gaps (accepted at closeout):**
+
+- The archived quick-task commits (`06fcec8`, `a32dddc`, `80774ea`, `56e467b`, `cddde1b`) are not reachable in this branch's history; their hermetic infrastructure landed here through `e4362f7`.
+- Phase 5/6 retain no separate VALIDATION.md; their verification reports are the closure evidence.
+
+**Git range:** `4c7afdf` feat(update): commit-level drift → `c42ac35` chore(v1.2): close out milestone
+
+---

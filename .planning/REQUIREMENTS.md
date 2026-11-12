@@ -27,7 +27,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
 
-Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9, 10 and 11 have current passing SUMMARY/VERIFICATION evidence; Phases 12–15 still await closure, with the remaining concrete code gaps in certification failure isolation and provenance continuity. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–12 have current passing SUMMARY/VERIFICATION evidence; Phases 13–15 still await closure, with the remaining concrete code gaps in certification failure isolation and provenance continuity. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
@@ -56,9 +56,9 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ### Semantic Catalog (CAT)
 
-- [ ] **CAT-01**: A provider-neutral semantic catalog model (Terms with description/synonyms, typed Entities, Relations) lives in core, independent of any StorageAdapter; both NotionAdapter and ObsidianVaultAdapter map the catalog into their backing store.
-- [ ] **CAT-02**: The catalog is queryable deterministically (`resolve_term`, `list_entities`, `get_relations`) without LLM inference in the read path.
-- [ ] **CAT-03**: Terms can map to concrete storage locations (Notion database/property, Obsidian note/section) so retrieval resolves through definitions instead of raw fuzzy search.
+- [x] **CAT-01**: A provider-neutral semantic catalog model (Terms with description/synonyms, typed Entities, Relations) lives in core, independent of any StorageAdapter; both NotionAdapter and ObsidianVaultAdapter map the catalog into their backing store.
+- [x] **CAT-02**: The catalog is queryable deterministically (`resolve_term`, `list_entities`, `get_relations`) without LLM inference in the read path.
+- [x] **CAT-03**: Terms can map to concrete storage locations (Notion database/property, Obsidian note/section) so retrieval resolves through definitions instead of raw fuzzy search.
 
 ### Certification (CERT)
 
@@ -81,11 +81,11 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UPD-06 | Phase 7 | Completed |
-| UPD-07 | Phase 7 | Completed |
-| TOOL-01 | Phase 8 | Completed |
-| TOOL-02 | Phase 8 | Completed |
-| TEST-HANGS | Phase 8 | Completed |
+| UPD-06 | Phase 7 | Verified — retrospective 07-VERIFICATION (2026-11-12) |
+| UPD-07 | Phase 7 | Verified — retrospective 07-VERIFICATION (2026-11-12) |
+| TOOL-01 | Phase 8 | Verified — retrospective 08-VERIFICATION (2026-11-12) |
+| TOOL-02 | Phase 8 | Verified — retrospective 08-VERIFICATION (2026-11-12) |
+| TEST-HANGS | Phase 8 | Verified — retrospective 08-VERIFICATION (2026-11-12) |
 | RET-01 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
 | RET-02 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
 | RET-03 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
@@ -96,9 +96,9 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | ADAPT-02 | Phase 11 | Verified for read paths — provider search/prefetch route through `NotionAdapter`; Memory write path is a documented ceiling |
 | ADAPT-03 | Phase 11 | Verified — entitlement-gated selection with provider fallback to Notion |
 | ADAPT-04 | Phase 11 | Verified — vault scaffold plus entitled provider selection and recall merge |
-| CAT-01 | Phase 12 | Implementation observed — GSD closure unverified |
-| CAT-02 | Phase 12 | Implementation observed — GSD closure unverified |
-| CAT-03 | Phase 12 | Implementation observed — GSD closure unverified |
+| CAT-01 | Phase 12 | Verified — 12-01 summary and current verification fingerprint |
+| CAT-02 | Phase 12 | Verified — 12-01 summary and current verification fingerprint |
+| CAT-03 | Phase 12 | Verified — definitions resolve Notion ids and premium Obsidian note paths into row selection |
 | CERT-01 | Phase 13 | Implementation observed — GSD closure unverified |
 | CERT-02 | Phase 13 | Implementation observed — GSD closure unverified |
 | CERT-03 | Phase 13 | Gaps found — provenance failure skips cache/remaining supersessions |

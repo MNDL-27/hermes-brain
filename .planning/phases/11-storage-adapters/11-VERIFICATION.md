@@ -1,7 +1,7 @@
 ---
 phase: 11-storage-adapters
 verified: 2026-11-12
-status: verified
+status: passed
 source_snapshot: working tree on top of f9c589b
 score: "3/3 success criteria verified for read and selection paths; ADAPT-02 Memory write path recorded as an explicit ceiling"
 fingerprint: "Phase 11 gap closure: provider initializes and selects storage adapters through the entitlement factory, routes prefetch and search through NotionAdapter, normalizes and merges entitled Obsidian vault rows, and falls back to Notion on EntitlementError. Full suite 568 passed, 1 deselected; ruff clean; mypy clean. No live Notion or vault mutation performed."

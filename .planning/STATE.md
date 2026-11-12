@@ -3,14 +3,14 @@ gsd_state_version: "1.0"
 milestone: v1.3
 milestone_name: Brain Architecture & Freemium Foundation
 status: planning
-current_phase: 11
-current_phase_name: Storage Adapter Abstraction & Freemium Gate
+current_phase: 12
+current_phase_name: Core Semantic Catalog
 last_updated: "2026-11-12T00:00:00Z"
 last_activity: 2026-11-12
 progress:
   total_phases: 15
-  completed_phases: 11
-  percent: 73
+  completed_phases: 12
+  percent: 80
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-09)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** Phase 11 gap closure is implemented and verified in the working tree on top of `f9c589b`. Phase 10 is verified at `f9c589b`; Phase 12 is next. Later phase gaps remain open; v1.5 remains undefined.
+**Current focus:** Phase 12 is verified; gap review additionally closed Obsidian ref-driven recall. Phase 13 certification failure isolation is next and carries the next known code gap. Later phase gaps remain open; v1.5 remains undefined.
 
 ## Current Position
 
 Milestone: v1.3 — Brain Architecture & Freemium Foundation (gap closure)
-Phase: 11 of 15 — Storage Adapter Abstraction & Freemium Gate
-Status: Verified for read and selection paths; Memory write path recorded as an explicit ADAPT-02 ceiling
-Next position: `/gsd-plan-phase 12 --gaps`; see [Phase 11 verification](phases/11-storage-adapters/11-VERIFICATION.md)
-Last activity: 2026-11-12 — wired provider search/prefetch through the storage adapters, added the entitlement-selection flow and six regressions; full suite 568 passed
+Phase: 12 of 15 — Core Semantic Catalog
+Status: Verified 3/3 success criteria; Obsidian catalog refs now select vault rows as well as Notion ids
+Next position: `/gsd-plan-phase 13 --gaps`; see [Phase 12 verification](phases/12-semantic-catalog/12-VERIFICATION.md)
+Last activity: 2026-11-12 — verified catalog behavior and added Obsidian ref-driven recall with two regressions; full suite 570 passed
 
-Phases 1–9 retain their historical closeout status. Phase 10 is verified at `f9c589b` (3/3 scoped contracts) and Phase 11 is verified in the current working tree, giving 11/15 phases complete in this roadmap. Phases 12–15 still need their own gap closure or retrospective verification; the original 15/15 claim remains superseded.
+Phases 1–9 retain their historical closeout status. Phases 10, 11 and 12 are verified with current SUMMARY/VERIFICATION evidence, giving 12/15 phases complete in this roadmap. Phases 13–15 still need their own gap closure or retrospective verification; the original 15/15 claim remains superseded.
 
 Implementation history: v1.3 `7b78b98`, `7ceaafb`, `71e7122`; v1.4 `da6b1d4`, `700221c`, `c5e829e`, `6208569`; semantic review fixes `fb7ec04`. Commit existence, automated verification, push, merge and release are separate observations. Prerequisite merge and feature-branch push: observed at `24ce18b`. Merge to main/release: not performed.
 
@@ -40,9 +40,13 @@ v1.2 Phase 7 → Phase 8 → v1.3 Phase 9 → 10 → 11 → v1.4 Phase 12 → 13
 
 ## Verification Baselines and Historical Observations
 
-Current verification (2026-11-12): **568 passed, 1 deselected in 5.59s**, Ruff clean, mypy clean (`notion_brain`). Phase 11 is verified for read and selection paths in the working tree on top of `f9c589b`; seven new provider-wiring regressions account for the delta from the 561 baseline. See the [Phase 11 verification](phases/11-storage-adapters/11-VERIFICATION.md) and [summary](phases/11-storage-adapters/11-01-SUMMARY.md).
+Current verification (2026-11-12): **570 passed, 1 deselected in 5.44s**, Ruff clean, mypy clean (`notion_brain`). Phase 12 is verified: 58 targeted catalog/answerability tests plus 14 adapter tests and an independent probe; two new regressions cover Obsidian catalog-ref recall. See the [Phase 12 verification](phases/12-semantic-catalog/12-VERIFICATION.md).
+
+Phase 11 verification (2026-11-12): **568 passed, 1 deselected in 5.59s**; seven new provider-wiring regressions closed ADAPT-02/03 for read and selection paths. See the [Phase 11 verification](phases/11-storage-adapters/11-VERIFICATION.md) and [summary](phases/11-storage-adapters/11-01-SUMMARY.md).
 
 Phase 10 verification (2026-11-09): **561 passed, 1 deselected in 6.15s**, 3/3 scoped contracts, 121 targeted supersession tests. Phase 9 verification (2026-11-09): **532 passed, 1 deselected in 6.39s**; cached prefetch on committed `45c8ca2` measured 1.012ms median / 1.349ms p95 over 120 samples with zero warm Notion calls. The initial [audit](v1.4-MILESTONE-AUDIT.md) records the original gaps and a follow-up below.
+
+GSD integrity remediation (2026-11-12): Phases 7 and 8 gained retrospective SUMMARY and VERIFICATION artifacts reconstructed from committed behavior; `verify phase-completeness` passes for Phases 04–12; `validate health` is **healthy** and `validate consistency` reports 0 warnings. Phase 9's verification digest was refreshed after later provider changes, and dispatch briefs now live under `.planning/milestones/dispatches/`.
 
 Historical offline baseline (2026-11-06): **401 passed, 1 deselected** via `.venv/bin/python -m pytest -q` (project venv, Python 3.12).
 
@@ -83,8 +87,8 @@ All milestone decisions logged in PROJECT.md Key Decisions table (v1.0 + v1.1 se
 
 ### Blockers/Concerns
 
-- Later approved work: certification failure isolation (Phase 13), cached/prompt provenance (Phase 14), and Phase 12/15 closure evidence.
-- Phases 9, 10 and 11 current closures are verified. Phase 11's working-tree changes are uncommitted. Phases 12–15 still lack complete GSD closure evidence; reconcile from actual behavior rather than suite counts.
+- Later approved work: certification failure isolation (Phase 13), cached/prompt provenance (Phase 14), and Phase 15 answerability closure evidence.
+- Phases 9–12 current closures are verified. Phase 12 also closed the Obsidian ref-driven recall residual. Phases 13–15 still lack complete GSD closure evidence; reconcile from actual behavior rather than suite counts.
 - The merge at `24ce18b` incorporates v1.2 follow-ups through `752fc51`, including the executable pre-push hook. Remote feature-branch SHA was independently checked after push.
 - The external Hermes host must collect user approval and supply per-call certification confirmation. This package exposes the boundary, not that UI.
 
@@ -109,7 +113,7 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 | Adapter | ADAPT-02 — NotionAdapter refactor (free tier) | Verified for read paths 11-01; write path ceiling documented | v1.2 close | v1.3 (2026-11-07) |
 | Freemium | ADAPT-03 — license entitlement check / fallback | Verified 11-01 (2026-11-12) | v1.2 close | v1.3 (2026-11-07) |
 | Freemium | ADAPT-04 — ObsidianVaultAdapter premium scaffold | Verified 11-01 (2026-11-12) | v1.2 close | v1.3 (2026-11-07) |
-| Semantic | CAT-01..03 — provider-neutral catalog + storage-ref resolution | Implementation observed; closure unverified | v1.3 close | v1.4 (2026-11-07) |
+| Semantic | CAT-01..03 — provider-neutral catalog + storage-ref resolution | Verified 12-01 (2026-11-12) | v1.3 close | v1.4 (2026-11-07) |
 | Certification | CERT-01..03 — inferred/certified truth + orchestrator-only promote | Gaps found; closure unverified | v1.3 close | v1.4 (2026-11-07) |
 | Provenance | PROV-01..03 — provenance block, supersedes edge, graph traverse | Gaps found; closure unverified | v1.3 close | v1.4 (2026-11-07) |
 | Answerability | ANS-01/02 — zero-coverage gate + contradiction surfacing | Implementation observed; closure unverified | v1.3 close | v1.4 (2026-11-07) |
@@ -117,14 +121,14 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 ## Session Continuity
 
 Last session: 2026-11-12
-Stopped at: Phase 11 implementation and regressions complete in the working tree; full suite 568 passed; closure artifacts written
-Resume file: `.planning/phases/11-storage-adapters/11-VERIFICATION.md`
+Stopped at: Phase 13 gap plan written; Phases 7/8 retroactively closed with GSD-compliant artifacts; Phase 9 verification refreshed
+Resume file: `.planning/phases/13-user-gated-certification-flow/13-01-PLAN.md`
 
 ## Operator Next Steps
 
-- Review and commit the Phase 11 working-tree changes (`notion_brain/adapters.py`, `notion_brain/provider.py`, `tests/test_adapters.py`, `.planning/phases/11-storage-adapters/`).
-- Run `/gsd-plan-phase 12 --gaps` (or retrospective verification) for the semantic catalog phase; CAT-01..03 are implemented and wired but lack closure artifacts.
-- Continue the approved phase order through Phases 13–15; Phases 9, 10 and 11 are passed.
+- Execute the Phase 13 gap plan (`13-01`): isolate certification follow-up work and add failure-injection regressions.
+- Then continue the approved order with Phases 14–15.
+- Review and commit the Phase 12/13 artifacts, the Phase 7/8 retroactive records and the planning-integrity fixes.
 - Define v1.5 only after its scope is supplied; no new milestone is created by this repair work.
 
 ## Prerequisite integration
@@ -135,4 +139,5 @@ The v1.2-only branch recorded **407 passed, 1 deselected** in its isolated basel
 
 - [09-02-PLAN.md](phases/09-retrieval-correctness-local-cache/09-02-PLAN.md) completed in `45c8ca2`; fingerprinted by [09-VERIFICATION.md](phases/09-retrieval-correctness-local-cache/09-VERIFICATION.md).
 - [10-02-PLAN.md](phases/10-event-driven-supersession/10-02-PLAN.md) completed in `f9c589b`; fingerprinted by [10-VERIFICATION.md](phases/10-event-driven-supersession/10-VERIFICATION.md).
-- [11-01-PLAN.md](phases/11-storage-adapters/11-01-PLAN.md) completed 2026-11-12 in the working tree on top of `f9c589b`; fingerprinted by [11-VERIFICATION.md](phases/11-storage-adapters/11-VERIFICATION.md).
+- [11-01-PLAN.md](phases/11-storage-adapters/11-01-PLAN.md) completed in `61a6247`; fingerprinted by [11-VERIFICATION.md](phases/11-storage-adapters/11-VERIFICATION.md).
+- [12-01-PLAN.md](phases/12-semantic-catalog/12-01-PLAN.md) completed 2026-11-12 as verification plus Obsidian catalog-ref recall on `61a6247`; fingerprinted by [12-VERIFICATION.md](phases/12-semantic-catalog/12-VERIFICATION.md).

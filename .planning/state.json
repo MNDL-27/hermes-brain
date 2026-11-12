@@ -31,7 +31,7 @@
     {
       "number": "12",
       "name": "Core Semantic Catalog",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "number": "13",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 12 --gaps",
-    "label": "Plan Phase 12 semantic catalog closure verification",
-    "reason": "Phases 9, 10 and 11 are verified (Phase 11 in the working tree on top of f9c589b). CAT-01..03 are implemented and wired but lack closure artifacts; v1.5 remains undefined."
+    "command": "/gsd-plan-phase 13 --gaps",
+    "label": "Plan Phase 13 certification failure isolation",
+    "reason": "Phases 9–12 are verified. CERT-03 remains the next concrete gap: a provenance failure after a successful status flip can skip predecessor cache mirroring and remaining peers. v1.5 remains undefined."
   },
   "updated_at": "2026-11-12T00:00:00Z"
 }
