@@ -2,8 +2,8 @@
 gsd_state_version: "1.0"
 milestone: v1.4
 milestone_name: Semantic Brain Layer
-status: Awaiting milestone closeout
-stopped_at: v1.3 archived; v1.4 phases 12-15 verified
+status: complete
+stopped_at: v1.3 archived; v1.4 phases 12-15 complete; milestone closeout pending
 last_updated: "2026-11-13T00:00:00Z"
 last_activity: 2026-11-13
 last_activity_desc: Milestone v1.3 completed and archived; v1.4 closeout pending
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-11-09)
 
 Phase: Milestone v1.3 complete; v1.4 closeout pending
 Plan: —
-Status: Awaiting v1.4 milestone closeout
+Status: complete; v1.4 milestone closeout pending
 Last activity: 2026-11-13 — Milestone v1.3 completed and archived; v1.4 phases 12-15 verified
 
 ## Execution Order (user-confirmed 2026-11-06)
