@@ -1,12 +1,38 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v1.4 — Semantic Brain Layer",
-  "phases": [],
+  "milestone": "v1.5 — Obsidian Vault Backend",
+  "phases": [
+    {
+      "number": "16",
+      "name": "Vault Note Schema & Write Operations",
+      "status": "pending"
+    },
+    {
+      "number": "17",
+      "name": "Vault-Primary Provider Routing",
+      "status": "pending"
+    },
+    {
+      "number": "18",
+      "name": "Bidirectional Sync & Migration",
+      "status": "pending"
+    },
+    {
+      "number": "19",
+      "name": "Section-Aware References",
+      "status": "pending"
+    },
+    {
+      "number": "20",
+      "name": "Offline Signed Entitlement",
+      "status": "pending"
+    }
+  ],
   "next": {
-    "command": "/gsd-new-milestone",
-    "label": "Define the next milestone",
-    "reason": "All defined milestones (v1.0–v1.4) are shipped and archived. Provide v1.5 scope to begin."
+    "command": "/gsd-plan-phase 16",
+    "label": "Plan Phase 16 vault note schema and write operations",
+    "reason": "v1.5 scope, requirements and roadmap are defined. Phase 16 is the first implementation phase."
   },
   "updated_at": "2026-11-13T00:00:00Z"
 }

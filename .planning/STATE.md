@@ -1,38 +1,34 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.4
-milestone_name: Semantic Brain Layer
-status: complete
-stopped_at: v1.4 archived; all defined milestones shipped; v1.5 undefined
-last_updated: "2026-11-12T23:36:13.393Z"
+milestone: v1.5
+milestone_name: Obsidian Vault Backend
+status: planning
+last_updated: "2026-11-12T23:53:14.855Z"
 last_activity: 2026-11-13
-last_activity_desc: Milestone v1.4 completed and archived
-state_head: 8add7ee968b23ea0f6a151b4839acbf7cd4762f7
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
-current_phase: 15
-current_phase_name: Answerability Gate & Contradiction Detection
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-11-09)
+See: .planning/PROJECT.md (updated 2026-11-13)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** All defined milestones (v1.0–v1.4) are shipped and archived. Define v1.5 scope before planning new phases. Merge to `main`, tag push/release and PyPI publisher registration remain separate decisions.
+**Current focus:** v1.5 Obsidian Vault Backend — requirements and roadmap are defined; Phase 16 (vault note schema and write operations) is next. Design decisions are in [2026-11-13-obsidian-vault-backend.md](research/2026-11-13-obsidian-vault-backend.md).
 
 ## Current Position
 
-Phase: Milestone v1.4 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Complete; awaiting v1.5 definition
-Last activity: 2026-11-13 — Milestone v1.4 completed and archived
+Status: Defining requirements; roadmap approved
+Last activity: 2026-11-13 — Milestone v1.5 started; 8 requirements and 5 phases defined
+
 
 ## Execution Order (user-confirmed 2026-11-06)
 
