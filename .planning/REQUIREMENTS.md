@@ -27,7 +27,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
 
-Audit follow-up 2026-11-09: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phase 9 has current passing SUMMARY/VERIFICATION evidence; Phases 10–15 still await closure, with six requirements having concrete code gaps. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9, 10 and 11 have current passing SUMMARY/VERIFICATION evidence; Phases 12–15 still await closure, with the remaining concrete code gaps in certification failure isolation and provenance continuity. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
@@ -39,16 +39,16 @@ Requirements derived from the competitive memory-landscape research (`.planning/
 
 ### Supersession (SUP)
 
-- [ ] **SUP-01**: Memory rows carry a `Subject Key` logical slot (e.g. `device.daily_phone`, `preferences.engine_cc`); detection infers it from content with an explicit override parameter.
-- [ ] **SUP-02**: Writing a fact whose `Subject Key` matches an existing active row marks the older row `Status: Superseded` (non-destructive; history preserved) instead of leaving contradictions.
-- [ ] **SUP-03**: Superseded history stays queryable (recall-as-of / timeline listing) so past truths remain auditable.
+- [x] **SUP-01**: Memory rows carry a `Subject Key` logical slot (e.g. `device.daily_phone`, `preferences.engine_cc`); detection infers it from content with an explicit override parameter.
+- [x] **SUP-02**: Writing a fact whose `Subject Key` matches an existing active row marks the older row `Status: Superseded` (non-destructive; history preserved) instead of leaving contradictions.
+- [x] **SUP-03**: Superseded history stays queryable (recall-as-of / timeline listing) so past truths remain auditable.
 
 ### Storage Adapter & Freemium (ADAPT)
 
-- [ ] **ADAPT-01**: A `StorageAdapter` protocol abstracts `search`, `remember`, `supersede`, `prefetch`, `health`.
-- [ ] **ADAPT-02**: The current Notion code path is refactored behind `NotionAdapter` with no behavior change for existing users.
-- [ ] **ADAPT-03**: A premium entitlement check (license token) gates non-free storage adapters; unentitled selection falls back to Notion with an upgrade notice.
-- [ ] **ADAPT-04**: An `ObsidianVaultAdapter` premium adapter (markdown + SQLite index inside the user's vault) is specified and scaffolded behind the entitlement check; free tier remains Notion-only.
+- [x] **ADAPT-01**: A `StorageAdapter` protocol abstracts `search`, `remember`, `supersede`, `prefetch`, `health`.
+- [x] **ADAPT-02**: The current Notion code path is refactored behind `NotionAdapter` with no behavior change for existing users. Provider recall routes through the adapter; the certification/provenance-bearing Memory write path remains on `store.*` as an explicit ceiling.
+- [x] **ADAPT-03**: A premium entitlement check (license token) gates non-free storage adapters; unentitled selection falls back to Notion with an upgrade notice.
+- [x] **ADAPT-04**: An `ObsidianVaultAdapter` premium adapter (markdown + SQLite index inside the user's vault) is specified and scaffolded behind the entitlement check; free tier remains Notion-only.
 
 ## v1.4 Requirements (Defined 2026-11-06 — implementation present, closure unverified)
 
@@ -89,13 +89,13 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | RET-01 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
 | RET-02 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
 | RET-03 | Phase 9 | Verified — 09-02 summary and current verification fingerprint |
-| SUP-01 | Phase 10 | Gaps found — background ingestion does not infer subject keys |
-| SUP-02 | Phase 10 | Gaps found — same-title overwrite loses history; cold fallback filtering fixed in 09-02 |
-| SUP-03 | Phase 10 | Implementation observed — GSD closure unverified |
-| ADAPT-01 | Phase 11 | Implementation observed — GSD closure unverified |
-| ADAPT-02 | Phase 11 | Gaps found — provider operations bypass the adapter |
-| ADAPT-03 | Phase 11 | Gaps found — runtime adapter selection/fallback is absent |
-| ADAPT-04 | Phase 11 | Implementation observed — GSD closure unverified |
+| SUP-01 | Phase 10 | Verified — 10-02 summary and current verification fingerprint |
+| SUP-02 | Phase 10 | Verified — 10-02 summary and current verification fingerprint |
+| SUP-03 | Phase 10 | Verified — 10-02 summary and current verification fingerprint |
+| ADAPT-01 | Phase 11 | Verified — protocol and both adapter implementations covered by `tests/test_adapters.py` |
+| ADAPT-02 | Phase 11 | Verified for read paths — provider search/prefetch route through `NotionAdapter`; Memory write path is a documented ceiling |
+| ADAPT-03 | Phase 11 | Verified — entitlement-gated selection with provider fallback to Notion |
+| ADAPT-04 | Phase 11 | Verified — vault scaffold plus entitled provider selection and recall merge |
 | CAT-01 | Phase 12 | Implementation observed — GSD closure unverified |
 | CAT-02 | Phase 12 | Implementation observed — GSD closure unverified |
 | CAT-03 | Phase 12 | Implementation observed — GSD closure unverified |

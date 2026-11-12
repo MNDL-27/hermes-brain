@@ -79,7 +79,11 @@ class NotionAdapter:
         self.notion_api_key = notion_api_key
         self.hermes_home = Path(hermes_home).expanduser() if hermes_home else Path.home() / ".hermes"
 
-    def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+    def search(
+        self, query: str, limit: int = 8, *, database_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        if database_id:
+            return [_redact_value(row) for row in store.query_database(database_id, page_size=limit)]
         return [_redact_value(row) for row in store.search_entries(S.redact_secrets(query), page_size=limit)]
 
     def remember(self, entry: dict[str, Any]) -> dict[str, Any]:

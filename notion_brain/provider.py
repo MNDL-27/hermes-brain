@@ -20,7 +20,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from . import bootstrap, brain_cache, extract, helpers, injection, store, update_cache
+from . import adapters, bootstrap, brain_cache, extract, helpers, injection, store, update_cache
 from . import catalog as semantic_catalog
 from . import schema as S
 from .helpers import _merge_disk_only, _safe_select_value
@@ -78,6 +78,41 @@ def _redact_payload(value: Any) -> Any:
     return value
 
 
+def _adapter_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a flat StorageAdapter row into the provider's row shape.
+
+    Notion adapter rows already carry ``properties``; premium adapters return
+    flat rows (title/content/status/subject_key), so map those into the fields
+    the recall paths read.
+    """
+    props = entry.get("properties")
+    if isinstance(props, dict) and props:
+        return entry
+    normalized = dict(entry)
+    normalized["properties"] = {
+        "Content": entry.get("content") or "",
+        "Status": entry.get("status") or "active",
+        "Subject Key": entry.get("subject_key") or "",
+    }
+    return normalized
+
+
+def _merge_adapter_entries(
+    primary: list[dict[str, Any]], extra: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Append ``extra`` rows deduplicated by id, keeping ``primary`` order."""
+    seen = {str(row.get("id") or "") for row in primary if row.get("id")}
+    merged = list(primary)
+    for row in extra:
+        row_id = str(row.get("id") or "")
+        if row_id and row_id in seen:
+            continue
+        if row_id:
+            seen.add(row_id)
+        merged.append(row)
+    return merged
+
+
 class NotionBrainProvider:
     """Notion-backed long-term memory for Hermes."""
 
@@ -99,6 +134,11 @@ class NotionBrainProvider:
 
         # Update-check cache (CHK-01..CHK-05); populated in initialize()
         self._update_cache: dict[str, Any] | None = None
+
+        # ADAPT-02/03: storage-adapter wiring; populated in initialize()
+        self._notion_adapter: Any = None
+        self._obsidian_adapter: Any = None
+        self._adapter_name: str = "notion"
 
     def _catalog_path(self) -> Path:
         """Keep catalog reads and writes in the initialized provider's home."""
@@ -139,6 +179,33 @@ class NotionBrainProvider:
             logger.info("Notion brain initialized: %d databases", len(self._db_ids))
         except Exception as exc:
             logger.error("NotionBrainProvider bootstrap failed: %s", S.redact_secrets(str(exc)))
+
+        # ADAPT-02/03: wire the storage adapters. The Notion adapter is always
+        # present (free tier); a premium adapter is selected only through the
+        # entitlement-checked factory so an unentitled request falls back to
+        # Notion with an upgrade notice instead of failing the session.
+        self._notion_adapter = adapters.NotionAdapter(hermes_home=self._hermes_home)
+        self._obsidian_adapter = None
+        requested = str(kwargs.get("storage_adapter") or "notion").strip().casefold()
+        self._adapter_name = requested
+        if requested not in ("", "notion"):
+            try:
+                selected = adapters.get_adapter(
+                    requested,
+                    hermes_home=self._hermes_home or Path.home() / ".hermes",
+                    obsidian_vault=kwargs.get("obsidian_vault"),
+                )
+            except adapters.EntitlementError as exc:
+                logger.warning(
+                    "Premium storage adapter '%s' unavailable (%s); "
+                    "falling back to Notion storage.",
+                    requested, S.redact_secrets(str(exc)),
+                )
+                self._adapter_name = "notion"
+            else:
+                self._obsidian_adapter = selected if isinstance(selected, adapters.ObsidianVaultAdapter) else None
+                if self._obsidian_adapter is None:
+                    self._adapter_name = "notion"
 
         # Pre-load memory files from disk as fallback context and trigger auto-sync
         if self._hermes_home:
@@ -736,16 +803,34 @@ class NotionBrainProvider:
         holds no active rows. A missing or unreadable cache falls through
         to Notion.
         """
-        if self._hermes_home:
+        if self._hermes_home and self._adapter_name != "obsidian":
             cached = brain_cache.list_active(self._hermes_home, limit=10)
             if cached is not None:
                 cached.sort(key=self._truth_recency_key, reverse=True)
                 return cached
-        entries = store.query_database(
-            self._db_ids["memory"],
-            sorts=[{"property": "Last Seen", "direction": "descending"}],
-            page_size=10,
-        )
+        # ADAPT-02/03: route the Memory prefetch through the selected storage
+        # adapter. Premium selection wins; otherwise Notion remains the free
+        # tier. The direct store path stays as the fallback for providers that
+        # were never initialized.
+        if self._adapter_name == "obsidian" and self._obsidian_adapter is not None:
+            try:
+                entries = [
+                    _adapter_entry(entry)
+                    for entry in self._obsidian_adapter.prefetch(limit=10)
+                ]
+            except Exception as exc:
+                logger.warning(
+                    "Obsidian prefetch failed: %s", S.redact_secrets(str(exc))
+                )
+                entries = []
+        elif self._notion_adapter is not None and self._db_ids.get("memory"):
+            entries = self._notion_adapter.prefetch(limit=10)
+        else:
+            entries = store.query_database(
+                self._db_ids["memory"],
+                sorts=[{"property": "Last Seen", "direction": "descending"}],
+                page_size=10,
+            )
         entries = [
             entry for entry in entries
             if str((entry.get("properties") or {}).get("Status") or "active").strip().casefold() == "active"
@@ -956,7 +1041,12 @@ class NotionBrainProvider:
             if not db_id:
                 return S.redact_secrets(f"No database found for: {database}")
 
-            entries = store.query_database(db_id, page_size=max_results)
+            if self._notion_adapter is not None:
+                entries = self._notion_adapter.search(
+                    query, limit=max_results, database_id=db_id
+                )
+            else:
+                entries = store.query_database(db_id, page_size=max_results)
             entry_databases.update({
                 store.normalize_id(str(row.get("id") or "")): store.normalize_id(db_id)
                 for row in entries if row.get("id")
@@ -967,7 +1057,12 @@ class NotionBrainProvider:
             all_entries: list[dict] = []
             for db_id in self._db_ids.values():
                 try:
-                    results = store.query_database(db_id, page_size=max_results)
+                    if self._notion_adapter is not None:
+                        results = self._notion_adapter.search(
+                            query, limit=max_results, database_id=db_id
+                        )
+                    else:
+                        results = store.query_database(db_id, page_size=max_results)
                     entry_databases.update({
                         store.normalize_id(str(row.get("id") or "")): store.normalize_id(db_id)
                         for row in results if row.get("id")
@@ -976,6 +1071,26 @@ class NotionBrainProvider:
                 except Exception:
                     pass
             entries = _merge_disk_only(all_entries, disk_text)
+
+        # ADAPT-03: when the premium vault backend is selected, merge its
+        # matches into the same row set. Database-scoped searches stay
+        # Notion-only because vault notes carry no Notion database identity.
+        if (
+            not database
+            and self._adapter_name == "obsidian"
+            and self._obsidian_adapter is not None
+        ):
+            try:
+                vault_entries = [
+                    _adapter_entry(entry)
+                    for entry in self._obsidian_adapter.search(query, limit=max_results)
+                ]
+            except Exception as exc:
+                logger.warning(
+                    "Obsidian search failed: %s", S.redact_secrets(str(exc))
+                )
+            else:
+                entries = _merge_adapter_entries(entries, vault_entries)
 
         # Resolve catalog terms deterministically before refining rows. Catalog
         # failures are intentionally non-fatal: ordinary search remains intact.
@@ -994,10 +1109,14 @@ class NotionBrainProvider:
                         expanded_needles.update(definition.synonyms)
                 if matches:
                     from . import adapters
-                    notion_adapter = adapters.NotionAdapter(hermes_home=self._hermes_home)
-                    import os
-                    vault_path = os.environ.get("HERMES_OBSIDIAN_VAULT", "").strip()
-                    obsidian_adapter = adapters.ObsidianVaultAdapter(vault_path) if vault_path else None
+                    notion_adapter = self._notion_adapter or adapters.NotionAdapter(
+                        hermes_home=self._hermes_home
+                    )
+                    obsidian_adapter = self._obsidian_adapter
+                    if obsidian_adapter is None:
+                        import os
+                        vault_path = os.environ.get("HERMES_OBSIDIAN_VAULT", "").strip()
+                        obsidian_adapter = adapters.ObsidianVaultAdapter(vault_path) if vault_path else None
                     for definition in matches:
                         resolved: list[str] = []
                         for ref in definition.storage_refs:

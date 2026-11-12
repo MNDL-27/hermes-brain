@@ -118,8 +118,8 @@ Plans:
   1. Updating a fact on the same subject (e.g. `device.daily_phone` from S24 to S21 FE) marks the older row `Status: Superseded` in Notion.
   2. Queries filter to `Status: Active` by default so the agent never hallucinates from contradictory historical state.
 
-**Implementation history**: `7ceaafb` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Gaps found: SUP-01/SUP-02; original GSD closure unverified. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+**Implementation history**: `7ceaafb` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09); gap closure in `f9c589b` (2026-11-09).
+**Verification**: Passed 10-02: 3/3 scoped contracts and SUP-01/SUP-02/SUP-03 closed; full suite 561 passed with a current fingerprint. See [10-VERIFICATION.md](phases/10-event-driven-supersession/10-VERIFICATION.md).
 
 ### Phase 11: Storage Adapter Abstraction & Freemium Gate
 
@@ -131,8 +131,8 @@ Plans:
   2. Free tier defaults to `NotionAdapter`.
   3. Attempting to select `ObsidianAdapter` checks an entitlement token/license; if unentitled, it gracefully explains the upgrade requirement and falls back to Notion.
 
-**Implementation history**: `71e7122` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Gaps found: ADAPT-02/ADAPT-03; original GSD closure unverified. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+**Implementation history**: `71e7122` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09); provider wiring and entitlement flow closure on 2026-11-12 (uncommitted working tree on top of `f9c589b`).
+**Verification**: Passed 11-01: 3/3 success criteria verified for read and selection paths; full suite 568 passed, ruff and mypy clean. The Memory write path remains on `store.*` as an explicit ADAPT-02 ceiling because certification/provenance/graph semantics exceed the generic protocol. See [11-VERIFICATION.md](phases/11-storage-adapters/11-VERIFICATION.md).
 
 ### Phase 12: Core Semantic Catalog
 
