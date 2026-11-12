@@ -185,8 +185,8 @@ Plans:
   2. Multiple active conflicting values for one subject are returned as a conflict, not silently ranked into a single answer.
   3. Provenance and certification are included in supported, unsupported, and conflict responses.
 
-**Implementation history**: `6208569` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09).
-**Verification**: Implementation observed; original GSD closure unverified. Original phase SUMMARY/VERIFICATION artifacts were not recorded; see the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+**Implementation history**: `6208569` (2026-11-07); semantic follow-up fixes in `fb7ec04` (2026-11-09); ANS-02 notice bound 2026-11-12.
+**Verification**: Passed 15-01: 3/3 success criteria verified; the contradiction notice is explicitly capped with an omitted-entry marker while the payload stays complete. 37 answerability/budget tests pass; full suite 582 passed, ruff and mypy clean. See [15-VERIFICATION.md](phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md).
 
 ---
 

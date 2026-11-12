@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from notion_brain import catalog, store
-from notion_brain.provider import NotionBrainProvider
+from notion_brain import catalog, injection, store
+from notion_brain.provider import MAX_CONTRADICTION_NOTICE_ENTRIES, NotionBrainProvider
 
 
 def test_check_answerable_full_coverage():
@@ -131,6 +131,71 @@ def test_prefetch_surfaces_contradiction(monkeypatch):
     assert "CONTRADICTION" in output
     assert "Volvo" in output and "Saab" in output
     assert "certified" in output and "inferred" in output
+    assert "omitted" not in output
+
+
+def _conflict_rows(count: int, *, prefix: str = "value") -> list[dict]:
+    return [
+        {
+            "id": f"m{i}", "title": f"Row {i}", "created_time": f"2026-01-0{i + 1}",
+            "properties": {
+                "Subject Key": "car", "Content": f"{prefix}-{i}",
+                "Status": "active", "Truth": "certified" if i % 2 == 0 else "inferred",
+            },
+        }
+        for i in range(count)
+    ]
+
+
+def test_prefetch_notice_caps_entries_and_reports_omitted(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    rows = _conflict_rows(6)
+    monkeypatch.setattr(provider, "_prefetch_entries", lambda: rows)
+
+    output = provider.prefetch()
+
+    assert "CONTRADICTION" in output
+    assert output.count("timestamp:") == MAX_CONTRADICTION_NOTICE_ENTRIES
+    omitted = 6 - MAX_CONTRADICTION_NOTICE_ENTRIES
+    assert f"- … {omitted} more conflicting entries omitted" in output
+    warning_text = "\n".join(
+        line for line in output.splitlines() if not line.startswith("- [fact]")
+    )
+    assert injection.count_tokens(warning_text) <= injection.LANE1_TOKEN_BUDGET
+    assert injection.count_tokens(output) <= injection.TOTAL_TOKEN_BUDGET
+    assert output == provider.prefetch()
+
+
+def test_search_payload_keeps_all_contradiction_entries(monkeypatch):
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    graph = catalog.Catalog()
+    graph.add_term(catalog.Term(name="car"))
+    monkeypatch.setattr(catalog.Catalog, "load", lambda self, path=None: graph)
+    rows = _conflict_rows(6, prefix="car value")
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: rows)
+
+    _, payload = provider._tool_search({"query": "car", "database": "memory"})
+
+    assert len(payload["contradiction"]) == 1
+    assert len(payload["contradiction"][0]["entries"]) == 6
+
+
+def test_prefetch_notice_redacts_conflicting_values(monkeypatch):
+    secret = "ghp_" + "a" * 30
+    provider = NotionBrainProvider()
+    provider._db_ids = {"memory": "db"}
+    rows = [
+        {"id": "m1", "title": "A", "properties": {"Subject Key": "token", "Content": f"key {secret}", "Status": "active", "Truth": "certified"}},
+        {"id": "m2", "title": "B", "properties": {"Subject Key": "token", "Content": "different", "Status": "active", "Truth": "inferred"}},
+    ]
+    monkeypatch.setattr(provider, "_prefetch_entries", lambda: rows)
+
+    output = provider.prefetch()
+
+    assert secret not in output
+    assert "[REDACTED_SECRET]" in output
 
 
 def test_answerability_and_contradiction_output_redacted():

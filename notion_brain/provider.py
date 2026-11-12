@@ -28,6 +28,11 @@ from .schemas import ALL_TOOL_SCHEMAS
 
 logger = logging.getLogger(__name__)
 
+# Bound the contradiction notice before it reaches the two-lane renderer.
+# Each rendered entry carries a short value, timestamp and certification
+# label; four entries plus the header stay well inside the warning lane.
+MAX_CONTRADICTION_NOTICE_ENTRIES = 4
+
 
 def _message_content_text(content: Any) -> str:
     """Extract plain text from a message ``content`` field.
@@ -274,14 +279,25 @@ class NotionBrainProvider:
 
                 if contradictions:
                     conflict_lines = [("warning", "CONTRADICTION: active memories disagree for the same subject key.")]
+                    rendered = 0
+                    omitted = 0
                     for conflict in contradictions:
                         for item in conflict["entries"]:
+                            if rendered >= MAX_CONTRADICTION_NOTICE_ENTRIES:
+                                omitted += 1
+                                continue
                             snippet = injection.trim_tokens(item["value"][:200], 24)
                             conflict_lines.append((
                                 "warning",
                                 f"- {item['subject_key'][:80]}: {snippet} "
                                 f"(timestamp: {item['timestamp'][:40]}; certification: {item['certification'][:20]})",
                             ))
+                            rendered += 1
+                    if omitted:
+                        conflict_lines.append((
+                            "warning",
+                            f"- … {omitted} more conflicting entries omitted",
+                        ))
                     # Keep the warning and short conflicting values before other pinned facts.
                     tagged = conflict_lines + tagged
                 self._prefetch_cache = S.redact_secrets(injection.render_injection(tagged))

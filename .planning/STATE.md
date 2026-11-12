@@ -3,14 +3,14 @@ gsd_state_version: "1.0"
 milestone: v1.3
 milestone_name: Brain Architecture & Freemium Foundation
 status: planning
-current_phase: 14
-current_phase_name: Graph Provenance & Relational Recall
+current_phase: 15
+current_phase_name: Answerability Gate & Contradiction Detection
 last_updated: "2026-11-12T00:00:00Z"
 last_activity: 2026-11-12
 progress:
   total_phases: 15
-  completed_phases: 14
-  percent: 93
+  completed_phases: 15
+  percent: 100
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-09)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** Phase 14 is verified with PROV-01 provenance continuity closed. Phase 15 answerability closure is the final roadmap phase. v1.5 remains undefined.
+**Current focus:** All 15 roadmap phases now have current closure evidence. Phase 15's ANS-02 notice bound is closed. Milestone-level integrity and any merge/release decision remain separate; v1.5 is still undefined.
 
 ## Current Position
 
 Milestone: v1.3 — Brain Architecture & Freemium Foundation (gap closure)
-Phase: 14 of 15 — Graph Provenance & Relational Recall
-Status: Verified 3/3 success criteria; provenance now survives the cache and reaches prefetch/timeline
-Next position: `/gsd-plan-phase 15 --gaps`; see [Phase 14 verification](phases/14-graph-provenance-relational-recall/14-VERIFICATION.md)
-Last activity: 2026-11-12 — added cache provenance continuity, conflict-safe backfill, prefetch suffix and timeline block; full suite 579 passed
+Phase: 15 of 15 — Answerability Gate & Contradiction Detection
+Status: Verified 3/3 success criteria; the contradiction notice is explicitly bounded with an omitted-entry marker
+Next position: `/gsd-audit-milestone` for the final integrity check; merge/release remain separate
+Last activity: 2026-11-12 — bounded the contradiction notice and added three answerability regressions; full suite 582 passed
 
-Phases 1–9 retain their historical closeout status. Phases 10–14 are verified with current SUMMARY/VERIFICATION evidence, giving 14/15 phases complete in this roadmap. Phase 15 still needs its own closure evidence; the original 15/15 claim remains superseded.
+Phases 1–9 retain their historical closeout status. Phases 10–15 are verified with current SUMMARY/VERIFICATION evidence, giving 15/15 phases complete in this roadmap. The original 15/15 implementation claim is now matched by closure evidence; merge to `main` and release remain unperformed.
 
 Implementation history: v1.3 `7b78b98`, `7ceaafb`, `71e7122`; v1.4 `da6b1d4`, `700221c`, `c5e829e`, `6208569`; semantic review fixes `fb7ec04`. Commit existence, automated verification, push, merge and release are separate observations. Prerequisite merge and feature-branch push: observed at `24ce18b`. Merge to main/release: not performed.
 
@@ -40,7 +40,7 @@ v1.2 Phase 7 → Phase 8 → v1.3 Phase 9 → 10 → 11 → v1.4 Phase 12 → 13
 
 ## Verification Baselines and Historical Observations
 
-Current verification (2026-11-12): **579 passed, 1 deselected in 5.77s**, Ruff clean, mypy clean (`notion_brain`). Phase 14 is verified: PROV-01 provenance continuity closed with six new regressions; 23 cache/provenance tests and 46 scoped tests pass. See the [Phase 14 verification](phases/14-graph-provenance-relational-recall/14-VERIFICATION.md).
+Current verification (2026-11-12): **582 passed, 1 deselected in 5.92s**, Ruff clean, mypy clean (`notion_brain`). Phase 15 is verified: ANS-02's notice is explicitly capped with an omitted-entry marker; 37 answerability/budget tests pass. See the [Phase 15 verification](phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md).
 
 Phase 11 verification (2026-11-12): **568 passed, 1 deselected in 5.59s**; seven new provider-wiring regressions closed ADAPT-02/03 for read and selection paths. See the [Phase 11 verification](phases/11-storage-adapters/11-VERIFICATION.md) and [summary](phases/11-storage-adapters/11-01-SUMMARY.md).
 
@@ -87,8 +87,8 @@ All milestone decisions logged in PROJECT.md Key Decisions table (v1.0 + v1.1 se
 
 ### Blockers/Concerns
 
-- Later approved work: Phase 15 answerability closure evidence.
-- Phases 9–14 current closures are verified. Phase 14 closed the provenance-continuity residual. Phase 15 still lacks complete GSD closure evidence; reconcile from actual behavior rather than suite counts.
+- No open roadmap code gaps remain; all 15 phases have current closure evidence.
+- Milestone closeout is not a release: merge to `main`, tagging, PyPI Trusted Publisher registration and v1.5 scope remain separate decisions.
 - The merge at `24ce18b` incorporates v1.2 follow-ups through `752fc51`, including the executable pre-push hook. Remote feature-branch SHA was independently checked after push.
 - The external Hermes host must collect user approval and supply per-call certification confirmation. This package exposes the boundary, not that UI.
 
@@ -116,20 +116,20 @@ Earlier carryover history is retained below. For v1.3/v1.4, statuses reflect the
 | Semantic | CAT-01..03 — provider-neutral catalog + storage-ref resolution | Verified 12-01 (2026-11-12) | v1.3 close | v1.4 (2026-11-07) |
 | Certification | CERT-01..03 — inferred/certified truth + orchestrator-only promote | Verified 13-01 (2026-11-12) | v1.3 close | v1.4 (2026-11-07) |
 | Provenance | PROV-01..03 — provenance block, supersedes edge, graph traverse | Verified 14-01 (2026-11-12) | v1.3 close | v1.4 (2026-11-07) |
-| Answerability | ANS-01/02 — zero-coverage gate + contradiction surfacing | Implementation observed; closure unverified | v1.3 close | v1.4 (2026-11-07) |
+| Answerability | ANS-01/02 — zero-coverage gate + contradiction surfacing | Verified 15-01 (2026-11-12) | v1.3 close | v1.4 (2026-11-07) |
 
 ## Session Continuity
 
 Last session: 2026-11-12
-Stopped at: Phase 14 verified with PROV-01 provenance continuity closed; Phase 15 answerability closure is next
-Resume file: `.planning/phases/14-graph-provenance-relational-recall/14-VERIFICATION.md`
+Stopped at: Phase 15 verified; all 15 roadmap phases have current closure evidence
+Resume file: `.planning/phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md`
 
 ## Operator Next Steps
 
-- Review and commit the Phase 14 implementation (`notion_brain/brain_cache.py`, `notion_brain/provider.py`, tests) and closure artifacts.
-- Run `/gsd-plan-phase 15 --gaps` for answerability closure: ANS-01/02 are implemented; verify the zero-coverage gate, contradiction payload and bounded notice.
-- After Phase 15, run the final milestone integrity check and decide on merge/release separately.
-- Define v1.5 only after its scope is supplied; no new milestone is created by this repair work.
+- Review and commit the Phase 15 implementation (`notion_brain/provider.py`, `tests/test_answerability.py`) and closure artifacts.
+- Run `/gsd-audit-milestone` for the final milestone integrity check.
+- Decide separately on merge to `main`, tagging and release; PyPI Trusted Publisher registration remains a one-time manual step.
+- Define v1.5 only after its scope is supplied.
 
 ## Prerequisite integration
 
@@ -143,3 +143,4 @@ The v1.2-only branch recorded **407 passed, 1 deselected** in its isolated basel
 - [12-01-PLAN.md](phases/12-semantic-catalog/12-01-PLAN.md) completed 2026-11-12 as verification plus Obsidian catalog-ref recall on `61a6247`; fingerprinted by [12-VERIFICATION.md](phases/12-semantic-catalog/12-VERIFICATION.md).
 - [13-01-PLAN.md](phases/13-user-gated-certification-flow/13-01-PLAN.md) completed 2026-11-12 in `e1d55c6`; fingerprinted by [13-VERIFICATION.md](phases/13-user-gated-certification-flow/13-VERIFICATION.md).
 - [14-01-PLAN.md](phases/14-graph-provenance-relational-recall/14-01-PLAN.md) completed 2026-11-12 in `b868c39`; fingerprinted by [14-VERIFICATION.md](phases/14-graph-provenance-relational-recall/14-VERIFICATION.md).
+- [15-01-PLAN.md](phases/15-answerability-gate-contradiction-detection/15-01-PLAN.md) completed 2026-11-12 (working tree on top of `1ba8c50`); fingerprinted by [15-VERIFICATION.md](phases/15-answerability-gate-contradiction-detection/15-VERIFICATION.md).

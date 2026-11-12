@@ -46,13 +46,13 @@
     {
       "number": "15",
       "name": "Answerability Gate & Contradiction Detection",
-      "status": "pending"
+      "status": "completed"
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 15 --gaps",
-    "label": "Plan Phase 15 answerability closure",
-    "reason": "Phases 9–14 are verified. ANS-01/02 are implemented; the remaining work is closure evidence for the zero-coverage gate, contradiction payload and bounded notice. v1.5 remains undefined."
+    "command": "/gsd-audit-milestone",
+    "label": "Run final milestone integrity audit",
+    "reason": "All 15 phases are verified with current closure evidence. The remaining work is milestone-level integrity, then separate merge/release and v1.5 scope decisions."
   },
   "updated_at": "2026-11-12T00:00:00Z"
 }

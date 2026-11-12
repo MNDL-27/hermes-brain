@@ -27,7 +27,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ## v1.3 Requirements (Defined 2026-11-02 — gap closure active)
 
-Audit follow-up 2026-11-12: unchecked boxes below mean GSD closure is unresolved, not that all implementation is absent. Phases 9–14 have current passing SUMMARY/VERIFICATION evidence; Phase 15 remains for answerability closure evidence. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
+Audit follow-up 2026-11-12: every roadmap phase (9–15) now has current passing SUMMARY/VERIFICATION evidence and no requirement has an unresolved code gap. Milestone-level merge/release decisions remain separate. See the [milestone audit](v1.4-MILESTONE-AUDIT.md).
 
 Requirements derived from the competitive memory-landscape research (`.planning/research/2026-11-02-competitive-memory-landscape.md`).
 
@@ -74,8 +74,8 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 
 ### Answerability Gate (ANS)
 
-- [ ] **ANS-01**: Before fuzzy retrieval, a coverage check resolves the question's entities/terms against the catalog; zero coverage reports that no known semantic terms were found and answerability cannot be verified, naming the missing terms. It blocks near-miss recall without claiming that no certified memory exists.
-- [ ] **ANS-02**: Conflicting candidates (same subject, both active, divergent values) are surfaced as a contradiction instead of silently returning one row.
+- [x] **ANS-01**: Before fuzzy retrieval, a coverage check resolves the question's entities/terms against the catalog; zero coverage reports that no known semantic terms were found and answerability cannot be verified, naming the missing terms. It blocks near-miss recall without claiming that no certified memory exists.
+- [x] **ANS-02**: Conflicting candidates (same subject, both active, divergent values) are surfaced as a contradiction instead of silently returning one row.
 
 ## Traceability
 
@@ -105,8 +105,8 @@ Requirements derived from the Auto Ontology semantic-layer architecture study (g
 | PROV-01 | Phase 14 | Verified — 14-01 provenance continuity across cache, prefetch and timeline |
 | PROV-02 | Phase 14 | Verified — 14-01 summary and current verification fingerprint |
 | PROV-03 | Phase 14 | Verified — 14-01 summary and current verification fingerprint |
-| ANS-01 | Phase 15 | Implementation observed — GSD closure unverified |
-| ANS-02 | Phase 15 | Implementation observed — GSD closure unverified |
+| ANS-01 | Phase 15 | Verified — 15-01 summary and current verification fingerprint |
+| ANS-02 | Phase 15 | Verified — notice bound closed by 15-01 |
 
 **Coverage:**
 - v1.2 requirements: 5 total
