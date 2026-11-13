@@ -17,8 +17,8 @@ Derived from the confirmed v1.5 design decisions in [2026-11-13-obsidian-vault-b
 
 ### Sync & Migration (SYNC)
 
-- [ ] **SYNC-01**: A first-run or explicit Notion→vault bootstrap exports active Memory rows to stable vault notes, preserving truth, provenance, subject key and creation time. Re-runs skip existing notes and report what was skipped.
-- [ ] **SYNC-02**: A supported vault→Notion ingest command promotes `agents/memory.md` and `journal/*.md` entries through `NotionBrainProvider._store_entry`, with content-hash dedupe, a state file, redaction and idempotent re-runs. The package does not start a background daemon.
+- [x] **SYNC-01**: A first-run or explicit Notion→vault bootstrap exports active Memory rows to stable vault notes, preserving truth, provenance, subject key and creation time. Re-runs skip existing notes and report what was skipped.
+- [x] **SYNC-02**: A supported vault→Notion ingest command promotes `agents/memory.md` and `journal/*.md` entries through `NotionBrainProvider._store_entry`, with content-hash dedupe, a state file, redaction and idempotent re-runs. The package does not start a background daemon.
 - [x] **SYNC-03**: Vault path configuration, sync status and health reporting are available through the provider boundary and CLI/config, including note count, index path, last sync result and entitlement state.
 
 ### References & Entitlement (REF/ENT)
@@ -33,8 +33,8 @@ Derived from the confirmed v1.5 design decisions in [2026-11-13-obsidian-vault-b
 | OBS-01 | Phase 16 | Verified — 16-01 schema and migration evidence |
 | OBS-02 | Phase 16 | Verified — 16-01 idempotency, history, certification and redaction |
 | OBS-03 | Phase 17 | Verified — vault-primary write/certify/supersede routing |
-| SYNC-01 | Phase 18 | Pending |
-| SYNC-02 | Phase 18 | Pending |
+| SYNC-01 | Phase 18 | Verified — bootstrap export and idempotent re-runs |
+| SYNC-02 | Phase 18 | Verified — ingest with hash dedupe, truth levels and redaction |
 | SYNC-03 | Phase 17 | Verified — path resolution and vault status |
 | REF-01 | Phase 19 | Pending |
 | ENT-01 | Phase 20 | Pending |

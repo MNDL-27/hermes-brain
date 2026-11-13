@@ -76,7 +76,7 @@ Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDI
 
 - [x] **Phase 16: Vault Note Schema & Write Operations** — full frontmatter + index v2, idempotent remember, history-preserving supersede, certification, redaction. (completed 2026-11-13)
 - [x] **Phase 17: Vault-Primary Provider Routing** — Memory writes, certification and supersession route to the vault when selected; free tier unchanged; vault config and health. (completed 2026-11-13)
-- [ ] **Phase 18: Bidirectional Sync & Migration** — Notion→vault bootstrap; vault→Notion ingest for `agents/memory.md` and `journal/*.md` with state/dedupe.
+- [x] **Phase 18: Bidirectional Sync & Migration** — Notion→vault bootstrap; vault→Notion ingest for `agents/memory.md` and `journal/*.md` with state/dedupe. (completed 2026-11-13)
 - [ ] **Phase 19: Section-Aware References** — `note.md#section` catalog locators with retrieval targeting and safe fallback.
 - [ ] **Phase 20: Offline Signed Entitlement** — Ed25519 license verification with expiry/features, `cryptography` dependency, docs and packaging.
 
@@ -121,6 +121,9 @@ Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDI
   2. The ingest command processes `agents/memory.md` and `journal/*.md` through `_store_entry` with content-hash dedupe, a state file, redaction and idempotent re-runs.
   3. Sync runs on demand or from an external timer; no daemon is started.
   4. Tests cover new, updated and unchanged sources plus secret redaction.
+
+**Plans**: 1/1 — completed 2026-11-13
+**Verification**: Passed 18-01: SYNC-01/SYNC-02 closed; 11 sync tests and the 607-test full gate pass; ruff and mypy clean. See [18-VERIFICATION.md](phases/18-bidirectional-sync-migration/18-VERIFICATION.md).
 
 ### Phase 19: Section-Aware References
 

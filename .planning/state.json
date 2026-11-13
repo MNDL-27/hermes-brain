@@ -16,7 +16,7 @@
     {
       "number": "18",
       "name": "Bidirectional Sync & Migration",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "19",
@@ -30,9 +30,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 18",
-    "label": "Plan Phase 18 bidirectional sync and migration",
-    "reason": "Phase 18 context is gathered: explicit bootstrap CLI, vault subcommands, memory-certified/journal-inferred ingest, and a unified sync state file."
+    "command": "/gsd-plan-phase 19",
+    "label": "Plan Phase 19 section-aware references",
+    "reason": "Phase 18 is verified. Phase 19 adds `note.md#section` catalog locators and retrieval targeting."
   },
   "updated_at": "2026-11-13T00:00:00Z"
 }

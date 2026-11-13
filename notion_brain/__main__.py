@@ -1,4 +1,4 @@
-"""CLI: ``python -m notion_brain reset|url|health|import``."""
+"""CLI: ``python -m notion_brain reset|url|health|import|vault``."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import bootstrap
+from . import bootstrap, vault_sync
 from . import schema as S
+from .entitlement import EntitlementError
 
 
 def _self_heal(home: str) -> None:
@@ -102,6 +103,24 @@ def main(argv: list[str] | None = None) -> int:
         help="Emit machine-readable JSON (implies --check)",
     )
 
+    vp = sub.add_parser("vault", help="Obsidian vault bootstrap, sync and status.")
+    vsub = vp.add_subparsers(dest="vault_cmd", required=True)
+    for name, help_text in (
+        ("bootstrap", "Export active Notion Memory rows into the Obsidian vault."),
+        ("sync", "Ingest agents/memory.md and journal/*.md entries into Notion."),
+        ("status", "Report vault entitlement, health and last sync results."),
+    ):
+        vp2 = vsub.add_parser(name, help=help_text)
+        vp2.add_argument(
+            "--vault",
+            help="Vault path (default: HERMES_OBSIDIAN_VAULT or AGENT_BRAIN_VAULT)",
+        )
+        vp2.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+        if name != "status":
+            vp2.add_argument(
+                "--dry-run", action="store_true", help="Report without writing"
+            )
+
     args = parser.parse_args(argv)
 
     if args.cmd == "update":
@@ -110,9 +129,15 @@ def main(argv: list[str] | None = None) -> int:
             json_output=getattr(args, "json", False),
         )
 
+    if args.cmd == "vault" and args.vault_cmd == "status":
+        return _cmd_vault_status(args)
+
     if not bootstrap.store.get_api_key():
         print("error: NOTION_API_KEY is not set", file=sys.stderr)
         return 2
+
+    if args.cmd == "vault":
+        return _cmd_vault_sync(args)
 
     if args.cmd == "reset":
         only = {x.strip() for x in args.only.split(",")} if args.only else None
@@ -190,6 +215,68 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.print_help()
     return 1
+
+
+def _cmd_vault_status(args) -> int:
+    vault = vault_sync.resolve_vault_path(getattr(args, "vault", None))
+    result = vault_sync.status(args.home, vault)
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"backend: {result['backend']}")
+        print(f"vault: {result['vault_path'] or '(not configured)'}")
+        print(f"entitled: {result['entitled']}")
+        print(
+            f"notes: {result['count']} "
+            f"(active {result['active']}, certified {result['certified']})"
+        )
+        print(f"last sync: {result['last_run'] or 'never'}")
+        print(f"last bootstrap: {result['last_bootstrap'] or 'never'}")
+        for error in result.get("errors", []):
+            print(f"error: {error}", file=sys.stderr)
+    return 0
+
+
+def _cmd_vault_sync(args) -> int:
+    vault = vault_sync.resolve_vault_path(getattr(args, "vault", None))
+    if vault is None:
+        print(
+            "error: vault path not configured "
+            "(--vault, HERMES_OBSIDIAN_VAULT or AGENT_BRAIN_VAULT)",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        if args.vault_cmd == "bootstrap":
+            result = vault_sync.bootstrap(args.home, vault, dry_run=args.dry_run)
+        else:
+            result = vault_sync.ingest(args.home, vault, dry_run=args.dry_run)
+    except EntitlementError as exc:
+        print(f"error: {S.redact_secrets(str(exc))}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"error: {S.redact_secrets(str(exc))}", file=sys.stderr)
+        return 2
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, sort_keys=True))
+    elif args.vault_cmd == "bootstrap":
+        verb = "Would export" if result["dry_run"] else "Exported"
+        print(
+            f"{verb} {result['exported']} note(s); "
+            f"skipped {result['skipped']}, failed {result['failed']}, "
+            f"scanned {result['scanned']}."
+        )
+    else:
+        verb = "Would ingest" if result["dry_run"] else "Ingested"
+        print(
+            f"{verb} {result['written']} entr{'y' if result['written'] == 1 else 'ies'}; "
+            f"skipped {result['skipped']}, failed {result['failed']}, "
+            f"scanned {result['scanned']}."
+        )
+    for error in result.get("errors", []):
+        print(f"error: {error}", file=sys.stderr)
+    return 1 if result.get("failed") else 0
 
 
 def _cmd_update(check_only: bool = False, json_output: bool = False) -> int:
