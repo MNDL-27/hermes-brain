@@ -2,7 +2,7 @@
 phase: 18-bidirectional-sync-migration
 verified: 2026-11-13
 status: passed
-source_snapshot: working tree on top of 751c302
+source_snapshot: c7c15b7
 score: "2/2 requirements verified; SYNC-01 and SYNC-02 closed"
 fingerprint: "Phase 18 closure: explicit Notion→vault bootstrap and vault→Notion ingest are idempotent, truth-aware, redacted and CLI-accessible; unified sync state migrates the legacy mirror state once; no daemon or automatic bootstrap. 11 sync tests pass; full suite 607 passed, 1 deselected; ruff and mypy clean."
 gaps: []
@@ -12,7 +12,7 @@ covered_files:
   - tests/test_vault_sync.py
   - .planning/phases/18-bidirectional-sync-migration/18-01-PLAN.md
   - .planning/phases/18-bidirectional-sync-migration/18-01-SUMMARY.md
-covered_digest: "v4:sha256:f8df1c414dab1f8854a2a11e204bc02995bfa3392356210cac155b9125ed229e"
+covered_digest: "v4:sha256:fbd2ea0bb78a7ba639be9f878cd2fc6e632abaa6072e2346b008e0735170af3c"
 closed:
   - truth: An explicit Notion→vault bootstrap exports active Memory rows to stable notes and is idempotent.
     requirements: [SYNC-01]

@@ -133,7 +133,7 @@ Resume file: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 - [16-01-PLAN.md](phases/16-vault-note-schema-write-operations/16-01-PLAN.md) completed 2026-11-13 in `592ab84`; fingerprinted by [16-VERIFICATION.md](phases/16-vault-note-schema-write-operations/16-VERIFICATION.md).
 - [17-01-PLAN.md](phases/17-vault-primary-provider-routing/17-01-PLAN.md) completed 2026-11-13 in `cc75283`; fingerprinted by [17-VERIFICATION.md](phases/17-vault-primary-provider-routing/17-VERIFICATION.md).
-- [18-01-PLAN.md](phases/18-bidirectional-sync-migration/18-01-PLAN.md) completed 2026-11-13 (working tree on top of `751c302`); fingerprinted by [18-VERIFICATION.md](phases/18-bidirectional-sync-migration/18-VERIFICATION.md).
+- [18-01-PLAN.md](phases/18-bidirectional-sync-migration/18-01-PLAN.md) completed 2026-11-13 in `c7c15b7`; fingerprinted by [18-VERIFICATION.md](phases/18-bidirectional-sync-migration/18-VERIFICATION.md).
 
 ## Prerequisite integration
 

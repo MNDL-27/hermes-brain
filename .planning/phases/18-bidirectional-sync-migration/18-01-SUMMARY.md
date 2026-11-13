@@ -24,8 +24,8 @@ key-files:
 key-decisions:
   - Both directions are explicit commands; provider startup never migrates automatically.
   - Ingest forces `storage_adapter="notion"` so premium selection cannot redirect entries into the vault.
-  - `agents/memory.md` ingests certified; journal entries ingest inferred.
-  - Unified `$HERMES_HOME/vault_sync_state.json` with a one-time legacy migration and atomic 0600 writes.
+  - Vault memory files ingest certified; journal entries ingest inferred.
+  - Unified sync state file under HERMES_HOME, with a one-time legacy migration and atomic 0600 writes.
   - Bootstrap skips ids already in the vault or state; ingest skips unchanged title hashes.
 requirements-completed: [SYNC-01, SYNC-02]
 coverage:
@@ -80,14 +80,14 @@ completed: 2026-11-13
 
 - **Tasks:** 3
 - **Files modified:** 3
-- **Commits:** pending review
+- **Commits:** `c7c15b7`
 
 ## Accomplishments
 
 - New `notion_brain/vault_sync.py`: state load/save/migration, vault path resolution, memory/journal parsers, hash dedupe, bootstrap, ingest and status.
 - Bootstrap exports active Notion Memory rows with stable page ids, preserves truth/provenance/timestamps, skips existing notes and reports counts.
 - Ingest forces the Notion backend, applies certified/inferred truth by source, dedupes by title hash, isolates per-entry failures and caps redacted errors.
-- Unified `vault_sync_state.json` migrates the legacy mirror state once and writes atomically with `0o600`.
+- Unified sync state file migrates the legacy mirror state once and writes atomically with `0o600`.
 - CLI: `notion_brain vault bootstrap|sync|status` with `--vault`, `--json` and `--dry-run`; status runs without an API key.
 
 ## Evidence
