@@ -43,6 +43,139 @@ _NOTION_ID_RE = re.compile(r"^[0-9a-fA-F]{8}(-?[0-9a-fA-F]{4}){3}-?[0-9a-fA-F]{1
 _NOTION_PLAIN_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 _SAFE_NOTE_RE = re.compile(r"^[A-Za-z0-9._/-]+\.md$", re.IGNORECASE)
 
+_OBSIDIAN_SCHEMA_VERSION = 2
+_NOTE_FIELDS = (
+    "id",
+    "title",
+    "subject_key",
+    "status",
+    "truth",
+    "source_agent",
+    "source_session",
+    "created_at",
+    "updated_at",
+    "superseded_page_id",
+    "domain",
+    "kind",
+    "tags",
+)
+_OBSIDIAN_COLUMNS = {
+    "truth": "TEXT NOT NULL DEFAULT 'inferred'",
+    "source_agent": "TEXT NOT NULL DEFAULT 'unknown'",
+    "source_session": "TEXT NOT NULL DEFAULT ''",
+    "updated_at": "TEXT NOT NULL DEFAULT ''",
+    "superseded_page_id": "TEXT NOT NULL DEFAULT ''",
+    "domain": "TEXT NOT NULL DEFAULT 'memory'",
+    "kind": "TEXT NOT NULL DEFAULT 'note'",
+    "tags": "TEXT NOT NULL DEFAULT '[]'",
+}
+
+
+def _render_obsidian_note(meta: Mapping[str, Any], body: str) -> str:
+    lines = [f"{key}: {json.dumps(meta.get(key, ''))}" for key in _NOTE_FIELDS]
+    return "---\n" + "\n".join(lines) + f"\n---\n\n{body}\n"
+
+
+def _parse_obsidian_note(text: str) -> tuple[dict[str, Any], str]:
+    """Parse the leading frontmatter block without a YAML dependency."""
+    meta: dict[str, Any] = {}
+    body = text
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            for line in parts[1].replace("\r\n", "\n").splitlines():
+                if ":" not in line:
+                    continue
+                key, raw = line.split(":", 1)
+                key = key.strip()
+                raw = raw.strip()
+                if not key:
+                    continue
+                try:
+                    meta[key] = json.loads(raw)
+                except (TypeError, ValueError):
+                    meta[key] = raw.strip('"')
+            body = parts[2].lstrip("\r\n")
+    return meta, body
+
+
+def _obsidian_note_meta(
+    entry: Mapping[str, Any], *, existing: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    data = _redact_value(dict(entry))
+    old = dict(existing or {})
+    metadata = data.get("metadata") or {}
+    tags_raw = data.get("tags") or old.get("tags") or []
+    if isinstance(tags_raw, str):
+        tags_raw = [tags_raw]
+    now = datetime.now(timezone.utc).isoformat()
+    meta: dict[str, Any] = {
+        "id": str(data.get("id") or old.get("id") or uuid.uuid4().hex),
+        "title": str(data.get("title") or old.get("title") or "Untitled"),
+        "subject_key": str(
+            data.get("subject_key") or metadata.get("subject_key") or old.get("subject_key") or ""
+        ),
+        "status": str(data.get("status") or old.get("status") or "active").lower(),
+        "truth": str(data.get("truth") or old.get("truth") or "inferred").lower(),
+        "source_agent": str(data.get("source_agent") or old.get("source_agent") or "unknown"),
+        "source_session": str(
+            data.get("source_session")
+            or data.get("source_session_id")
+            or old.get("source_session")
+            or ""
+        ),
+        "created_at": str(data.get("created_at") or old.get("created_at") or now),
+        "updated_at": now,
+        "superseded_page_id": str(
+            data.get("superseded_page_id") or old.get("superseded_page_id") or ""
+        ),
+        "domain": str(data.get("domain") or old.get("domain") or "memory"),
+        "kind": str(data.get("kind") or old.get("kind") or "note"),
+        "tags": list(tags_raw),
+    }
+    if meta["truth"] not in {"inferred", "certified"}:
+        meta["truth"] = "inferred"
+    if old.get("truth") == "certified" and data.get("truth") != "certified":
+        meta["truth"] = "certified"
+    status = str(meta["status"]).casefold()
+    meta["status"] = "Superseded" if status == "superseded" else "active"
+    tags_value = meta["tags"]
+    if isinstance(tags_value, str):
+        tags_value = [tags_value]
+    meta["tags"] = [
+        S.redact_secrets(str(tag)) for tag in tags_value if str(tag).strip()
+    ]
+    for key in _NOTE_FIELDS:
+        if key != "tags":
+            meta[key] = S.redact_secrets(str(meta[key]))
+    return meta
+
+
+def _obsidian_row_to_entry(row: Any, storage_path: Path) -> dict[str, Any]:
+    try:
+        tags = json.loads(row["tags"] or "[]")
+    except (TypeError, ValueError):
+        tags = []
+    if not isinstance(tags, list):
+        tags = [str(tags)]
+    return _redact_value({
+        "id": row["id"],
+        "title": row["title"] or "Untitled",
+        "subject_key": row["subject_key"] or "",
+        "status": row["status"] or "active",
+        "truth": row["truth"] or "inferred",
+        "source_agent": row["source_agent"] or "unknown",
+        "source_session": row["source_session"] or "",
+        "created_at": row["created_at"] or "",
+        "updated_at": row["updated_at"] or "",
+        "superseded_page_id": row["superseded_page_id"] or "",
+        "domain": row["domain"] or "memory",
+        "kind": row["kind"] or "note",
+        "tags": tags,
+        "content": row["body"] or "",
+        "path": (storage_path / row["path"]).as_posix(),
+    })
+
 
 def _adapter_name(ref: StorageRef | Mapping[str, object]) -> str | None:
     value = getattr(ref, "adapter_name", None)
@@ -179,11 +312,12 @@ class NotionAdapter:
 
 
 class ObsidianVaultAdapter:
-    """Resolve catalog StorageRefs to Obsidian note paths (CAT-03 only).
+    """Premium markdown + SQLite memory store inside the user's vault.
 
-    The constructor takes the user's vault path; note paths are returned as
-    absolute paths contained within the vault. Absolute locators are accepted
-    only when they point inside the vault.
+    Notes live under ``<vault>/hermes-brain/`` with YAML-style frontmatter;
+    the SQLite index mirrors every field for offline prefetch and search.
+    Catalog ``StorageRef`` locators resolve to absolute paths inside the
+    vault, and traversal outside it is rejected.
     """
 
     def __init__(self, vault_path: str | Path) -> None:
@@ -195,8 +329,46 @@ class ObsidianVaultAdapter:
 
     def _connect(self) -> sqlite3.Connection:
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.index_path)
-        conn.execute("CREATE TABLE IF NOT EXISTS memories (id TEXT PRIMARY KEY, path TEXT NOT NULL, title TEXT NOT NULL, subject_key TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, body TEXT NOT NULL)")
+        conn = sqlite3.connect(str(self.index_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memories (
+                id TEXT PRIMARY KEY,
+                path TEXT NOT NULL,
+                title TEXT NOT NULL,
+                subject_key TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                body TEXT NOT NULL,
+                truth TEXT NOT NULL DEFAULT 'inferred',
+                source_agent TEXT NOT NULL DEFAULT 'unknown',
+                source_session TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT '',
+                superseded_page_id TEXT NOT NULL DEFAULT '',
+                domain TEXT NOT NULL DEFAULT 'memory',
+                kind TEXT NOT NULL DEFAULT 'note',
+                tags TEXT NOT NULL DEFAULT '[]'
+            )
+            """
+        )
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(memories)")}
+        for name, ddl in _OBSIDIAN_COLUMNS.items():
+            if name not in columns:
+                conn.execute(f"ALTER TABLE memories ADD COLUMN {name} {ddl}")
+        meta = conn.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
+        try:
+            current = int(meta["value"]) if meta is not None else 0
+        except (TypeError, ValueError):
+            current = 0
+        if current < _OBSIDIAN_SCHEMA_VERSION:
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('version', ?)",
+                (str(_OBSIDIAN_SCHEMA_VERSION),),
+            )
         conn.commit()
         return conn
 
@@ -204,37 +376,98 @@ class ObsidianVaultAdapter:
     def _clean_entry(entry: dict[str, Any]) -> dict[str, Any]:
         return _redact_value(entry)
 
+    def _find_by_id(self, memory_id: str) -> sqlite3.Row | None:
+        if not memory_id:
+            return None
+        with self._connect() as conn:
+            return conn.execute("SELECT * FROM memories WHERE id=?", (memory_id,)).fetchone()
+
+    def _find_active_match(self, title: str, subject_key: str, body: str) -> sqlite3.Row | None:
+        with self._connect() as conn:
+            return conn.execute(
+                """
+                SELECT * FROM memories
+                WHERE lower(title)=lower(?) AND subject_key=? AND body=?
+                  AND lower(status)='active'
+                ORDER BY created_at ASC, id ASC LIMIT 1
+                """,
+                (title, subject_key, body),
+            ).fetchone()
+
+    def _row_values(self, meta: dict[str, Any], path: str, body: str) -> tuple[Any, ...]:
+        return (
+            meta["id"], path, meta["title"], meta["subject_key"], meta["status"],
+            meta["truth"], meta["source_agent"], meta["source_session"],
+            meta["created_at"], meta["updated_at"], meta["superseded_page_id"],
+            meta["domain"], meta["kind"], json.dumps(meta["tags"]), body,
+        )
+
     def remember(self, entry: dict[str, Any]) -> dict[str, Any]:
         data = self._clean_entry(entry)
-        title = str(data.get("title") or "Untitled")
-        subject_key = str(data.get("subject_key") or data.get("metadata", {}).get("subject_key") or "")
-        status = str(data.get("status") or "active")
-        created_at = str(data.get("created_at") or datetime.now(timezone.utc).isoformat())
-        body = str(data.get("content") or data.get("body") or "")
-        memory_id = str(data.get("id") or uuid.uuid4().hex)
-        filename = f"{memory_id}.md"
+        memory_id = str(data.get("id") or "").strip()
+        existing_row = self._find_by_id(memory_id) if memory_id else None
+        existing = dict(existing_row) if existing_row is not None else None
+        body = S.redact_secrets(str(
+            data.get("content")
+            or data.get("body")
+            or (existing or {}).get("content")
+            or (existing or {}).get("body")
+            or ""
+        ))
+        if existing is None and not memory_id:
+            title = str(data.get("title") or "Untitled")
+            subject_key = str(
+                data.get("subject_key") or (data.get("metadata") or {}).get("subject_key") or ""
+            )
+            match = self._find_active_match(title, subject_key, body)
+            if match is not None:
+                return _obsidian_row_to_entry(match, self.storage_path)
+        meta = _obsidian_note_meta(data, existing=existing)
+        filename = f"{meta['id']}.md"
         note = self.storage_path / filename
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        note.write_text("---\n" + "\n".join((f"title: {json.dumps(title)}", f"subject_key: {json.dumps(subject_key)}", f"status: {json.dumps(status)}", f"created_at: {json.dumps(created_at)}")) + f"\n---\n\n{body}\n", encoding="utf-8")
+        note.write_text(_render_obsidian_note(meta, body), encoding="utf-8")
+        values = self._row_values(meta, filename, body)
         with self._connect() as conn:
-            conn.execute("INSERT OR REPLACE INTO memories VALUES (?, ?, ?, ?, ?, ?, ?)", (memory_id, filename, title, subject_key, status, created_at, body))
-        return _redact_value({"id": memory_id, "title": title, "subject_key": subject_key, "status": status, "created_at": created_at, "content": body, "path": note.as_posix()})
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO memories (
+                    id, path, title, subject_key, status, truth, source_agent,
+                    source_session, created_at, updated_at, superseded_page_id,
+                    domain, kind, tags, body
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            conn.commit()
+        row = dict(zip(
+            ("id", "path", "title", "subject_key", "status", "truth", "source_agent",
+             "source_session", "created_at", "updated_at", "superseded_page_id",
+             "domain", "kind", "tags", "body"),
+            values,
+        ))
+        return _obsidian_row_to_entry(row, self.storage_path)
 
     def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
         needle = S.redact_secrets(query).casefold()
         with self._connect() as conn:
-            rows = conn.execute("SELECT id, path, title, subject_key, status, created_at, body FROM memories ORDER BY created_at DESC").fetchall()
-        found = []
-        for memory_id, path, title, key, status, created, body in rows:
-            note_text = (self.storage_path / path).read_text(encoding="utf-8")
+            rows = conn.execute(
+                "SELECT * FROM memories ORDER BY created_at DESC, id ASC"
+            ).fetchall()
+        found: list[dict[str, Any]] = []
+        for row in rows:
+            note_text = (self.storage_path / row["path"]).read_text(encoding="utf-8")
             if needle in note_text.casefold():
-                found.append({"id": memory_id, "title": title, "subject_key": key, "status": status, "created_at": created, "content": body, "path": (self.storage_path / path).as_posix()})
-        return _redact_value(found[:max(0, limit)])
+                found.append(_obsidian_row_to_entry(row, self.storage_path))
+        return found[:max(0, limit)]
 
     def prefetch(self, limit: int = 10) -> list[dict[str, Any]]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT id, path, title, subject_key, status, created_at, body FROM memories ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
-        return _redact_value([{"id": r[0], "title": r[2], "subject_key": r[3], "status": r[4], "created_at": r[5], "content": r[6], "path": (self.storage_path / r[1]).as_posix()} for r in rows])
+            rows = conn.execute(
+                "SELECT * FROM memories ORDER BY created_at DESC, id ASC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [_obsidian_row_to_entry(row, self.storage_path) for row in rows]
 
     def get_note(self, path: str | Path) -> dict[str, Any] | None:
         """Return one indexed note by absolute path inside this adapter's store.
@@ -250,35 +483,66 @@ class ObsidianVaultAdapter:
             return None
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT id, path, title, subject_key, status, created_at, body "
-                "FROM memories WHERE path=?",
+                "SELECT * FROM memories WHERE path=?",
                 (relative,),
             ).fetchone()
         if row is None:
             return None
-        return _redact_value({
-            "id": row[0],
-            "title": row[2],
-            "subject_key": row[3],
-            "status": row[4],
-            "created_at": row[5],
-            "content": row[6],
-            "path": (self.storage_path / row[1]).as_posix(),
-        })
+        return _obsidian_row_to_entry(row, self.storage_path)
 
     def supersede(self, subject_key: str, entry: dict[str, Any]) -> dict[str, Any]:
-        key = S.redact_secrets(subject_key)
+        key = S.redact_secrets(str(subject_key or "")).strip()
+        now = datetime.now(timezone.utc).isoformat()
+        predecessor_id = ""
         with self._connect() as conn:
-            rows = conn.execute("SELECT id, path, title, subject_key, status, created_at, body FROM memories WHERE subject_key=? AND lower(status)='active'", (key,)).fetchall()
-            for r in rows:
-                note = self.storage_path / r[1]
-                content = note.read_text(encoding="utf-8")
-                content = re.sub(r'(?m)^status: .*$', 'status: "Superseded"', content, count=1)
-                note.write_text(S.redact_secrets(content), encoding="utf-8")
-                conn.execute("UPDATE memories SET status='Superseded' WHERE id=?", (r[0],))
+            rows = conn.execute(
+                "SELECT * FROM memories WHERE subject_key=? AND lower(status)='active' "
+                "ORDER BY created_at ASC, id ASC",
+                (key,),
+            ).fetchall()
+            if rows:
+                predecessor_id = str(rows[0]["id"])
+            for row in rows:
+                note = self.storage_path / row["path"]
+                meta, body = _parse_obsidian_note(note.read_text(encoding="utf-8"))
+                meta = _obsidian_note_meta(meta, existing=meta)
+                meta["status"] = "Superseded"
+                meta["updated_at"] = now
+                note.write_text(_render_obsidian_note(meta, body), encoding="utf-8")
+                conn.execute(
+                    "UPDATE memories SET status='Superseded', updated_at=? WHERE id=?",
+                    (now, row["id"]),
+                )
+            conn.commit()
         data = dict(entry)
         data["subject_key"] = key
+        if predecessor_id and not data.get("superseded_page_id"):
+            data["superseded_page_id"] = predecessor_id
         return self.remember(_redact_value(data))
+
+    def certify(self, memory_id: str, *, truth: str = "certified") -> dict[str, Any] | None:
+        """Set a note's truth status; the provider confirmation gate is external."""
+        target = S.redact_secrets(str(memory_id or "")).strip()
+        if not target or truth not in {"inferred", "certified"}:
+            return None
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM memories WHERE id=?", (target,)).fetchone()
+            if row is None:
+                return None
+            note = self.storage_path / row["path"]
+            meta, body = _parse_obsidian_note(note.read_text(encoding="utf-8"))
+            meta = _obsidian_note_meta(meta, existing=meta)
+            meta["truth"] = truth
+            meta["updated_at"] = now
+            note.write_text(_render_obsidian_note(meta, body), encoding="utf-8")
+            conn.execute(
+                "UPDATE memories SET truth=?, updated_at=? WHERE id=?",
+                (truth, now, target),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM memories WHERE id=?", (target,)).fetchone()
+        return _obsidian_row_to_entry(row, self.storage_path) if row is not None else None
 
     def resolve_storage_ref(self, ref: StorageRef | Mapping[str, object]) -> str | None:
         """Return an absolute note path inside the vault for ``ref``, else None."""
@@ -310,7 +574,25 @@ class ObsidianVaultAdapter:
     def health(self) -> dict[str, Any]:
         with self._connect() as conn:
             count = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        return {"status": "ok", "count": count, "index": S.redact_secrets(self.index_path.as_posix())}
+            active = conn.execute(
+                "SELECT COUNT(*) FROM memories WHERE lower(status)='active'"
+            ).fetchone()[0]
+            certified = conn.execute(
+                "SELECT COUNT(*) FROM memories WHERE truth='certified'"
+            ).fetchone()[0]
+            meta = conn.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
+        try:
+            schema_version = int(meta["value"]) if meta is not None else _OBSIDIAN_SCHEMA_VERSION
+        except (TypeError, ValueError):
+            schema_version = _OBSIDIAN_SCHEMA_VERSION
+        return {
+            "status": "ok",
+            "count": count,
+            "active": active,
+            "certified": certified,
+            "schema_version": schema_version,
+            "index": S.redact_secrets(self.index_path.as_posix()),
+        }
 
 
 def _redact_value(value: Any) -> Any:

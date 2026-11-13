@@ -11,8 +11,8 @@ Derived from the confirmed v1.5 design decisions in [2026-11-13-obsidian-vault-b
 
 ### Vault Storage (OBS)
 
-- [ ] **OBS-01**: Adapter-managed notes carry the full memory schema in frontmatter and the SQLite index: title, subject key, status, truth, source agent/session, created/updated timestamps, domain, kind, tags and supersession link. Existing v1 notes are read with defaults; migration is additive and non-destructive.
-- [ ] **OBS-02**: `ObsidianVaultAdapter` implements idempotent remember, history-preserving supersede, certification and lookup with secret redaction on every written field. Identical active entries reuse the existing note; changed entries create a new note; non-identical active peers are superseded without deletion.
+- [x] **OBS-01**: Adapter-managed notes carry the full memory schema in frontmatter and the SQLite index: title, subject key, status, truth, source agent/session, created/updated timestamps, domain, kind, tags and supersession link. Existing v1 notes are read with defaults; migration is additive and non-destructive.
+- [x] **OBS-02**: `ObsidianVaultAdapter` implements idempotent remember, history-preserving supersede, certification and lookup with secret redaction on every written field. Identical active entries reuse the existing note; changed entries create a new note; non-identical active peers are superseded without deletion.
 - [ ] **OBS-03**: When `storage_adapter="obsidian"` is selected and entitled, the provider routes Memory-domain remember, certify and supersede operations to the vault, including certification protection and graph edges. Free-tier Notion behavior is unchanged; non-Memory domains remain on Notion in v1.5.
 
 ### Sync & Migration (SYNC)
@@ -30,8 +30,8 @@ Derived from the confirmed v1.5 design decisions in [2026-11-13-obsidian-vault-b
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OBS-01 | Phase 16 | Pending |
-| OBS-02 | Phase 16 | Pending |
+| OBS-01 | Phase 16 | Verified — 16-01 schema and migration evidence |
+| OBS-02 | Phase 16 | Verified — 16-01 idempotency, history, certification and redaction |
 | OBS-03 | Phase 17 | Pending |
 | SYNC-01 | Phase 18 | Pending |
 | SYNC-02 | Phase 18 | Pending |

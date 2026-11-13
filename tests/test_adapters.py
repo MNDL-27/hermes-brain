@@ -109,6 +109,135 @@ def test_obsidian_redacts_secrets(tmp_path):
     assert "[REDACTED_SECRET]" in raw
 
 
+# --- Phase 16: vault note schema v2 and write operations ---
+
+
+def test_obsidian_frontmatter_v2_round_trip(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    saved = adapter.remember({
+        "id": "fact-1", "title": "Phone", "content": "Daily phone is Pixel",
+        "subject_key": "device.phone", "truth": "certified",
+        "source_agent": "hermes", "source_session": "sess-1",
+        "domain": "memory", "kind": "decision", "tags": ["device", "phone"],
+    })
+
+    note = (tmp_path / "hermes-brain" / "fact-1.md").read_text(encoding="utf-8")
+    assert 'truth: "certified"' in note
+    assert 'source_agent: "hermes"' in note
+    assert 'source_session: "sess-1"' in note
+    assert 'tags: ["device", "phone"]' in note
+    assert 'domain: "memory"' in note and 'kind: "decision"' in note
+
+    row = adapter.get_note(saved["path"])
+    assert row is not None
+    assert row["truth"] == "certified"
+    assert row["source_agent"] == "hermes"
+    assert row["source_session"] == "sess-1"
+    assert row["tags"] == ["device", "phone"]
+    assert row["domain"] == "memory" and row["kind"] == "decision"
+
+    with sqlite3.connect(tmp_path / "hermes-brain" / "index.db") as conn:
+        stored = conn.execute(
+            "SELECT truth, source_agent, source_session, tags FROM memories WHERE id='fact-1'"
+        ).fetchone()
+    assert stored == ("certified", "hermes", "sess-1", '["device", "phone"]')
+
+
+def test_obsidian_v1_note_reads_with_defaults_and_upgrades_on_write(tmp_path):
+    storage = tmp_path / "hermes-brain"
+    storage.mkdir()
+    (storage / "v1.md").write_text(
+        '---\ntitle: "Old"\nsubject_key: "legacy"\nstatus: "active"\n'
+        'created_at: "2026-01-01"\n---\n\nLegacy body\n',
+        encoding="utf-8",
+    )
+    conn = sqlite3.connect(storage / "index.db")
+    conn.execute("CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    conn.execute(
+        "CREATE TABLE memories (id TEXT PRIMARY KEY, path TEXT NOT NULL, title TEXT NOT NULL, "
+        "subject_key TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, body TEXT NOT NULL)"
+    )
+    conn.execute(
+        "INSERT INTO memories VALUES ('v1', 'v1.md', 'Old', 'legacy', 'active', '2026-01-01', 'Legacy body')"
+    )
+    conn.execute("INSERT INTO schema_meta VALUES ('version', '1')")
+    conn.commit()
+    conn.close()
+
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    row = adapter.get_note(storage / "v1.md")
+    assert row is not None
+    assert row["truth"] == "inferred"
+    assert row["source_agent"] == "unknown"
+    assert row["tags"] == []
+    assert row["updated_at"] == ""
+
+    upgraded = adapter.remember({
+        "id": "v1", "title": "Old", "content": "Legacy body",
+        "source_session": "s1", "tags": ["legacy"],
+    })
+    assert upgraded["created_at"] == "2026-01-01"
+    note = (storage / "v1.md").read_text(encoding="utf-8")
+    assert 'truth: "inferred"' in note
+    assert 'source_session: "s1"' in note
+    assert 'tags: ["legacy"]' in note
+    assert 'created_at: "2026-01-01"' in note
+
+
+def test_obsidian_remember_is_idempotent_for_identical_active_entry(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    first = adapter.remember({"title": "Same", "content": "Body", "subject_key": "k"})
+    second = adapter.remember({"title": "Same", "content": "Body", "subject_key": "k"})
+
+    assert first["id"] == second["id"]
+    assert len(adapter.prefetch()) == 1
+    assert len(list((tmp_path / "hermes-brain").glob("*.md"))) == 1
+
+
+def test_obsidian_supersede_keeps_history_and_links_predecessor(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    old = adapter.remember({"title": "Phone", "content": "Pixel", "subject_key": "device.phone"})
+    new = adapter.supersede("device.phone", {"title": "Phone", "content": "iPhone"})
+
+    assert new["status"] == "active"
+    assert new["superseded_page_id"] == old["id"]
+    old_row = adapter.get_note(old["path"])
+    assert old_row is not None
+    assert old_row["status"] == "Superseded"
+    assert len(adapter.prefetch()) == 2
+    assert "Superseded" in (tmp_path / "hermes-brain" / f"{old['id']}.md").read_text(encoding="utf-8")
+
+
+def test_obsidian_certify_sets_truth_without_demotion(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    adapter.remember({"id": "c1", "title": "Fact", "content": "Certified value", "truth": "inferred"})
+
+    certified = adapter.certify("c1")
+    assert certified is not None and certified["truth"] == "certified"
+
+    updated = adapter.remember({
+        "id": "c1", "title": "Fact", "content": "Certified value", "truth": "inferred",
+    })
+    assert updated["truth"] == "certified"
+    assert 'truth: "certified"' in (tmp_path / "hermes-brain" / "c1.md").read_text(encoding="utf-8")
+
+
+def test_obsidian_v2_redacts_provenance_fields(tmp_path):
+    secret = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz"
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    saved = adapter.remember({
+        "title": f"token {secret}", "content": f"api_key={secret}",
+        "source_session": secret, "tags": [secret],
+    })
+
+    raw = (tmp_path / "hermes-brain" / f"{saved['id']}.md").read_text(encoding="utf-8")
+    assert secret not in raw
+    assert "[REDACTED_SECRET]" in raw
+    row = adapter.get_note(saved["path"])
+    assert row is not None
+    assert secret not in str(row)
+
+
 def test_obsidian_get_note_returns_indexed_note_and_rejects_outside_paths(tmp_path):
     vault = tmp_path / "vault"
     vault.mkdir()

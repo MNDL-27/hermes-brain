@@ -6,7 +6,7 @@
     {
       "number": "16",
       "name": "Vault Note Schema & Write Operations",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "17",
@@ -30,9 +30,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 16",
-    "label": "Plan Phase 16 vault note schema and write operations",
-    "reason": "v1.5 scope, requirements and roadmap are defined. Phase 16 is the first implementation phase."
+    "command": "/gsd-plan-phase 17",
+    "label": "Plan Phase 17 vault-primary provider routing",
+    "reason": "Phase 16 is verified. Phase 17 routes Memory writes, certification and supersession through the selected vault backend."
   },
   "updated_at": "2026-11-13T00:00:00Z"
 }

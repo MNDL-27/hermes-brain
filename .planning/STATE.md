@@ -7,10 +7,12 @@ last_updated: "2026-11-12T23:53:14.855Z"
 last_activity: 2026-11-13
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
+current_phase: 17
+current_phase_name: Vault-Primary Provider Routing
 ---
 
 # Project State
@@ -20,14 +22,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-13)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** v1.5 Obsidian Vault Backend — requirements and roadmap are defined; Phase 16 (vault note schema and write operations) is next. Design decisions are in [2026-11-13-obsidian-vault-backend.md](research/2026-11-13-obsidian-vault-backend.md).
+**Current focus:** v1.5 Obsidian Vault Backend — Phase 16 (vault note schema and write operations) is verified. Phase 17 routes Memory writes through the selected vault backend. Design decisions are in [2026-11-13-obsidian-vault-backend.md](research/2026-11-13-obsidian-vault-backend.md).
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements; roadmap approved
-Last activity: 2026-11-13 — Milestone v1.5 started; 8 requirements and 5 phases defined
+Phase: 16 complete; Phase 17 next
+Plan: 16-01 complete
+Status: Planning Phase 17 (vault-primary provider routing)
+Last activity: 2026-11-13 — Phase 16 verified; full suite 588 passed
 
 
 ## Execution Order (user-confirmed 2026-11-06)

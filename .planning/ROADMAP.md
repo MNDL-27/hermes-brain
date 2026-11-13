@@ -74,7 +74,7 @@ Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDI
 
 **Milestone goal:** Make the Obsidian vault a real premium storage backend — vault-primary writes, bidirectional sync, section-aware references and offline signed entitlement — so premium users can keep memory in their own vault while Notion remains the free-tier default.
 
-- [ ] **Phase 16: Vault Note Schema & Write Operations** — full frontmatter + index v2, idempotent remember, history-preserving supersede, certification, redaction.
+- [x] **Phase 16: Vault Note Schema & Write Operations** — full frontmatter + index v2, idempotent remember, history-preserving supersede, certification, redaction. (completed 2026-11-13)
 - [ ] **Phase 17: Vault-Primary Provider Routing** — Memory writes, certification and supersession route to the vault when selected; free tier unchanged; vault config and health.
 - [ ] **Phase 18: Bidirectional Sync & Migration** — Notion→vault bootstrap; vault→Notion ingest for `agents/memory.md` and `journal/*.md` with state/dedupe.
 - [ ] **Phase 19: Section-Aware References** — `note.md#section` catalog locators with retrieval targeting and safe fallback.
@@ -92,6 +92,9 @@ Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDI
   2. Identical active entries reuse the existing note; changed values create a new note; non-identical active peers are marked Superseded without deletion.
   3. Certification sets `truth: certified` only through an explicit adapter call; ordinary writes never demote certified notes.
   4. Every written field and body is secret-redacted; tests cover migration, idempotency, history and redaction.
+
+**Plans**: 1/1 — completed 2026-11-13
+**Verification**: Passed 16-01: OBS-01/OBS-02 closed; 46 adapter/catalog tests and the 588-test full gate pass; ruff and mypy clean. See [16-VERIFICATION.md](phases/16-vault-note-schema-write-operations/16-VERIFICATION.md).
 
 ### Phase 17: Vault-Primary Provider Routing
 
