@@ -2,7 +2,7 @@
 phase: 17-vault-primary-provider-routing
 verified: 2026-11-13
 status: passed
-source_snapshot: working tree on top of 115e4e8
+source_snapshot: cc75283
 score: "2/2 requirements verified; OBS-03 and SYNC-03 closed"
 fingerprint: "Phase 17 closure: premium Memory writes, certification and supersession route through the vault with fail-closed errors and no Notion mutation; search is vault-first with a Notion fallback; vault path resolution and vault_status are wired. 28 adapter tests pass; full suite 596 passed, 1 deselected; ruff and mypy clean."
 gaps: []
