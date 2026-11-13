@@ -129,6 +129,10 @@ Resume file: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - Keep the archived v1.0–v1.4 audits as the release evidence trail.
 
 
+## Completed v1.5 plans
+
+- [16-01-PLAN.md](phases/16-vault-note-schema-write-operations/16-01-PLAN.md) completed 2026-11-13 in `592ab84`; fingerprinted by [16-VERIFICATION.md](phases/16-vault-note-schema-write-operations/16-VERIFICATION.md).
+
 ## Prerequisite integration
 
 The v1.2-only branch recorded **407 passed, 1 deselected** in its isolated baseline. Follow-ups `c42ac35`, `9af9d7e`, and `752fc51` are integrated here; the v1.2 archive retains that branch history. Planning conflicts preserve this branch's later audit and Phase 9 gap-closure state.

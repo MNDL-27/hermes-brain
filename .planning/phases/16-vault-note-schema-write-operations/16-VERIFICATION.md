@@ -2,7 +2,7 @@
 phase: 16-vault-note-schema-write-operations
 verified: 2026-11-13
 status: passed
-source_snapshot: working tree on top of 3b52d15
+source_snapshot: 592ab84
 score: "2/2 requirements verified; OBS-01 and OBS-02 closed"
 fingerprint: "Phase 16 closure: vault notes and the SQLite index carry the full memory schema with additive v1 migration; remember is idempotent, supersede preserves history and links the predecessor, certification is protected from demotion, and all fields/bodies are redacted. 46 adapter/catalog tests pass; full suite 588 passed, 1 deselected; ruff and mypy clean."
 gaps: []
@@ -11,7 +11,7 @@ covered_files:
   - tests/test_adapters.py
   - .planning/phases/16-vault-note-schema-write-operations/16-01-PLAN.md
   - .planning/phases/16-vault-note-schema-write-operations/16-01-SUMMARY.md
-covered_digest: "v4:sha256:2b275b1e28ebf77a25749617ad2ff138884eb6f8fed98817e2ea59f4aeade376"
+covered_digest: "v4:sha256:bf7781efa5346c95a40abddbfd7a59e6b544ca5b17ee41602a9ae2272521ffc3"
 closed:
   - truth: Vault notes and the index carry the full memory schema with lazy, non-destructive migration.
     requirements: [OBS-01]
