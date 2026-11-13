@@ -12,7 +12,7 @@ covered_files:
   - tests/test_adapters.py
   - .planning/phases/17-vault-primary-provider-routing/17-01-PLAN.md
   - .planning/phases/17-vault-primary-provider-routing/17-01-SUMMARY.md
-covered_digest: "v4:sha256:5e1440820226d406115da384448465cd6f49b55cb7032e04518aaf00d545c6e5"
+covered_digest: "v4:sha256:0efbfd3d912566af0148d918437da0d7c7e9a91dc5a3c9092564039191ca07d7"
 closed:
   - truth: Premium-selected Memory writes, certification and supersession use the vault and never mutate Notion.
     requirements: [OBS-03]

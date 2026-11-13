@@ -32,7 +32,7 @@
   "next": {
     "command": "/gsd-plan-phase 19",
     "label": "Plan Phase 19 section-aware references",
-    "reason": "Phase 18 is verified. Phase 19 adds `note.md#section` catalog locators and retrieval targeting."
+    "reason": "Phase 19 context is gathered: path + separate section resolver, section-only retrieval, literal+slug matching, and concatenated duplicates."
   },
   "updated_at": "2026-11-13T00:00:00Z"
 }

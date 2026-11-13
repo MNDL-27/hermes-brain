@@ -12,7 +12,7 @@ covered_files:
   - tests/test_vault_sync.py
   - .planning/phases/18-bidirectional-sync-migration/18-01-PLAN.md
   - .planning/phases/18-bidirectional-sync-migration/18-01-SUMMARY.md
-covered_digest: "v4:sha256:fbd2ea0bb78a7ba639be9f878cd2fc6e632abaa6072e2346b008e0735170af3c"
+covered_digest: "v4:sha256:892b32cc7432b49e63c42a4d4e1d6f205ac0e9034fc05374e51e27c74aea4964"
 closed:
   - truth: An explicit Notion→vault bootstrap exports active Memory rows to stable notes and is idempotent.
     requirements: [SYNC-01]
