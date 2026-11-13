@@ -75,7 +75,7 @@ Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDI
 **Milestone goal:** Make the Obsidian vault a real premium storage backend — vault-primary writes, bidirectional sync, section-aware references and offline signed entitlement — so premium users can keep memory in their own vault while Notion remains the free-tier default.
 
 - [x] **Phase 16: Vault Note Schema & Write Operations** — full frontmatter + index v2, idempotent remember, history-preserving supersede, certification, redaction. (completed 2026-11-13)
-- [ ] **Phase 17: Vault-Primary Provider Routing** — Memory writes, certification and supersession route to the vault when selected; free tier unchanged; vault config and health.
+- [x] **Phase 17: Vault-Primary Provider Routing** — Memory writes, certification and supersession route to the vault when selected; free tier unchanged; vault config and health. (completed 2026-11-13)
 - [ ] **Phase 18: Bidirectional Sync & Migration** — Notion→vault bootstrap; vault→Notion ingest for `agents/memory.md` and `journal/*.md` with state/dedupe.
 - [ ] **Phase 19: Section-Aware References** — `note.md#section` catalog locators with retrieval targeting and safe fallback.
 - [ ] **Phase 20: Offline Signed Entitlement** — Ed25519 license verification with expiry/features, `cryptography` dependency, docs and packaging.
@@ -107,6 +107,9 @@ Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDI
   3. Graph edges are written after accepted vault transitions; certification protection and confirmation gating still hold.
   4. Vault path configuration, sync status and health expose note count, index path, last sync and entitlement state.
   5. Parity tests cover remember, certify and supersede on both backends.
+
+**Plans**: 1/1 — completed 2026-11-13
+**Verification**: Passed 17-01: OBS-03/SYNC-03 closed; 28 adapter tests and the 596-test full gate pass; ruff and mypy clean. See [17-VERIFICATION.md](phases/17-vault-primary-provider-routing/17-VERIFICATION.md).
 
 ### Phase 18: Bidirectional Sync & Migration
 

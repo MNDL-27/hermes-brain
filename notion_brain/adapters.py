@@ -490,35 +490,92 @@ class ObsidianVaultAdapter:
             return None
         return _obsidian_row_to_entry(row, self.storage_path)
 
+    def find(self, memory_id: str) -> dict[str, Any] | None:
+        """Return one note by id, else None."""
+        target = S.redact_secrets(str(memory_id or "")).strip()
+        if not target:
+            return None
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM memories WHERE id=?", (target,)).fetchone()
+        return _obsidian_row_to_entry(row, self.storage_path) if row is not None else None
+
+    def list_active(self, subject_key: str | None = None) -> list[dict[str, Any]]:
+        """List active notes, optionally scoped to one subject key."""
+        query = "SELECT * FROM memories WHERE lower(status)='active'"
+        params: list[Any] = []
+        key = S.redact_secrets(str(subject_key or "")).strip()
+        if key:
+            query += " AND subject_key=?"
+            params.append(key)
+        query += " ORDER BY created_at DESC, id ASC"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [_obsidian_row_to_entry(row, self.storage_path) for row in rows]
+
+    def _flip_superseded(self, row: sqlite3.Row, now: str) -> None:
+        note = self.storage_path / row["path"]
+        meta, body = _parse_obsidian_note(note.read_text(encoding="utf-8"))
+        meta = _obsidian_note_meta(meta, existing=meta)
+        meta["status"] = "Superseded"
+        meta["updated_at"] = now
+        note.write_text(_render_obsidian_note(meta, body), encoding="utf-8")
+
     def supersede(self, subject_key: str, entry: dict[str, Any]) -> dict[str, Any]:
         key = S.redact_secrets(str(subject_key or "")).strip()
         now = datetime.now(timezone.utc).isoformat()
-        predecessor_id = ""
+        superseded_ids: list[str] = []
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM memories WHERE subject_key=? AND lower(status)='active' "
                 "ORDER BY created_at ASC, id ASC",
                 (key,),
             ).fetchall()
-            if rows:
-                predecessor_id = str(rows[0]["id"])
             for row in rows:
-                note = self.storage_path / row["path"]
-                meta, body = _parse_obsidian_note(note.read_text(encoding="utf-8"))
-                meta = _obsidian_note_meta(meta, existing=meta)
-                meta["status"] = "Superseded"
-                meta["updated_at"] = now
-                note.write_text(_render_obsidian_note(meta, body), encoding="utf-8")
+                if str(row["truth"] or "inferred").casefold() == "certified":
+                    continue
+                self._flip_superseded(row, now)
                 conn.execute(
                     "UPDATE memories SET status='Superseded', updated_at=? WHERE id=?",
                     (now, row["id"]),
                 )
+                superseded_ids.append(str(row["id"]))
             conn.commit()
         data = dict(entry)
         data["subject_key"] = key
-        if predecessor_id and not data.get("superseded_page_id"):
-            data["superseded_page_id"] = predecessor_id
-        return self.remember(_redact_value(data))
+        if superseded_ids and not data.get("superseded_page_id"):
+            data["superseded_page_id"] = superseded_ids[0]
+        replacement = self.remember(_redact_value(data))
+        replacement["superseded_ids"] = superseded_ids
+        return replacement
+
+    def supersede_inferred(self, subject_key: str, *, keep_id: str = "") -> list[str]:
+        """Mark active inferred notes for a subject Superseded, excluding ``keep_id``."""
+        key = S.redact_secrets(str(subject_key or "")).strip()
+        if not key:
+            return []
+        keep = str(keep_id or "").strip()
+        now = datetime.now(timezone.utc).isoformat()
+        superseded: list[str] = []
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM memories WHERE subject_key=? AND lower(status)='active' "
+                "ORDER BY created_at ASC, id ASC",
+                (key,),
+            ).fetchall()
+            for row in rows:
+                memory_id = str(row["id"])
+                if keep and memory_id == keep:
+                    continue
+                if str(row["truth"] or "inferred").casefold() == "certified":
+                    continue
+                self._flip_superseded(row, now)
+                conn.execute(
+                    "UPDATE memories SET status='Superseded', updated_at=? WHERE id=?",
+                    (now, memory_id),
+                )
+                superseded.append(memory_id)
+            conn.commit()
+        return superseded
 
     def certify(self, memory_id: str, *, truth: str = "certified") -> dict[str, Any] | None:
         """Set a note's truth status; the provider confirmation gate is external."""

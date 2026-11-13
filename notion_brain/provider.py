@@ -151,6 +151,10 @@ class NotionBrainProvider:
             return Path(self._hermes_home) / "brain_catalog.json"
         return semantic_catalog.catalog_path()
 
+    @property
+    def _vault_enabled(self) -> bool:
+        return self._adapter_name == "obsidian" and self._obsidian_adapter is not None
+
     # Core lifecycle
 
     @property
@@ -194,11 +198,16 @@ class NotionBrainProvider:
         requested = str(kwargs.get("storage_adapter") or "notion").strip().casefold()
         self._adapter_name = requested
         if requested not in ("", "notion"):
+            import os
+
+            vault_path = kwargs.get("obsidian_vault") or os.environ.get(
+                "HERMES_OBSIDIAN_VAULT", ""
+            ).strip() or None
             try:
                 selected = adapters.get_adapter(
                     requested,
                     hermes_home=self._hermes_home or Path.home() / ".hermes",
-                    obsidian_vault=kwargs.get("obsidian_vault"),
+                    obsidian_vault=vault_path,
                 )
             except adapters.EntitlementError as exc:
                 logger.warning(
@@ -249,7 +258,7 @@ class NotionBrainProvider:
                 return self._prefetch_cache
 
             # Query memory database for recent entries
-            if not self._db_ids.get("memory"):
+            if not self._db_ids.get("memory") and not self._vault_enabled:
                 return ""
 
             try:
@@ -307,6 +316,38 @@ class NotionBrainProvider:
                     "NotionBrainProvider prefetch failed: %s", S.redact_secrets(str(exc))
                 )
                 return ""
+
+    def vault_status(self) -> dict[str, Any]:
+        """Report the selected backend, entitlement and vault health."""
+        hermes_home = self._hermes_home or str(Path.home() / ".hermes")
+        try:
+            entitled = adapters.is_premium_entitled(hermes_home)
+        except Exception:
+            entitled = False
+        if not self._vault_enabled:
+            return {
+                "backend": self._adapter_name or "notion",
+                "entitled": entitled,
+                "vault_path": "",
+                "last_sync": "not_run",
+                "count": 0,
+                "active": 0,
+                "certified": 0,
+                "schema_version": 0,
+                "index": "",
+            }
+        try:
+            health = self._obsidian_adapter.health()
+        except Exception as exc:
+            logger.warning("Vault health failed: %s", S.redact_secrets(str(exc)))
+            health = {}
+        return {
+            "backend": "obsidian",
+            "entitled": entitled,
+            "vault_path": S.redact_secrets(str(self._obsidian_adapter.vault_path)),
+            "last_sync": "not_run",
+            **health,
+        }
 
     def _worker_loop(self) -> None:
         while True:
@@ -668,9 +709,13 @@ class NotionBrainProvider:
                 source_session_id=self._session_id,
             ).normalized()
 
+        database_key = S.database_for_domain(entry.domain)
+        if self._vault_enabled and database_key == "memory":
+            self._store_vault_entry(entry)
+            return
+
         properties = self._database_properties(target_db_id, entry)
 
-        database_key = S.database_for_domain(entry.domain)
         page_id = ""
         reused = False
         try:
@@ -730,6 +775,90 @@ class NotionBrainProvider:
                         relation_type="edge",
                     ))
                 graph.save(self._catalog_path())
+
+    def _store_vault_entry(self, entry: S.BrainEntry) -> None:
+        """Write one Memory entry through the selected Obsidian vault.
+
+        Fails closed: no Notion fallback exists for premium writes.
+        """
+        adapter = self._obsidian_adapter
+        key = S.redact_secrets(str(entry.metadata.get("subject_key") or "")).strip()
+        payload = {
+            "title": entry.title,
+            "content": entry.content,
+            "subject_key": key,
+            "status": entry.status,
+            "truth": entry.truth,
+            "source_agent": str(entry.metadata.get("source_agent") or "unknown"),
+            "source_session": entry.source_session_id,
+            "domain": entry.domain,
+            "kind": entry.kind,
+            "tags": entry.tags,
+        }
+        norm_title = entry.title.strip().casefold()
+        try:
+            active = adapter.list_active(key) if key else []
+        except Exception:
+            active = []
+        exact = next(
+            (
+                row for row in active
+                if str(row.get("title") or "").strip().casefold() == norm_title
+                and str(row.get("content") or "") == entry.content
+            ),
+            None,
+        )
+        try:
+            if exact is not None:
+                row = exact
+                superseded_ids: list[str] = []
+            elif key:
+                row = adapter.supersede(key, payload)
+                superseded_ids = list(row.get("superseded_ids") or [])
+            else:
+                row = adapter.remember(payload)
+                superseded_ids = []
+        except Exception as exc:
+            logger.warning("Vault write failed: %s", S.redact_secrets(str(exc)))
+            raise RuntimeError("Failed to save entry to the Obsidian vault") from None
+        page_id = str(row.get("id") or "")
+        self._write_vault_graph(page_id, superseded_ids, entry.entities)
+        with self._prefetch_lock:
+            self._prefetch_cache = ""
+
+    def _write_vault_graph(
+        self, page_id: str, superseded_ids: list[str], entities: list[str]
+    ) -> None:
+        """Record supersedes and entity edges after an accepted vault write."""
+        if not self._hermes_home or not page_id:
+            return
+        try:
+            graph = semantic_catalog.Catalog().load(self._catalog_path())
+            changed = False
+            for old_id in superseded_ids:
+                if old_id and old_id != page_id:
+                    graph.add_relation(semantic_catalog.Relation(
+                        subject=page_id, predicate="supersedes", object=old_id,
+                        relation_type="edge",
+                    ))
+                    changed = True
+            known_entities = {entity.name.casefold() for entity in graph.list_entities()}
+            for entity_name in entities:
+                clean_entity = S.redact_secrets(entity_name)
+                if not clean_entity:
+                    continue
+                if clean_entity.casefold() not in known_entities:
+                    graph.add_entity(semantic_catalog.Entity(name=clean_entity))
+                    known_entities.add(clean_entity.casefold())
+                graph.add_relation(semantic_catalog.Relation(
+                    subject=clean_entity, predicate="related", object=page_id,
+                    relation_type="edge",
+                ))
+                changed = True
+            if changed:
+                graph.save(self._catalog_path())
+        except Exception as exc:
+            logger.warning("Vault graph update failed: %s", S.redact_secrets(str(exc)))
 
     def _reuse_or_create_memory(
         self, target_db_id: str, entry: S.BrainEntry, properties: dict[str, Any]
@@ -1056,7 +1185,24 @@ class NotionBrainProvider:
         # and apply the case-insensitive title match client-side below, so a
         # query narrows results identically with and without ``database``.
         entry_databases: dict[str, str] = {}
-        if database:
+        vault_scope = self._vault_enabled and (
+            not database or str(database).casefold() == "memory"
+        )
+        vault_entries: list[dict] = []
+        if vault_scope:
+            try:
+                vault_entries = [
+                    _adapter_entry(entry)
+                    for entry in self._obsidian_adapter.search(query, limit=max_results)
+                ]
+            except Exception as exc:
+                logger.warning("Obsidian search failed: %s", S.redact_secrets(str(exc)))
+                vault_entries = []
+
+        if vault_entries:
+            # Vault-first: a non-empty premium result set skips Notion entirely.
+            entries = _merge_disk_only(vault_entries, disk_text)
+        elif database:
             # Search specific database
             db_id = self._db_ids.get(database)
             if not db_id:
@@ -1092,26 +1238,6 @@ class NotionBrainProvider:
                 except Exception:
                     pass
             entries = _merge_disk_only(all_entries, disk_text)
-
-        # ADAPT-03: when the premium vault backend is selected, merge its
-        # matches into the same row set. Database-scoped searches stay
-        # Notion-only because vault notes carry no Notion database identity.
-        if (
-            not database
-            and self._adapter_name == "obsidian"
-            and self._obsidian_adapter is not None
-        ):
-            try:
-                vault_entries = [
-                    _adapter_entry(entry)
-                    for entry in self._obsidian_adapter.search(query, limit=max_results)
-                ]
-            except Exception as exc:
-                logger.warning(
-                    "Obsidian search failed: %s", S.redact_secrets(str(exc))
-                )
-            else:
-                entries = _merge_adapter_entries(entries, vault_entries)
 
         # Resolve catalog terms deterministically before refining rows. Catalog
         # failures are intentionally non-fatal: ordinary search remains intact.
@@ -1435,6 +1561,8 @@ class NotionBrainProvider:
         """Certify one memory only with explicit confirmation for this invocation."""
         if user_confirmed is not True:
             return "Error: orchestrator confirmation is required"
+        if self._vault_enabled:
+            return self._certify_vault(args)
         db_id = self._db_ids.get("memory")
         if not db_id:
             return "Error: Memory database is unavailable"
@@ -1551,6 +1679,49 @@ class NotionBrainProvider:
                             S.redact_secrets(str(exc)),
                         )
         return f"Certified: {S.redact_secrets(str(row.get('title') or 'memory'))}"
+
+    def _certify_vault(self, args: dict[str, Any]) -> str:
+        """Certify one vault note and supersede its inferred peers."""
+        adapter = self._obsidian_adapter
+        memory_id = S.redact_secrets(str(args.get("memory_id") or "").strip())
+        title = S.clean_title(str(args.get("title") or "").strip()) if args.get("title") else ""
+        try:
+            row = adapter.find(memory_id) if memory_id else None
+            if row is None and title:
+                row = next(
+                    (
+                        item for item in adapter.list_active()
+                        if str(item.get("title") or "").casefold() == title.casefold()
+                    ),
+                    None,
+                )
+        except Exception as exc:
+            logger.warning("Vault certification lookup failed: %s", S.redact_secrets(str(exc)))
+            return "Error: certification update failed"
+        if row is None:
+            return "Error: memory not found"
+        target_id = str(row.get("id") or "")
+        try:
+            certified = adapter.certify(target_id)
+        except Exception as exc:
+            logger.warning("Vault certification failed: %s", S.redact_secrets(str(exc)))
+            return "Error: certification update failed"
+        if certified is None:
+            return "Error: certification update failed"
+        subject_key = str(certified.get("subject_key") or "")
+        predecessors: list[str] = []
+        if subject_key:
+            try:
+                predecessors = adapter.supersede_inferred(subject_key, keep_id=target_id)
+            except Exception as exc:
+                logger.warning(
+                    "Vault certification supersession failed: %s",
+                    S.redact_secrets(str(exc)),
+                )
+        self._write_vault_graph(target_id, predecessors, [])
+        with self._prefetch_lock:
+            self._prefetch_cache = ""
+        return f"Certified: {S.redact_secrets(str(certified.get('title') or 'memory'))}"
 
     def _tool_remember(self, args: dict[str, Any]) -> str:
         """Explicitly remember something."""

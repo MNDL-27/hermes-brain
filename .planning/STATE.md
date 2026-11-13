@@ -7,12 +7,12 @@ last_updated: "2026-11-12T23:53:14.855Z"
 last_activity: 2026-11-13
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 20
-current_phase: 17
-current_phase_name: Vault-Primary Provider Routing
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 40
+current_phase: 18
+current_phase_name: Bidirectional Sync & Migration
 ---
 
 # Project State
@@ -22,14 +22,14 @@ current_phase_name: Vault-Primary Provider Routing
 See: .planning/PROJECT.md (updated 2026-11-13)
 
 **Core value:** Persistent, structured long-term memory for Hermes agents across 7 Notion databases with strict secret redaction and zero-overhead non-blocking writes.
-**Current focus:** v1.5 Obsidian Vault Backend — Phase 16 (vault note schema and write operations) is verified. Phase 17 routes Memory writes through the selected vault backend. Design decisions are in [2026-11-13-obsidian-vault-backend.md](research/2026-11-13-obsidian-vault-backend.md).
+**Current focus:** v1.5 Obsidian Vault Backend — Phase 17 (vault-primary provider routing) is verified. Phase 18 adds bidirectional sync and migration. Design decisions are in [2026-11-13-obsidian-vault-backend.md](research/2026-11-13-obsidian-vault-backend.md).
 
 ## Current Position
 
-Phase: 16 complete; Phase 17 next
-Plan: 16-01 complete
-Status: Planning Phase 17 (vault-primary provider routing)
-Last activity: 2026-11-13 — Phase 16 verified; full suite 588 passed
+Phase: 17 complete; Phase 18 next
+Plan: 17-01 complete
+Status: Planning Phase 18 (bidirectional sync and migration)
+Last activity: 2026-11-13 — Phase 17 verified; full suite 596 passed
 
 
 ## Execution Order (user-confirmed 2026-11-06)
@@ -132,6 +132,7 @@ Resume file: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 ## Completed v1.5 plans
 
 - [16-01-PLAN.md](phases/16-vault-note-schema-write-operations/16-01-PLAN.md) completed 2026-11-13 in `592ab84`; fingerprinted by [16-VERIFICATION.md](phases/16-vault-note-schema-write-operations/16-VERIFICATION.md).
+- [17-01-PLAN.md](phases/17-vault-primary-provider-routing/17-01-PLAN.md) completed 2026-11-13 (working tree on top of `115e4e8`); fingerprinted by [17-VERIFICATION.md](phases/17-vault-primary-provider-routing/17-VERIFICATION.md).
 
 ## Prerequisite integration
 

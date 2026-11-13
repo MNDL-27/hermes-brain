@@ -11,7 +11,7 @@
     {
       "number": "17",
       "name": "Vault-Primary Provider Routing",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "18",
@@ -30,9 +30,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-plan-phase 17",
-    "label": "Plan Phase 17 vault-primary provider routing",
-    "reason": "Phase 16 is verified. Phase 17 routes Memory writes, certification and supersession through the selected vault backend."
+    "command": "/gsd-plan-phase 18",
+    "label": "Plan Phase 18 bidirectional sync and migration",
+    "reason": "Phase 17 is verified. Phase 18 adds the Notion→vault bootstrap and vault→Notion ingest."
   },
   "updated_at": "2026-11-13T00:00:00Z"
 }

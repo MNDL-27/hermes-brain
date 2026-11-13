@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 
 import pytest
 
-from notion_brain import adapters
+from notion_brain import adapters, store
 from notion_brain.entitlement import EntitlementError
+from notion_brain.provider import NotionBrainProvider
 
 
 def test_notion_adapter_delegates_search(monkeypatch, tmp_path):
@@ -236,6 +238,179 @@ def test_obsidian_v2_redacts_provenance_fields(tmp_path):
     row = adapter.get_note(saved["path"])
     assert row is not None
     assert secret not in str(row)
+
+
+# --- Phase 17: vault-primary provider routing ---
+
+
+def _premium_provider(monkeypatch, tmp_path, *, vault=None, env_only=False):
+    from notion_brain import bootstrap
+
+    monkeypatch.setattr(bootstrap, "ensure_brain", lambda home: {"db_memory": "db1"})
+    monkeypatch.setattr(bootstrap, "read_memory_from_disk", lambda home: "")
+    monkeypatch.setattr(bootstrap, "read_user_from_disk", lambda home: "")
+    (tmp_path / "hermes_brain.license").write_text("stub", encoding="utf-8")
+    vault_path = vault or (tmp_path / "vault")
+    vault_path.mkdir(parents=True, exist_ok=True)
+    if env_only:
+        monkeypatch.setenv("HERMES_OBSIDIAN_VAULT", str(vault_path))
+    provider = NotionBrainProvider()
+    kwargs = {"hermes_home": str(tmp_path), "storage_adapter": "obsidian"}
+    if not env_only:
+        kwargs["obsidian_vault"] = str(vault_path)
+    provider.initialize("session", **kwargs)
+    return provider, vault_path
+
+
+def test_obsidian_list_active_find_and_supersede_inferred(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    one = adapter.remember({"title": "Phone A", "content": "Pixel", "subject_key": "device.phone"})
+    two = adapter.remember({"title": "Phone B", "content": "iPhone", "subject_key": "device.phone"})
+
+    assert {row["id"] for row in adapter.list_active("device.phone")} == {one["id"], two["id"]}
+    assert adapter.find(one["id"])["content"] == "Pixel"
+
+    superseded = adapter.supersede_inferred("device.phone", keep_id=two["id"])
+
+    assert superseded == [one["id"]]
+    assert adapter.find(one["id"])["status"] == "Superseded"
+    assert adapter.find(two["id"])["status"] == "active"
+
+
+def test_obsidian_supersede_skips_certified_peer(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    certified = adapter.remember({
+        "title": "Certified", "content": "Keep", "subject_key": "k", "truth": "certified",
+    })
+
+    replacement = adapter.supersede("k", {"title": "New value", "content": "Fresh"})
+
+    assert replacement["superseded_ids"] == []
+    assert adapter.find(certified["id"])["status"] == "active"
+    assert adapter.find(certified["id"])["truth"] == "certified"
+    assert {row["status"] for row in adapter.list_active("k")} == {"active"}
+
+
+def test_provider_vault_primary_remember_writes_note_not_notion(monkeypatch, tmp_path):
+    provider, vault = _premium_provider(monkeypatch, tmp_path)
+    monkeypatch.setattr(store, "create_database_page", lambda *a, **k: pytest.fail("Notion write"))
+    monkeypatch.setattr(store, "update_page", lambda *a, **k: pytest.fail("Notion update"))
+
+    result = provider._tool_remember({
+        "title": "Phone", "content": "Pixel", "subject_key": "device.phone",
+    })
+
+    assert result == "Saved: Phone"
+    assert len(list((vault / "hermes-brain").glob("*.md"))) == 1
+
+
+def test_provider_vault_write_failure_fails_closed(monkeypatch, tmp_path):
+    provider, _ = _premium_provider(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        provider._obsidian_adapter, "remember",
+        lambda entry: (_ for _ in ()).throw(RuntimeError("vault unavailable")),
+    )
+    monkeypatch.setattr(
+        provider._obsidian_adapter, "supersede",
+        lambda key, entry: (_ for _ in ()).throw(RuntimeError("vault unavailable")),
+    )
+    monkeypatch.setattr(store, "create_database_page", lambda *a, **k: pytest.fail("Notion fallback"))
+
+    result = provider._tool_remember({"title": "Phone", "content": "Pixel", "subject_key": "k"})
+
+    assert result == "Error: Failed to save entry to the Obsidian vault"
+
+
+def test_provider_vault_supersede_retains_history_and_edge(monkeypatch, tmp_path):
+    provider, _ = _premium_provider(monkeypatch, tmp_path)
+
+    provider._tool_remember({"title": "Phone", "content": "Pixel", "subject_key": "device.phone"})
+    provider._tool_remember({"title": "Phone", "content": "iPhone", "subject_key": "device.phone"})
+
+    adapter = provider._obsidian_adapter
+    active = adapter.list_active("device.phone")
+    assert [row["content"] for row in active] == ["iPhone"]
+    old_rows = [row for row in adapter.prefetch() if row["status"] == "Superseded"]
+    assert len(old_rows) == 1 and old_rows[0]["content"] == "Pixel"
+    assert active[0]["superseded_page_id"] == old_rows[0]["id"]
+    catalog = json.loads((tmp_path / "brain_catalog.json").read_text(encoding="utf-8"))
+    assert any(
+        rel["subject"] == active[0]["id"]
+        and rel["predicate"] == "supersedes"
+        and rel["object"] == old_rows[0]["id"]
+        for rel in catalog["relations"]
+    )
+
+
+def test_provider_vault_certify_flips_truth_and_supersedes_inferred_peer(monkeypatch, tmp_path):
+    provider, _ = _premium_provider(monkeypatch, tmp_path)
+    adapter = provider._obsidian_adapter
+    old = adapter.remember({
+        "title": "Phone A", "content": "Pixel", "subject_key": "device.phone", "truth": "inferred",
+    })
+    new = adapter.remember({
+        "title": "Phone B", "content": "iPhone", "subject_key": "device.phone", "truth": "inferred",
+    })
+
+    result = provider._tool_certify({"memory_id": new["id"]}, user_confirmed=True)
+
+    assert result == "Certified: Phone B"
+    assert adapter.find(new["id"])["truth"] == "certified"
+    assert adapter.find(old["id"])["status"] == "Superseded"
+    catalog = json.loads((tmp_path / "brain_catalog.json").read_text(encoding="utf-8"))
+    assert any(
+        rel["subject"] == new["id"] and rel["predicate"] == "supersedes" and rel["object"] == old["id"]
+        for rel in catalog["relations"]
+    )
+
+    provider._tool_remember({"title": "Phone C", "content": "Galaxy", "subject_key": "device.phone"})
+    certified = adapter.find(new["id"])
+    assert certified["truth"] == "certified"
+    assert certified["status"] == "active"
+
+
+def test_provider_vault_search_prefers_vault_and_falls_back(monkeypatch, tmp_path):
+    provider, _ = _premium_provider(monkeypatch, tmp_path)
+    provider._obsidian_adapter.remember({
+        "title": "Vault phone", "content": "Pixel value", "subject_key": "device.phone",
+    })
+    calls = []
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: calls.append(a) or [])
+
+    text, _ = provider._tool_search({"query": ""})
+
+    assert "Vault phone" in text
+    assert calls == []
+
+    empty_vault = tmp_path / "empty-vault"
+    empty_vault.mkdir()
+    provider2 = NotionBrainProvider()
+    provider2.initialize(
+        "session-2", hermes_home=str(tmp_path),
+        storage_adapter="obsidian", obsidian_vault=str(empty_vault),
+    )
+    monkeypatch.setattr(store, "query_database", lambda *a, **k: [{
+        "id": "notion-1", "title": "Notion phone",
+        "properties": {"Content": "Fallback", "Status": "active"},
+    }])
+
+    text2, payload2 = provider2._tool_search({"query": "", "database": "memory"})
+
+    assert "Notion phone" in text2
+    assert payload2["items"][0]["id"] == "notion-1"
+
+
+def test_provider_vault_status_and_env_path(monkeypatch, tmp_path):
+    provider, vault = _premium_provider(monkeypatch, tmp_path, env_only=True)
+
+    assert provider._obsidian_adapter is not None
+    status = provider.vault_status()
+    assert status["backend"] == "obsidian"
+    assert status["entitled"] is True
+    assert status["vault_path"] == str(vault.resolve())
+    assert status["last_sync"] == "not_run"
+    assert status["count"] == 0
+    assert status["schema_version"] == 2
 
 
 def test_obsidian_get_note_returns_indexed_note_and_rejects_outside_paths(tmp_path):
