@@ -1,7 +1,13 @@
 import socket
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
+
+# Hermetic imports: always resolve notion_brain from THIS working tree, never
+# from a stale editable install reachable via PYTHONPATH (see STATE.md warning).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 @dataclass(frozen=True)
