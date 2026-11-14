@@ -142,3 +142,91 @@ def test_search_resolves_obsidian_note_ref_without_text_match(tmp_path, monkeypa
     assert payload["definitions"][0]["storage_refs"] == [
         (vault / "hermes-brain" / "refnote.md").resolve().as_posix()
     ]
+
+
+def _section_provider(tmp_path, monkeypatch, section, *, indexed=False, body=None, status="active"):
+    from notion_brain.adapters import ObsidianVaultAdapter
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    adapter = ObsidianVaultAdapter(vault)
+    if indexed:
+        adapter.remember({"id": "note", "title": "Device of record", "content": "Stale index"})
+        path = vault / "hermes-brain" / "note.md"
+    else:
+        path = vault / "note.md"
+    markdown = (
+        f'---\nid: "note"\ntitle: "Device of record"\nstatus: "{status}"\n---\n\n'
+        + (body or "# Overview\nWhole note introduction\n## Section Name\nSelected body\n## Other\nExcluded body\n")
+    )
+    path.write_text(markdown, encoding="utf-8")
+    locator = path.relative_to(vault).as_posix()
+    if section is not None:
+        locator += "#" + section
+    graph = Catalog()
+    graph.add_term(Term(name="Daily phone", storage_refs=(StorageRef("obsidian", locator),)))
+    graph.save(tmp_path / "brain_catalog.json")
+
+    provider = NotionBrainProvider()
+    provider._hermes_home = str(tmp_path)
+    provider._adapter_name = "obsidian"
+    provider._obsidian_adapter = adapter
+    monkeypatch.setattr(store, "query_database", lambda *args, **kwargs: [])
+    return provider, path, markdown
+
+
+@pytest.mark.parametrize("section", ["SECTION NAME", "section-name"])
+@pytest.mark.parametrize("indexed", [False, True])
+def test_search_reads_referenced_section_from_disk(tmp_path, monkeypatch, section, indexed):
+    provider, path, _ = _section_provider(tmp_path, monkeypatch, section, indexed=indexed)
+    _, payload = provider._tool_search({"query": "Daily phone"})
+
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["properties"]["Content"] == "## Section Name\nSelected body"
+    assert payload["items"][0]["id"] == "note"
+    assert payload["definitions"][0]["storage_refs"] == [path.as_posix() + "#" + section]
+
+
+def test_search_replaces_content_of_note_already_returned_by_search(tmp_path, monkeypatch):
+    provider, _, _ = _section_provider(
+        tmp_path, monkeypatch, "section-name", indexed=True,
+        body="# Overview\nDaily phone\n## Section Name\nSelected body\n## Other\nExcluded\n",
+    )
+    _, payload = provider._tool_search({"query": "Daily phone"})
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["properties"]["Content"] == "## Section Name\nSelected body"
+
+
+@pytest.mark.parametrize("section", [None, "", "Missing"])
+def test_search_section_falls_back_to_full_disk_note(tmp_path, monkeypatch, caplog, section):
+    provider, _, markdown = _section_provider(tmp_path, monkeypatch, section)
+    _, payload = provider._tool_search({"query": "Daily phone"})
+    assert payload["items"][0]["properties"]["Content"] == markdown
+    if section:
+        assert "section" in caplog.text.lower() and "Missing" in caplog.text
+    else:
+        assert not caplog.records
+
+
+def test_search_missing_referenced_note_logs_warning(tmp_path, monkeypatch, caplog):
+    provider, path, _ = _section_provider(tmp_path, monkeypatch, "section-name")
+    path.unlink()
+    _, payload = provider._tool_search({"query": "Daily phone"})
+    assert payload["items"] == []
+    assert path.as_posix() in caplog.text
+    assert "warning" in caplog.text.lower()
+
+
+def test_search_section_reference_preserves_superseded_exclusion(tmp_path, monkeypatch):
+    provider, _, _ = _section_provider(tmp_path, monkeypatch, "section-name", status="Superseded")
+    _, payload = provider._tool_search({"query": "Daily phone"})
+    assert payload["items"] == []
+
+
+def test_search_missing_section_warning_redacts_fragment(tmp_path, monkeypatch, caplog):
+    secret = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz"
+    provider, _, markdown = _section_provider(tmp_path, monkeypatch, "Missing api_key=" + secret)
+    _, payload = provider._tool_search({"query": "Daily phone"})
+    assert payload["items"][0]["properties"]["Content"] == markdown
+    assert secret not in caplog.text
+    assert "[REDACTED_SECRET]" in caplog.text

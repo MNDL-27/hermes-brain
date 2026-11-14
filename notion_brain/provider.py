@@ -1245,7 +1245,7 @@ class NotionBrainProvider:
         expanded_needles: set[str] = set()
         resolved_page_ids: set[str] = set()
         resolved_database_ids: set[str] = set()
-        resolved_obsidian_paths: set[str] = set()
+        resolved_obsidian_paths: dict[str, str | None] = {}
         if query:
             try:
                 if catalog is None:
@@ -1280,7 +1280,10 @@ class NotionBrainProvider:
                             elif adapter_name.startswith("obsidian") and obsidian_adapter is not None:
                                 locator = obsidian_adapter.resolve_storage_ref(ref)
                                 if locator is not None:
-                                    resolved_obsidian_paths.add(str(locator))
+                                    _, section_fragment = obsidian_adapter.resolve_storage_section(ref)
+                                    resolved_obsidian_paths[str(locator)] = section_fragment
+                                    if section_fragment is not None:
+                                        locator = f"{locator}#{section_fragment}"
                             if locator is not None:
                                 safe_locator = S.redact_secrets(str(locator))
                                 if safe_locator not in resolved:
@@ -1307,15 +1310,46 @@ class NotionBrainProvider:
         ):
             for note_path in sorted(resolved_obsidian_paths):
                 try:
-                    note = self._obsidian_adapter.get_note(note_path)
+                    note = self._obsidian_adapter.get_note_content(note_path)
+                    if note is None:
+                        logger.warning(
+                            "Obsidian reference note missing or unreadable: %s",
+                            S.redact_secrets(note_path),
+                        )
+                        continue
+                    metadata, _ = adapters._parse_obsidian_note(note["Content"])
+                    section = resolved_obsidian_paths[note_path]
+                    if section:
+                        section_text = self._obsidian_adapter.get_section_content(note_path, section)
+                        if section_text is not None:
+                            note["Content"] = section_text
+                        else:
+                            logger.warning(
+                                "Obsidian reference section %s missing in %s; using whole note",
+                                S.redact_secrets(section), S.redact_secrets(note_path),
+                            )
+                    recalled = _adapter_entry({
+                        **metadata, **note,
+                        "id": str(metadata.get("id") or note_path),
+                        "content": note["Content"],
+                    })
+                    recalled["properties"].update({
+                        "Source": note["Source"], "Timestamp": note["Timestamp"],
+                    })
                 except Exception as exc:
                     logger.warning(
                         "Obsidian reference recall failed for %s: %s",
                         S.redact_secrets(note_path), S.redact_secrets(str(exc)),
                     )
                     continue
-                if note is not None:
-                    entries = _merge_adapter_entries(entries, [_adapter_entry(note)])
+                # Replace an already-selected row so indexed content cannot
+                # shadow the disk-backed section; otherwise merge as usual.
+                for index, entry in enumerate(entries):
+                    if str(entry.get("path") or "") == note_path:
+                        entries[index] = recalled
+                        break
+                else:
+                    entries = _merge_adapter_entries(entries, [recalled])
 
         # Current recall excludes superseded history; timeline/related expose it.
         entries = [

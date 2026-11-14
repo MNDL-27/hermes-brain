@@ -490,6 +490,63 @@ class ObsidianVaultAdapter:
             return None
         return _obsidian_row_to_entry(row, self.storage_path)
 
+    def get_note_content(self, path: str | Path) -> dict[str, Any] | None:
+        """Read the full markdown of a vault note directly from disk."""
+        try:
+            target = Path(path).expanduser().resolve()
+            target.relative_to(self.vault_path)
+            if target.suffix.lower() != ".md":
+                return None
+            markdown = target.read_text(encoding="utf-8")
+            timestamp = datetime.fromtimestamp(target.stat().st_mtime, timezone.utc).isoformat()
+        except (OSError, ValueError, RuntimeError, UnicodeError):
+            return None
+        metadata, _ = _parse_obsidian_note(markdown)
+        return {
+            "path": target.as_posix(),
+            "title": str(metadata.get("title") or target.stem),
+            "Content": markdown,
+            "Source": "obsidian",
+            "Timestamp": timestamp,
+        }
+
+    def get_section_content(self, path: str | Path, section: str | None) -> str | None:
+        """Read matching sections, including headings and nested subheadings.
+
+        Literal heading text is case-insensitive; slugs replace whitespace
+        with hyphens and remove punctuation. Duplicate sections are joined
+        with a blank line in document order. A missing section returns None.
+        """
+        if not section:
+            return None
+        needle = section.removeprefix("#").strip().casefold()
+        if not needle:
+            return None
+        note = self.get_note_content(path)
+        if note is None:
+            return None
+        lines = note["Content"].splitlines(keepends=True)
+        headings: list[tuple[int, int, str]] = []
+        for index, line in enumerate(lines):
+            match = re.match(r"^(#+) +(.+)", line)
+            if match:
+                headings.append((index, len(match[1]), match[2].strip()))
+        sections: list[str] = []
+        for position, (start, level, heading) in enumerate(headings):
+            normalized = heading.casefold()
+            slug = "".join(
+                char for char in re.sub(r"\s+", "-", normalized)
+                if char.isalnum() or char == "-"
+            )
+            if needle not in {normalized, slug}:
+                continue
+            end = next(
+                (index for index, next_level, _ in headings[position + 1:] if next_level <= level),
+                len(lines),
+            )
+            sections.append("".join(lines[start:end]).strip())
+        return "\n\n".join(sections) if sections else None
+
     def find(self, memory_id: str) -> dict[str, Any] | None:
         """Return one note by id, else None."""
         target = S.redact_secrets(str(memory_id or "")).strip()
@@ -610,7 +667,7 @@ class ObsidianVaultAdapter:
         if locator is None:
             return None
 
-        raw = locator
+        raw = locator.split("#", 1)[0]
         for prefix in ("note/", "notes/", "note:", "notes:", "obsidian://note/"):
             if raw.lower().startswith(prefix):
                 raw = raw[len(prefix):]
@@ -621,12 +678,24 @@ class ObsidianVaultAdapter:
         candidate = Path(raw)
         if not candidate.is_absolute():
             candidate = self.vault_path / raw
-        resolved = candidate.resolve()
         try:
+            resolved = candidate.resolve()
             resolved.relative_to(self.vault_path)
-        except ValueError:
+        except (ValueError, OSError, RuntimeError):
             return None  # traversal outside the vault — rejected
         return resolved.as_posix()
+
+    def resolve_storage_section(
+        self, ref: StorageRef | Mapping[str, object]
+    ) -> tuple[str, str | None]:
+        """Resolve a note path and its optional fragment; invalid refs give ("", None)."""
+        path = self.resolve_storage_ref(ref)
+        if path is None:
+            return "", None
+        locator = _locator(ref)
+        assert locator is not None
+        _, separator, fragment = locator.partition("#")
+        return path, fragment if separator else None
 
     def health(self) -> dict[str, Any]:
         with self._connect() as conn:

@@ -2,12 +2,141 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
 from notion_brain import adapters, store
+from notion_brain.catalog import StorageRef
 from notion_brain.entitlement import EntitlementError
 from notion_brain.provider import NotionBrainProvider
+
+
+@pytest.mark.parametrize("fragment", ["Section Name", "section-name", ""])
+def test_obsidian_resolve_storage_ref_strips_section(tmp_path, fragment):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    ref = StorageRef("obsidian", f"note/note.md#{fragment}")
+    assert adapter.resolve_storage_ref(ref) == (tmp_path / "note.md").as_posix()
+
+
+@pytest.mark.parametrize("locator", ["note.md", "note.md#Section Name", "note.md#"])
+def test_obsidian_resolve_storage_section(tmp_path, locator):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    fragment = locator.split("#", 1)[1] if "#" in locator else None
+    assert adapter.resolve_storage_section({"adapter_name": "obsidian", "locator": locator}) == (
+        (tmp_path / "note.md").as_posix(), fragment
+    )
+
+
+@pytest.mark.parametrize("locator", ["../escape.md#section", "note.txt#section", "#section"])
+def test_obsidian_section_ref_rejects_invalid_path(tmp_path, locator):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    ref = StorageRef("obsidian", locator)
+    assert adapter.resolve_storage_ref(ref) is None
+    assert adapter.resolve_storage_section(ref) == ("", None)
+
+
+def test_obsidian_section_ref_rejects_symlink_outside_vault(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "escape.md").symlink_to(tmp_path / "outside.md")
+    adapter = adapters.ObsidianVaultAdapter(vault)
+    assert adapter.resolve_storage_ref(StorageRef("obsidian", "escape.md#Section")) is None
+
+
+def test_obsidian_get_note_content_reads_full_markdown_from_disk(tmp_path, monkeypatch):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    saved = adapter.remember({"id": "note", "title": "Original", "content": "Indexed body"})
+    path = Path(saved["path"])
+    markdown = '---\ntitle: "Edited title"\n---\n\n# Overview\nEdited body\n'
+    path.write_text(markdown, encoding="utf-8")
+
+    def fail_index_access():
+        pytest.fail("Raw note retrieval must not read the index")
+
+    monkeypatch.setattr(adapter, "_connect", fail_index_access)
+    assert adapter.get_note_content(str(path)) == {
+        "path": path.as_posix(), "title": "Edited title", "Content": markdown,
+        "Source": "obsidian",
+        "Timestamp": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+    }
+
+
+def test_obsidian_get_note_content_reads_unindexed_note(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    path = tmp_path / "note.md"
+    path.write_text("# Overview\nFull markdown\n", encoding="utf-8")
+    note = adapter.get_note_content(path)
+    assert note is not None
+    assert note["title"] == "note"
+    assert note["Content"] == "# Overview\nFull markdown\n"
+    assert not adapter.index_path.exists()
+
+
+@pytest.mark.parametrize("failure", ["missing", "directory", "unreadable", "invalid-utf8"])
+def test_obsidian_get_note_content_returns_none_on_read_failure(tmp_path, monkeypatch, failure):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    path = tmp_path / "note.md"
+    if failure == "directory":
+        path.mkdir()
+    elif failure == "invalid-utf8":
+        path.write_bytes(b"\xff")
+    elif failure == "unreadable":
+        path.write_text("Content", encoding="utf-8")
+
+        def deny_read(*args, **kwargs):
+            raise PermissionError("Unreadable")
+
+        monkeypatch.setattr(Path, "read_text", deny_read)
+    assert adapter.get_note_content(path) is None
+
+
+@pytest.mark.parametrize("section", ["Section Name", "SECTION NAME", "section-name", "#section-name"])
+def test_obsidian_get_section_content_matches_header_and_slug(tmp_path, section):
+    path = tmp_path / "note.md"
+    path.write_text(
+        "# Note\nIntroduction\n## Section Name\nSelected body\n"
+        "### Child\nNested body\n## Next\nExcluded body\n", encoding="utf-8"
+    )
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    assert adapter.get_section_content(path, section) == (
+        "## Section Name\nSelected body\n### Child\nNested body"
+    )
+
+
+def test_obsidian_get_section_content_strips_punctuation_in_slug(tmp_path):
+    path = tmp_path / "note.md"
+    path.write_text("## Section Name: (Details!)\nBody\n", encoding="utf-8")
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    assert adapter.get_section_content(path, "section-name-details") == (
+        "## Section Name: (Details!)\nBody"
+    )
+
+
+def test_obsidian_get_section_content_concatenates_duplicate_headers(tmp_path):
+    path = tmp_path / "note.md"
+    path.write_text(
+        "## Repeated\nFirst\n## Other\nExcluded\n## REPEATED\nSecond\n"
+        "### Child\nNested\n# End\nExcluded\n", encoding="utf-8"
+    )
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    assert adapter.get_section_content(path, "repeated") == (
+        "## Repeated\nFirst\n\n## REPEATED\nSecond\n### Child\nNested"
+    )
+
+
+@pytest.mark.parametrize("section", [None, "", "missing", "Partial"])
+def test_obsidian_get_section_content_returns_none_without_match(tmp_path, section):
+    path = tmp_path / "note.md"
+    path.write_text("#Note\n# Partial match\nBody\n", encoding="utf-8")
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    assert adapter.get_section_content(path, section) is None
+
+
+def test_obsidian_get_section_content_returns_none_for_missing_note(tmp_path):
+    adapter = adapters.ObsidianVaultAdapter(tmp_path)
+    assert adapter.get_section_content(tmp_path / "missing.md", "Section") is None
 
 
 def test_notion_adapter_delegates_search(monkeypatch, tmp_path):
