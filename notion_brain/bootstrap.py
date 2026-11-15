@@ -26,6 +26,7 @@ _STATUS_OPTIONS = [
     {"name": "active", "color": "blue"},
     {"name": "done", "color": "green"},
     {"name": "needs_review", "color": "yellow"},
+    {"name": "Superseded", "color": "gray"},
 ]
 
 _NOTION_TYPE_MAP: dict[str, dict[str, Any]] = {
@@ -175,6 +176,16 @@ _PROPS: dict[str, dict[str, Any]] = {
         "title": {"title": {}},
         "Domain": {"select": {"options": [{"name": d, "color": "green"} for d in S.DOMAINS]}},
         "Status": {"status": {"options": list(_STATUS_OPTIONS)}},
+        "Subject Key": {"rich_text": {}},
+        "Superseded Page ID": {"rich_text": {}},
+        "Truth": {
+            "select": {
+                "options": [
+                    {"name": "inferred", "color": "gray"},
+                    {"name": "certified", "color": "green"},
+                ]
+            }
+        },
         "Kind": {
             "select": {
                 "options": [
@@ -528,17 +539,16 @@ def _database_schema_matches(db: dict[str, Any], expected: dict[str, Any]) -> bo
         expected_opts = spec.get(expected_type, {}).get("options")
         if expected_opts is not None:
             actual_opts = current.get(expected_type, {}).get("options", [])
-            want_names = {o.get("name") for o in expected_opts}
-            have_names = {o.get("name") for o in actual_opts}
-            # For 'status' fields, enforce exact match to detect zombie options
-            # (which Notion PATCH cannot delete, per FRE-16 / reset_databases design).
-            # For 'select' fields (e.g. Domain), allow extra user-defined options via issubset.
+            expected_names = {o.get("name") for o in expected_opts}
+            actual_names = {o.get("name") for o in actual_opts}
+            # Notion PATCH cannot delete status options, so a leftover
+            # (zombie) name is a real mismatch and must force a reset.
+            # select/multi_select may keep extra options the user added.
             if expected_type == "status":
-                if want_names != have_names:
+                if expected_names != actual_names:
                     return False
-            else:
-                if not want_names.issubset(have_names):
-                    return False
+            elif not expected_names.issubset(actual_names):
+                return False
     return True
 
 
@@ -679,7 +689,19 @@ def health_report(hermes_home: str | Path) -> str:
     cache = update_cache.load_cache(hermes_home)
     if cache and cache.get("drift"):
         latest = cache.get("latest") or "?"
-        lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+        drift_type = cache.get("drift_type") or ""
+        # Version-only (and legacy caches with no drift_type) keep the
+        # generic banner. Commit-only and both add cached behind-count
+        # and release URL; this read stays local (UPD-06/UPD-07).
+        if drift_type != "commit":
+            lines.append(f"UPDATE AVAILABLE: {cur} -> {latest}. Run: hermes-brain update")
+        if drift_type in ("commit", "both"):
+            behind = int(cache.get("behind_commits") or 0)
+            release_url = cache.get("release_url") or ""
+            detail = f"behind {behind} commits"
+            if release_url:
+                detail = f"{detail} {release_url}"
+            lines.append(detail)
     elif cache and cache.get("latest"):
         lines.append(f"version: {cur} (latest: {cache.get('latest')})")
     else:
@@ -762,6 +784,18 @@ def _repair_database_schema(db: dict, expected: dict[str, Any], key: str) -> Non
     """
     actual = db.get("properties") or {}
     missing = {pname: spec for pname, spec in expected.items() if pname not in actual}
+    current_status = actual.get("Status") or {}
+    expected_status = expected.get("Status", {}).get("status", {}).get("options")
+    if expected_status is not None and current_status.get("type") == "status":
+        actual_options = current_status.get("status", {}).get("options", [])
+        actual_names = {o.get("name") for o in actual_options if isinstance(o, dict)}
+        expected_names = {o.get("name") for o in expected_status}
+        if actual_names.issubset(expected_names) and actual_names != expected_names:
+            missing["Status"] = {
+                "status": {
+                    "options": [o for o in expected_status if o.get("name") not in actual_names]
+                }
+            }
     if not missing:
         return
     try:

@@ -79,3 +79,19 @@ Notion integration tokens have workspace-wide access to every shared database. T
 - **Fail-closed posture:** If the page cannot be retrieved, has no parent, or has a non-database parent (such as a parent page or workspace), authorization is denied (`(False, reason)`).
 - **Enforced at client and provider:** `store.update_page`, `store.get_page`, and `store.delete_page` accept `expected_database_id` and raise `store.AuthorizationError` if containment fails. `provider._check_page_in_db` protects the tool handlers for `tasks`, `content`, and `research`.
 - **Secret redaction on failure:** Any sensitive tokens present in `page_id` arguments or error messages are redacted before logging or returning to callers.
+
+## User-confirmed certification
+
+Agent-written memories are inferred. To promote a memory, the trusted orchestrator presents the target to the user and, after approval, submits that exact certification call:
+
+```python
+provider.handle_tool_call(
+    "notion_brain_certify",
+    {"memory_id": approved_memory_id},
+    user_confirmed=True,
+)
+```
+
+`user_confirmed` is a keyword-only orchestrator control and must be the boolean `True`. It is absent from the agent-facing tool schema; putting it inside tool arguments does not authorize certification. The orchestrator must supply it only after user approval of the submitted target, never copy it from agent-generated arguments.
+
+Confirmation applies only to this invocation. Ordinary `handle_tool_call(name, arguments)` calls and subsequent certification calls receive no permission, and `initialize(..., user_confirmed=True)` grants none. The host UI/orchestrator is responsible for collecting confirmation; this package exposes the call boundary but does not implement a confirmation UI.

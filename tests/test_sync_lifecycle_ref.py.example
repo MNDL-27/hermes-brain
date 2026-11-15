@@ -1,0 +1,146 @@
+"""Reference regression tests for FRE-15 — sync worker lifecycle and failure paths.
+
+Reference snippet for Founding Engineer (FRE-11.2).
+When ready to land, copy to `tests/test_sync_lifecycle.py` and run:
+    uv run pytest tests/test_sync_lifecycle.py -q
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import json
+import threading
+import time
+from pathlib import Path
+
+import pytest
+
+from notion_brain import schema as S
+from notion_brain.provider import NotionBrainProvider
+
+
+@pytest.fixture()
+def provider(tmp_path: Path) -> NotionBrainProvider:
+    p = NotionBrainProvider()
+    p._session_id = "ref-test"
+    p._hermes_home = str(tmp_path)
+    p._db_ids = {k: f"db-{k}" for k in S.DATABASES}
+    p._parent_page_id = "parent-1"
+    return p
+
+
+def _run_in_thread(fn, timeout: float) -> bool:
+    """Return False if fn did not finish within timeout (i.e. it hung)."""
+    done = threading.Event()
+
+    def _wrapped():
+        try:
+            fn()
+        finally:
+            done.set()
+
+    threading.Thread(target=_wrapped, daemon=True).start()
+    return done.wait(timeout)
+
+
+# ---------------------------------------------------------------- CRASH PATH
+
+
+def test_worker_survives_baseexception_and_drains_rest(provider):
+    """REF-1: BaseException in one task must not strand the queue."""
+    ran: list[str] = []
+
+    def boom() -> None:
+        raise KeyboardInterrupt("simulated fatal interrupt in task")
+
+    def after() -> None:
+        ran.append("after")
+
+    with provider._sync_lock:
+        provider._sync_queue.put((boom, (), {}))
+        provider._sync_queue.put((after, (), {}))
+        provider._sync_thread = threading.Thread(
+            target=provider._worker_loop, daemon=True
+        )
+        provider._sync_thread.start()
+
+    deadline = time.time() + 1.0
+    while time.time() < deadline and not ran:
+        time.sleep(0.02)
+
+    assert ran == ["after"], "task queued after a BaseException was never run"
+
+
+def test_clean_exit_does_not_deadlock_on_stranded_queue(provider):
+    """REF-2: on_session_end() must not block indefinitely on join()."""
+
+    def boom() -> None:
+        raise KeyboardInterrupt("kill the worker")
+
+    with provider._sync_lock:
+        provider._sync_queue.put((boom, (), {}))
+        provider._sync_queue.put((lambda: None, (), {}))
+        provider._sync_thread = threading.Thread(
+            target=provider._worker_loop, daemon=True
+        )
+        provider._sync_thread.start()
+
+    time.sleep(0.1)
+    finished = _run_in_thread(provider.on_session_end, timeout=1.0)
+    assert finished, "on_session_end() hung on queue.join() with a dead worker"
+
+
+# ---------------------------------------------------------- RETRY / DEAD-LETTER
+
+
+def test_failed_turn_is_persisted_to_outbox(provider, monkeypatch):
+    """REF-3: an entry whose Notion write fails must not vanish into void."""
+    entry = S.BrainEntry(domain="memory", title="Durable fact", content="keep me")
+    monkeypatch.setattr(
+        "notion_brain.extract.classify_turn", lambda u, a: [entry]
+    )
+
+    def failing_store(e) -> None:
+        raise RuntimeError("Notion API 503 Service Unavailable")
+
+    monkeypatch.setattr(provider, "_store_entry", failing_store)
+
+    provider.sync_turn("user text", "assistant text")
+    provider.on_session_end()
+
+    outbox = Path(provider._hermes_home) / "notion_brain.outbox.jsonl"
+    assert outbox.exists(), (
+        "failed entry was dropped: no outbox/dead-letter file written"
+    )
+
+
+def test_sync_queue_is_bounded(provider):
+    """REF-4: an unbounded queue is an OOM path under sustained API outage."""
+    assert provider._sync_queue.maxsize > 0, (
+        "queue.Queue() is unbounded (maxsize=0) — memory leak on outage"
+    )
+
+
+def test_dead_letter_replays_on_next_initialize(provider, monkeypatch):
+    """REF-5: entries in outbox.jsonl must replay on next initialize()."""
+    from notion_brain import bootstrap
+
+    entry = S.BrainEntry(domain="memory", title="Replay me", content="recovered text")
+    outbox = Path(provider._hermes_home) / "notion_brain.outbox.jsonl"
+    outbox.write_text(json.dumps(dataclasses.asdict(entry)) + "\n", encoding="utf-8")
+
+    stored: list[object] = []
+    monkeypatch.setattr(
+        bootstrap,
+        "ensure_brain",
+        lambda home: {f"db_{k}": f"db-{k}" for k in S.DATABASES},
+    )
+    monkeypatch.setattr(provider, "_store_entry", stored.append)
+
+    provider.initialize("ref-session", hermes_home=str(provider._hermes_home))
+    provider.on_session_end()
+
+    assert any(getattr(e, "title", None) == "Replay me" for e in stored), (
+        "outbox entry was not replayed on initialize()"
+    )
+    assert not outbox.exists(), "outbox file should be unlinked after successful replay"

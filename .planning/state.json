@@ -1,28 +1,38 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v1.1 — Distribution & Updates",
+  "milestone": "v1.5 — Obsidian Vault Backend",
   "phases": [
     {
-      "number": "4",
-      "name": "Build Metadata Modernization & PyPI Publishing",
+      "number": "16",
+      "name": "Vault Note Schema & Write Operations",
       "status": "complete"
     },
     {
-      "number": "5",
-      "name": "CLI Update Drift Detection",
+      "number": "17",
+      "name": "Vault-Primary Provider Routing",
       "status": "complete"
     },
     {
-      "number": "6",
-      "name": "Cached Non-Blocking Auto-Update Check",
+      "number": "18",
+      "name": "Bidirectional Sync & Migration",
       "status": "complete"
+    },
+    {
+      "number": "19",
+      "name": "Section-Aware References",
+      "status": "pending"
+    },
+    {
+      "number": "20",
+      "name": "Offline Signed Entitlement",
+      "status": "pending"
     }
   ],
   "next": {
-    "command": "/gsd:new-milestone",
-    "label": "Start a new milestone",
-    "reason": "All phases complete — start a new milestone"
+    "command": "/gsd-plan-phase 19",
+    "label": "Plan Phase 19 section-aware references",
+    "reason": "Phase 19 context is gathered: path + separate section resolver, section-only retrieval, literal+slug matching, and concatenated duplicates."
   },
-  "updated_at": "2026-09-29T21:43:43.125Z"
+  "updated_at": "2026-11-13T00:00:00Z"
 }

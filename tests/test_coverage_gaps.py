@@ -16,7 +16,7 @@ import pytest
 import notion_brain as nb
 from notion_brain import NotionBrainProvider, bootstrap, store
 from notion_brain import schema as S
-from notion_brain.store import _block_text, _page_body_text, search_entries
+from notion_brain.store import _block_text, page_body_text, search_entries
 
 # __init__.py top-level helpers
 
@@ -252,7 +252,7 @@ def test_search_entries_hydrates_body(monkeypatch: pytest.MonkeyPatch) -> None:
         "_request",
         lambda method, path, body=None: {"object": "page", "query": "", "results": [raw]},
     )
-    monkeypatch.setattr(store, "_page_body_text", lambda pid: "full body text")
+    monkeypatch.setattr(store, "page_body_text", lambda pid: "full body text")
     results = search_entries("query", page_size=8)
     assert len(results) == 1
     assert results[0]["content"] == "full body text"
@@ -305,12 +305,12 @@ def test_page_body_text_breaks_on_fetch_error(monkeypatch: pytest.MonkeyPatch) -
         "_request",
         lambda method, path, json_body=None: (_ for _ in ()).throw(RuntimeError("network")),
     )
-    assert _page_body_text("page-1") == ""
+    assert page_body_text("page-1") == ""
 
 
 def test_page_body_text_breaks_on_non_dict(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(store, "_request", lambda method, path, json_body=None: ["list"])
-    assert _page_body_text("page-1") == ""
+    assert page_body_text("page-1") == ""
 
 
 # provider.py uncovered paths
@@ -355,24 +355,24 @@ def test_store_entry_raises_when_no_database() -> None:
         provider._store_entry(entry)
 
 
-def test_write_entry_raw_updates_existing_page(monkeypatch: pytest.MonkeyPatch) -> None:
-    provider = _provider_with_dbs(memory="mem-db")
-    entry = S.BrainEntry(domain="memory", title="Existing", content="updated")
+def test_write_entry_raw_updates_existing_non_memory_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = _provider_with_dbs(content="content-db")
+    entry = S.BrainEntry(domain="social_content", title="Existing", content="updated")
     monkeypatch.setattr(provider, "_database_properties", lambda dbid, e: {"title": {"title": []}})
     monkeypatch.setattr(
         store,
         "search_page_by_title",
         lambda title, object_type="page": {
-            "id": "existing-page",
-            "parent": {"database_id": "mem-db"},
+            "id": "content-existing",
+            "parent": {"database_id": "content-db"},
         },
     )
     updated: list[tuple[str, dict]] = []
     monkeypatch.setattr(
         store, "update_page", lambda pid, props, *a, **kw: updated.append((pid, props))
     )
-    provider._write_entry_raw("mem-db", entry)
-    assert updated == [("existing-page", {"title": {"title": []}})]
+    provider._write_entry_raw("content-db", entry)
+    assert updated == [("content-existing", {"title": {"title": []}})]
 
 
 def test_prefetch_returns_empty_when_no_memory_db() -> None:

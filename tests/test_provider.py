@@ -61,7 +61,7 @@ class TestProviderInterface:
     def test_tool_schemas_count(self):
         from notion_brain import ALL_TOOL_SCHEMAS
 
-        assert len(ALL_TOOL_SCHEMAS) == 5
+        assert len(ALL_TOOL_SCHEMAS) == 8
 
     def test_tool_schema_names(self):
         from notion_brain import ALL_TOOL_SCHEMAS
@@ -69,7 +69,10 @@ class TestProviderInterface:
         names = [s["name"] for s in ALL_TOOL_SCHEMAS]
         expected = [
             "notion_brain_search",
+            "notion_brain_check_answerable",
+            "notion_brain_search_terms",
             "notion_brain_remember",
+            "notion_brain_certify",
             "notion_brain_task",
             "notion_brain_content",
             "notion_brain_research",

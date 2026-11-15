@@ -4,8 +4,12 @@
 
 - ✅ **v1.0 Release Polish** — Phases 1-3 (shipped 2026-09-21)
 - ✅ **v1.1 Distribution & Updates** — Phases 4-6 (shipped 2026-10-07)
-- 🚧 **v1.2 Update UX & Tooling Polish** — Phases 7-8 (defined 2026-10-08, in progress)
-- 📋 **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (defined 2026-11-02 from competitive research)
+- ✅ **v1.2 Update UX & Tooling Polish** — Phases 7-8 (shipped 2026-11-07)
+- ✅ **v1.3 Brain Architecture & Freemium Foundation** — Phases 9-11 (shipped 2026-11-13)
+- ✅ **v1.4 Semantic Brain Layer** — Phases 12-15 (shipped 2026-11-13)
+- 🚧 **v1.5 Obsidian Vault Backend** — Phases 16-20 (in progress)
+
+**Current route:** `/gsd-discuss-phase 16` then `/gsd-plan-phase 16`. The vault becomes a real premium backend with vault-primary writes, bidirectional sync, section-aware references and offline signed entitlement.
 
 ## Phases
 
@@ -31,90 +35,114 @@ Full phase details archived to: [.planning/milestones/v1.1-ROADMAP.md](.planning
 
 </details>
 
-### v1.2 Update UX & Tooling Polish (Phases 7-8)
+<details>
+<summary>✅ v1.2 Update UX & Tooling Polish (Phases 7-8) — SHIPPED 2026-11-07</summary>
 
-**Milestone goal:** Close the three loose ends called out at the v1.1 closeout — commit-level drift detection with release-notes links for git-clone installs, an opt-in pre-push pytest hook plus scheduled `pre-commit autoupdate` for contributors, and clearing the three pre-existing offline test-suite hangs so `pytest -q` is a usable release gate again. No new CLI surface beyond the drift UX rewrites, no Notion schema changes, no packaging rebuild, no new external integrations.
+- [x] Phase 7: Update UX — Commit-Level Drift + Release-Notes Link (2/2 plans) — completed 2026-11-07
+- [x] Phase 8: Developer Tooling & Test Reliability (2/2 plans) — completed 2026-11-07
 
-- [ ] **Phase 7: Update UX — Commit-Level Drift + Release-Notes Link** - Git-clone installs behind `main` by N commits learn about it from `notion_brain update` and the cached auto-update check; the printed link lands on the release notes page
-- [ ] **Phase 8: Developer Tooling & Test Reliability** - Opt-in pre-push pytest hook, weekly `pre-commit autoupdate` workflow, and the three TEST-HANGS files cleared
+Full phase details archived to: [.planning/milestones/v1.2-ROADMAP.md](.planning/milestones/v1.2-ROADMAP.md)
 
-### v1.3 Brain Architecture & Freemium Foundation (Phases 9-11)
+</details>
 
-**Milestone goal:** Evolve hermes-brain from a naive Notion REST caller into a competitive, metabolic memory engine. Fix the prefetch schema blind spot, add a local-first SQLite read-through cache to decouple turn latency from Notion API limits, implement subject_key supersession to eliminate truth contradictions, cap injection at 800 tokens (two-lane architecture), and lay the foundation for the Obsidian adapter gated for premium users while free users remain Notion-only.
+<details>
+<summary>✅ v1.3 Brain Architecture & Freemium Foundation (Phases 9-11) — SHIPPED 2026-11-13</summary>
 
-- [ ] **Phase 9: Retrieval Correctness & Local Read-Through Cache** - Fix prefetch to read summary/body without schema misses; add local SQLite cache mirror so prefetch is <2ms and offline-resilient; introduce two-lane token-budgeted prompt injection (max 800 tokens)
-- [ ] **Phase 10: Event-Driven Supersession & Truth Integrity** - Add `Subject Key` tracking across Memory rows; incoming facts mark older conflicting facts as `status: superseded` rather than accumulating contradictions; historical versions remain auditable
-- [ ] **Phase 11: Storage Adapter Abstraction & Freemium Gate** - Refactor backend behind a pluggable `StorageAdapter` interface (NotionAdapter = default/free; ObsidianVaultAdapter = premium stub with license entitlement verification)
+- [x] Phase 9: Retrieval Correctness & Local Read-Through Cache (1/1 plans) — completed 2026-11-09
+- [x] Phase 10: Event-Driven Supersession & Truth Integrity (1/1 plans) — completed 2026-11-09
+- [x] Phase 11: Storage Adapter Abstraction & Freemium Gate (1/1 plans) — completed 2026-11-12
+
+Full phase details archived to: [.planning/milestones/v1.3-ROADMAP.md](.planning/milestones/v1.3-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v1.4 Semantic Brain Layer (Phases 12-15) — SHIPPED 2026-11-13</summary>
+
+- [x] Phase 12: Core Semantic Catalog (1/1 plans) — completed 2026-11-12
+- [x] Phase 13: User-Gated Certification Flow (1/1 plans) — completed 2026-11-12
+- [x] Phase 14: Graph Provenance & Relational Recall (1/1 plans) — completed 2026-11-12
+- [x] Phase 15: Answerability Gate & Contradiction Detection (1/1 plans) — completed 2026-11-12
+
+Full phase details archived to: [.planning/milestones/v1.4-ROADMAP.md](.planning/milestones/v1.4-ROADMAP.md)
+
+Verification: [v1.4-MILESTONE-AUDIT.md](.planning/milestones/v1.4-MILESTONE-AUDIT.md) — all four phases passed, Nyquist compliant, 11/11 v1.4 requirements satisfied.
+
+</details>
+
+### v1.5 Obsidian Vault Backend (Phases 16-20)
+
+**Milestone goal:** Make the Obsidian vault a real premium storage backend — vault-primary writes, bidirectional sync, section-aware references and offline signed entitlement — so premium users can keep memory in their own vault while Notion remains the free-tier default.
+
+- [x] **Phase 16: Vault Note Schema & Write Operations** — full frontmatter + index v2, idempotent remember, history-preserving supersede, certification, redaction. (completed 2026-11-13)
+- [x] **Phase 17: Vault-Primary Provider Routing** — Memory writes, certification and supersession route to the vault when selected; free tier unchanged; vault config and health. (completed 2026-11-13)
+- [x] **Phase 18: Bidirectional Sync & Migration** — Notion→vault bootstrap; vault→Notion ingest for `agents/memory.md` and `journal/*.md` with state/dedupe. (completed 2026-11-13)
+- [ ] **Phase 19: Section-Aware References** — `note.md#section` catalog locators with retrieval targeting and safe fallback.
+- [ ] **Phase 20: Offline Signed Entitlement** — Ed25519 license verification with expiry/features, `cryptography` dependency, docs and packaging.
 
 ## Phase Details
 
-### Phase 7: Update UX — Commit-Level Drift + Release-Notes Link
+### Phase 16: Vault Note Schema & Write Operations
 
-**Goal**: A git-clone install behind `main` by N commits learns about it from `notion_brain update` and from the cached auto-update check; the printed link lands on the release notes page, not the repo root.
-**Depends on**: v1.1 (Phases 4-6)
-**Requirements**: UPD-06, UPD-07
-**Success Criteria** (what must be TRUE):
-
-  1. A git-clone install at a commit N behind the latest tag on `main` reports "behind by N commits" through `notion_brain update` even when `__version__` matches the latest tag's version (UPD-06).
-  2. The same commit-drift signal flows into the cached auto-update check's banner and health report, with the same offline-tolerance contract as CHK-01..05 (no network on startup; failures degrade silently) (UPD-06).
-  3. The update banner prints `https://github.com/MNDL-27/hermes-brain/releases/tag/vX.Y.Z` (release notes), derived from the same tag the drift check resolves — copy-pasteable in every mode (UPD-07).
-  4. No mutation: the command still never executes `pip install`, `git pull`, or any environment change (carried UPD-05 contract).
-
-**Plans**: TBD
-
-### Phase 8: Developer Tooling & Test Reliability
-
-**Goal**: Contributors get an opt-in pre-push hook running the full offline test suite, the pre-commit hook config stays current via a scheduled `pre-commit autoupdate` workflow, and the three pre-existing offline test-suite hangs are cleared so `pytest -q` is a usable release gate again.
-**Depends on**: Nothing (independent of Phase 7; can execute in either order)
-**Requirements**: TOOL-01, TOOL-02, TEST-HANGS
-**Success Criteria** (what must be TRUE):
-
-  1. Running the provided opt-in install command registers a pre-push git hook that runs `pytest -q` before a remote push and blocks the push on test failure (TOOL-01).
-  2. The pre-push hook honors the same offline contract as CI (hermetic tests, network-marked tests deselected) and fails fast rather than hanging on the three known TEST-HANGS files (TOOL-01, TEST-HANGS).
-  3. A scheduled GitHub Actions workflow runs `pre-commit autoupdate` on a weekly cron and opens an automated maintenance PR (or posts a workflow summary listing available hook updates) when updates exist; the workflow declares least-privilege `permissions` (TOOL-02).
-  4. The full offline `pytest` run completes with zero hangs: `test_coverage_gaps`, `test_migration_privacy_blockers`, and `test_provider` each finish or fail within the CI timeout, with a root-cause note for each (TEST-HANGS).
-  5. Total suite count does not shrink silently — any reclassified tests (e.g. network-marked) are counted and named; nothing is skipped without a recorded reason (TEST-HANGS).
-
-**Plans**: 2 plans
-
-Plans:
-- [ ] 08-01-PLAN.md — commit TEST-HANGS hermetic infra + audit suite-count in PROJECT/STATE/REQUIREMENTS
-- [ ] 08-02-PLAN.md — opt-in `scripts/pre-push` hook + `.github/workflows/pre-commit-autoupdate.yml` (TOOL-01, TOOL-02)
-
----
-
-### Phase 9: Retrieval Correctness & Local Read-Through Cache
-
-**Goal**: Fix the prefetch schema blind spot so memories actually display their text summaries, back the memory store with a local SQLite read-through cache (`<2ms` cold start, zero Notion latency on turn 0), and enforce an 800-token two-lane injection budget.
-**Depends on**: v1.2 (Phase 8)
-**Requirements**: RET-01 (prefetch text hydration), RET-02 (SQLite local cache mirror), RET-03 (two-lane 800-token context cap)
+**Goal:** Make `ObsidianVaultAdapter` a complete memory store rather than a read-side scaffold.
+**Depends on:** v1.4 (Phase 15)
+**Requirements:** OBS-01, OBS-02
 **Success Criteria**:
-  1. `provider.py` prefetch surfaces non-empty summary text for every retrieved row by reading either a `Summary` property or the page body blocks.
-  2. A local SQLite cache (`~/.hermes/brain_cache.db`) mirrors active memory rows; prefetch executes in `<5ms` offline with zero network calls.
-  3. Context injection is hard-capped at 800 tokens split between Lane 1 (pinned/critical, 400 tok) and Lane 2 (dynamic context, 400 tok).
+  1. Notes and the SQLite index carry title, subject key, status, truth, source agent/session, created/updated timestamps, domain, kind, tags and supersession link; v1 notes read with defaults and migrate lazily.
+  2. Identical active entries reuse the existing note; changed values create a new note; non-identical active peers are marked Superseded without deletion.
+  3. Certification sets `truth: certified` only through an explicit adapter call; ordinary writes never demote certified notes.
+  4. Every written field and body is secret-redacted; tests cover migration, idempotency, history and redaction.
 
-### Phase 10: Event-Driven Supersession & Truth Integrity
+**Plans**: 1/1 — completed 2026-11-13
+**Verification**: Passed 16-01: OBS-01/OBS-02 closed; 46 adapter/catalog tests and the 588-test full gate pass; ruff and mypy clean. See [16-VERIFICATION.md](phases/16-vault-note-schema-write-operations/16-VERIFICATION.md).
 
-**Goal**: Implement `subject_key` logical slots so new facts supersede old conflicting facts rather than piling up contradictory memories.
-**Depends on**: Phase 9
-**Requirements**: SUP-01 (subject_key schema & detection), SUP-02 (non-destructive status flipping: active -> superseded), SUP-03 (historical timeline / recall-as-of)
+### Phase 17: Vault-Primary Provider Routing
+
+**Goal:** Route Memory-domain writes through the selected vault adapter when premium is active.
+**Depends on:** Phase 16
+**Requirements:** OBS-03, SYNC-03
 **Success Criteria**:
-  1. Updating a fact on the same subject (e.g. `device.daily_phone` from S24 to S21 FE) marks the older row `Status: Superseded` in Notion.
-  2. Queries filter to `Status: Active` by default so the agent never hallucinates from contradictory historical state.
+  1. `_store_entry`, the Memory write path and `_tool_certify` route to the vault when `storage_adapter="obsidian"` is selected and entitled.
+  2. Free-tier Notion behavior and non-Memory domains are unchanged.
+  3. Graph edges are written after accepted vault transitions; certification protection and confirmation gating still hold.
+  4. Vault path configuration, sync status and health expose note count, index path, last sync and entitlement state.
+  5. Parity tests cover remember, certify and supersede on both backends.
 
-### Phase 11: Storage Adapter Abstraction & Freemium Gate
+**Plans**: 1/1 — completed 2026-11-13
+**Verification**: Passed 17-01: OBS-03/SYNC-03 closed; 28 adapter tests and the 596-test full gate pass; ruff and mypy clean. See [17-VERIFICATION.md](phases/17-vault-primary-provider-routing/17-VERIFICATION.md).
 
-**Goal**: Decouple the memory engine from Notion REST into a pluggable `StorageAdapter` hierarchy, enabling the free tier (Notion-only) and laying the premium entitlement path for an Obsidian Vault adapter.
-**Depends on**: Phase 10
-**Requirements**: ADAPT-01 (`StorageAdapter` protocol), ADAPT-02 (NotionAdapter refactor), ADAPT-03 (Premium entitlement / license check stub), ADAPT-04 (ObsidianAdapter architecture)
+### Phase 18: Bidirectional Sync & Migration
+
+**Goal:** Move existing memory into the vault and ingest vault notes back into Notion safely.
+**Depends on:** Phase 17
+**Requirements:** SYNC-01, SYNC-02
 **Success Criteria**:
-  1. Core agent memory operations (`search`, `remember`, `supersede`, `prefetch`) call a generic `StorageAdapter` interface.
-  2. Free tier defaults to `NotionAdapter`.
-  3. Attempting to select `ObsidianAdapter` checks an entitlement token/license; if unentitled, it gracefully explains the upgrade requirement and falls back to Notion.
+  1. Bootstrap exports active Notion Memory rows to stable vault notes with truth, provenance, subject key and creation time; existing notes are skipped and counts reported.
+  2. The ingest command processes `agents/memory.md` and `journal/*.md` through `_store_entry` with content-hash dedupe, a state file, redaction and idempotent re-runs.
+  3. Sync runs on demand or from an external timer; no daemon is started.
+  4. Tests cover new, updated and unchanged sources plus secret redaction.
 
----
+**Plans**: 1/1 — completed 2026-11-13
+**Verification**: Passed 18-01: SYNC-01/SYNC-02 closed; 11 sync tests and the 607-test full gate pass; ruff and mypy clean. See [18-VERIFICATION.md](phases/18-bidirectional-sync-migration/18-VERIFICATION.md).
 
-### Quick tasks already landed (not phases)
+### Phase 19: Section-Aware References
 
-- `260927-p1q` — hermetic offline unit suite (autouse socket-deny fixture, `network` marker registration + deselection, `test_offline_build_and_twine_check` marked network, `test_search_dispatches` mock-target fix, init-refresh network-leak fix) — commits `06fcec8..9bc661a` on worktree branch `claude/mystifying-einstein-d76cf0`; content mirrored to the main worktree as uncommitted changes pending commit
-- `260928-mli` — top-level `permissions: contents: read` block on `publish.yml` (CodeQL medium fix) — commits `56e467b`, `cddde1b` on the same branch; content mirrored to the main worktree as uncommitted changes pending commit
+**Goal:** Let catalog definitions point at a specific section of a vault note.
+**Depends on:** Phase 18
+**Requirements:** REF-01
+**Success Criteria**:
+  1. `note.md#section` locators resolve only inside the vault; traversal and non-markdown targets are rejected.
+  2. Retrieval uses the referenced section text; matching is case-insensitive and missing sections fall back to the whole note with a warning.
+  3. Catalog output exposes the section locator and tests cover resolution, fallback and rejection.
+
+### Phase 20: Offline Signed Entitlement
+
+**Goal:** Replace the presence-only license stub with real offline verification.
+**Depends on:** Phase 19
+**Requirements:** ENT-01
+**Success Criteria**:
+  1. Ed25519 verification of a canonical JSON payload plus signature, with subject, issued/expiry dates and an `obsidian` feature.
+  2. Invalid, expired or missing licenses raise a specific `EntitlementError` and fall back to Notion; a valid license enables vault selection.
+  3. `cryptography` is added as a bounded runtime dependency and packaging/docs are updated.
+  4. Tests generate a throwaway keypair and cover valid, tampered, expired and wrong-feature licenses.
+  5. License format and vault setup are documented.

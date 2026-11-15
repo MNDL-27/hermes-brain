@@ -88,7 +88,7 @@ def clear_custom_domains() -> None:
     _CUSTOM_METADATA.clear()
 
 
-STATUSES = {"active", "done", "needs_review"}
+STATUSES = {"active", "done", "needs_review", "Superseded"}
 CONFIDENCES = {"high", "medium", "low"}
 
 _SECRET_PATTERNS = [
@@ -123,6 +123,7 @@ class BrainEntry:
     tags: list[str] = field(default_factory=list)
     entities: list[str] = field(default_factory=list)
     source_session_id: str = ""
+    truth: str = "inferred"
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def normalized(self) -> BrainEntry:
@@ -139,6 +140,7 @@ class BrainEntry:
             tags=dedupe_strings(self.tags),
             entities=dedupe_strings(self.entities),
             source_session_id=self.source_session_id,
+            truth=self.truth if self.truth in {"inferred", "certified"} else "inferred",
             metadata=dict(self.metadata or {}),
         )
 
@@ -180,6 +182,22 @@ def clean_title(title: str) -> str:
     text = re.sub(r"\s+", " ", (title or "Untitled").strip())
     text = redact_secrets(text)
     return text[:120] or "Untitled"
+
+
+def infer_subject_key(title: str, content: str) -> str:
+    """Infer a stable logical slot from common fact phrasing, without a model."""
+    text = f"{title} {content}".lower()
+    patterns = (
+        (r"\b(?:daily|primary|current)\s+phone\b|\bphone\s+(?:is|:)", "device.daily_phone"),
+        (r"\b(?:engine|engine displacement|engine cc)\b", "preferences.engine_cc"),
+        (r"\b(?:car|vehicle)\s+(?:is|:)|\bmy car\b", "vehicle.car"),
+        (r"\b(?:home|lives?)\s+(?:in|at)\b|\blocation\b", "personal.location"),
+        (r"\b(?:prefers?|preference|favorite|favourite)\b", "preferences.general"),
+    )
+    for pattern, key in patterns:
+        if re.search(pattern, text):
+            return key
+    return ""
 
 
 def dedupe_strings(values: list[str] | tuple[str, ...] | None) -> list[str]:

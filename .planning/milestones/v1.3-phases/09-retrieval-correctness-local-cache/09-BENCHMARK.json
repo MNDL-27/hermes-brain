@@ -1,0 +1,20 @@
+{
+  "measured_at": "2026-11-08T22:28:15+00:00",
+  "source_commit": "45c8ca2",
+  "python": "3.12.15",
+  "method": "120 fresh provider instances; cached prefetch of 10 hydrated rows; initialization excluded; synthetic temporary home; remote query and body calls fail if attempted",
+  "samples": 120,
+  "rows": 10,
+  "median_ms": 1.012,
+  "p95_ms": 1.349,
+  "cold_calls": {
+    "query": 1,
+    "body": 10
+  },
+  "warm_calls": {
+    "query": 0,
+    "body": 0
+  },
+  "target_ms": 5,
+  "interpretation": "Observed local performance, not a universal latency guarantee or timing assertion in CI"
+}

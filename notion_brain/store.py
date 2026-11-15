@@ -168,7 +168,7 @@ def search_entries(query: str, *, page_size: int = 8) -> list[dict[str, Any]]:
         page_id = entry.get("id")
         if not page_id:
             continue
-        body_text = _page_body_text(page_id)
+        body_text = page_body_text(page_id)
         if body_text:
             entry["content"] = body_text
             props = entry.setdefault("properties", {})
@@ -552,7 +552,7 @@ def _flatten_result(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _page_body_text(page_id: str) -> str:
+def page_body_text(page_id: str) -> str:
     """Fetch the visible body blocks of a Notion page and concatenate text.
 
     Walks every page of ``/blocks/{id}/children`` and joins the plain text of
